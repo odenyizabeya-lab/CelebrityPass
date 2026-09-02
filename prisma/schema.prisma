@@ -1,0 +1,510 @@
+// Multi-Celebrity Fan Card Platform
+// Schema is designed so any number of celebrities can be added
+// without changing the application code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A community for one celebrity. One celebrity = one community.
+model Celebrity {
+  id             String            @id @default(cuid())
+  slug           String            @unique
+  name           String
+  category       String            // Actor | Musician | Athlete | Creator | Public Figure | Artist
+  country        String
+  city           String?
+  profession     String
+  bio            String
+  shortBio       String?
+  profileImage   String?           // URL or data URI
+  coverImage     String?           // URL or data URI
+  accentColor    String            @default("#8b5cf6")
+  isFeatured     Boolean           @default(false)
+  isActive       Boolean           @default(true)
+  socialLinks    String?           // JSON string: { "instagram": "...", "x": "...", "youtube": "..." }
+  cardDesign     String?           // JSON string for this celebrity's fan-card design
+  website        String?
+  instagramFollowers Int?          // public follower counts, admin-editable
+  tiktokFollowers    Int?
+  facebookFollowers  Int?
+  followersUpdatedAt DateTime?
+  fans           FanCard[]
+  memberships    MembershipLevel[]
+  payments       Payment[]
+  events         CelebrityEvent[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+@@index([category])
+  @@index([country])
+  @@index([isActive])
+}
+
+// Membership tiers offered by a celebrity's community.
+model MembershipLevel {
+  id          String      @id @default(cuid())
+  celebrityId String
+  celebrity   Celebrity   @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  benefits    String?
+  price       Float?
+  currency    String      @default("USD")
+  displayOrder Int        @default(0)
+  isActive    Boolean     @default(true)
+  cards       FanCard[]
+  payments    Payment[]
+
+  @@index([celebrityId])
+}
+
+// A registered fan account. One account can safely own many cards
+// (one per celebrity community) thanks to the FanCard links below.
+model Fan {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String?   // hashed, required for dashboard login
+  phone     String?
+  country   String?
+  isActive  Boolean   @default(true)
+  cards     FanCard[]
+  payments  Payment[]
+  ticketOrders TicketOrder[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// A membership card issued to a fan under a specific celebrity.
+// fanId + celebrityId always keeps a card attached to the right community.
+model FanCard {
+  id                String            @id @default(cuid())
+  fanNumber         String            @unique // e.g. FC-000001 (globally unique)
+  fanId             String
+  celebrityId       String
+  membershipLevelId String?
+  fan               Fan               @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity         Celebrity         @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  membershipLevel   MembershipLevel?  @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
+  status            String            @default("ACTIVE") // ACTIVE | SUSPENDED | EXPIRED
+  cardUrl           String?
+  qrCode            String?           // data URI
+  registeredAt      DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  payments          Payment[]
+
+  @@index([celebrityId])
+  @@index([fanId])
+  @@index([status])
+}
+
+// A payment for a fan card membership. Free levels can be issued without a
+// Payment row; paid levels create a PENDING payment that becomes the fan card
+// after it is marked PAID.
+model Payment {
+  id                String            @id @default(cuid())
+  fanId             String
+  cardId            String?
+  celebrityId       String?
+  membershipLevelId String?
+  fan               Fan               @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  card              FanCard?          @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  celebrity         Celebrity?        @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
+  membershipLevel   MembershipLevel?  @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
+  amount            Float
+  currency          String            @default("USD")
+  status            String            @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  provider          String            @default("mock")    // mock | stripe | paypal
+  gatewayRef        String?           // provider charge reference id
+description       String?           // e.g. "Taylor Swift — Swiftie Gold"
+  createdAt         DateTime          @default(now())
+  paidAt            DateTime?
+
+  bankTransferProofs BankTransferProof[]
+
+@@index([fanId])
+  @@index([status])
+  @@index([cardId])
+  @@index([celebrityId])
+  @@index([membershipLevelId])
+}
+
+// Simple key/value app settings managed from the admin dashboard (e.g. the
+// Gemini API key the AI celebrity scanner uses). The value is written only
+// server-side; it is never returned to the client after being set.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// A source of publicly announced celebrity event information. Modular: one per
+// provider (e.g. a live API, an official site, or the admin's manual entries).
+// API credentials are ALWAYS read from backend env vars at runtime — never
+// stored in plaintext in the DB and never shipped to the frontend.
+model EventSource {
+  id          String   @id @default(cuid())
+  key         String   @unique // stable machine key, e.g. "admin", "ticketing-api"
+  name        String
+  enabled     Boolean  @default(true)
+  kind        String   @default("manual") // manual | api | feed | import
+  baseUrl     String?  // public provider endpoint or site (not secrets)
+  configJson  String?  // non-secret config, e.g. options/endpoint params
+  // Credential PLACEHOLDERS: we store only a flag + masked hint. The real value
+  // must live in an env var referenced by envKey.
+  envKey      String?  // name of the env var that holds the credential
+  hasCredentials Boolean @default(false)
+  description String?
+  lastSyncAt  DateTime?
+  lastSyncStatus String? // idle | running | ok | error
+  lastSyncMessage String?
+  // Ticket-inventory sync is tracked separately from event sync.
+  supportsTickets Boolean @default(false)
+  ticketsLastSyncAt DateTime?
+  ticketsLastSyncStatus String?
+  ticketsLastSyncMessage String?
+  events      EventSourceLink[]
+  ticketInventory TicketInventory[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Many-to-many link between a celebrity event and its source(s). Lets us
+// dedupe the same event discovered from multiple providers and preserve the
+// original public source URL per discovery.
+model EventSourceLink {
+  id        String      @id @default(cuid())
+  eventId   String
+  sourceId  String
+  externalId String?    // provider's own id for this event (used for matching)
+  sourceUrl String?     // original public source/listing URL
+  rawJson   String?     // raw payload snapshot from the provider (for re-sync)
+  event     CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source    EventSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  firstSeenAt DateTime  @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([eventId, sourceId])
+  @@index([sourceId])
+  @@index([externalId])
+}
+
+// A publicly announced celebrity event. Only public information is stored.
+model CelebrityEvent {
+  id             String   @id @default(cuid())
+  eventId        String   @unique // unique internal id, e.g. "evt_xxxx"
+  celebrityId    String
+  celebrity      Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+
+  name           String
+  type           String   @default("Public appearance") // Concert | Tour | ... | Other
+  description    String?
+
+  venue          String?
+  city           String?
+  region         String?
+  country        String?
+
+  // Public announced timing. startAt is the authoritative start moment; endAt
+  // optional. All stored as UTC instants; timezone is the public venue tz name
+  // (e.g. "America/New_York") used for correct local countdowns/display.
+  startAt        DateTime
+  endAt          DateTime?
+  timezone       String?  // IANA tz name of the venue/public listing
+  allDay         Boolean  @default(false)
+
+  status         String   @default("UPCOMING") // UPCOMING | HAPPENING_NOW | COMPLETED | POSTPONED | CANCELLED
+  // Administrative override for postponements/cancellations; the live status is
+  // derived from override (if set) else computed from startAt/endAt.
+  statusOverride String?  // POSTPONED | CANCELLED | null
+
+  officialUrl    String?  // official event page (if public)
+  ticketUrl      String?  // official ticket link (if public) — never fabricated
+  sourceUrl      String?  // original public source URL
+
+  verification   String   @default("UNVERIFIED") // UNVERIFIED | VERIFIED | UPDATED | CANCELLED | POSTPONED
+  verifiedBy     String?  // "admin" etc.
+  verifiedAt     DateTime?
+
+  sources        EventSourceLink[]
+  updates        EventUpdate[]
+  ticketInventory TicketInventory[]
+  ticketOrders   TicketOrder[]
+  lastSyncedAt   DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([celebrityId])
+  @@index([status])
+  @@index([startAt])
+  @@index([verification])
+}
+
+// Audit trail: every meaningful status/verification change on an event.
+model EventUpdate {
+  id        String  @id @default(cuid())
+  eventId   String
+  event     CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  field     String       // e.g. "status", "startAt", "verification"
+  fromValue String?
+  toValue   String?
+  note      String?
+  source    String?       // e.g. "sync", "admin"
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+}
+// ===========================================================================
+// TICKETING (public events -> ticket availability -> order -> payment -> ticket)
+// ---------------------------------------------------------------------------
+// Real ticket inventory is ONLY ever written by the ticket-source sync engine
+// from authorized providers. Nothing here can fabricate availability or prices.
+// ===========================================================================
+
+// One row = one ticket type / price point offered for a public event, as
+// reported by an authorized ticket source. Read-only from the app's point of
+// view: only the sync engine writes it.
+model TicketInventory {
+  id                String          @id @default(cuid())
+  eventId           String
+  event             CelebrityEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sourceId          String? // which EventSource reported this (never edited by hand)
+  source            EventSource?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  externalId        String? // provider's own id for this ticket type (dedupe)
+  name              String // e.g. "General Admission", "VIP"
+  category          String? // section / tier when the source provides it
+  priceCents        Int
+  feesCents         Int             @default(0) // fees as reported by the source
+  currency          String          @default("USD")
+  quantityAvailable Int? // null = source does not disclose
+  quantityTotal     Int?
+  status            String          @default("AVAILABLE") // AVAILABLE | LIMITED | SOLD_OUT | NOT_YET_ON_SALE | UNAVAILABLE
+  url               String? // provider-authorized deep link to buy this ticket type
+  displayAuthorized Boolean         @default(true) // false = source forbids us to show details
+  saleStartAt       DateTime?
+  saleEndAt         DateTime?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  orderItems        TicketOrderItem[]
+
+  @@index([eventId])
+  @@index([sourceId])
+  @@index([status])
+  @@index([eventId, status])
+}
+
+// A real purchase intent (and later, a real sale). A ticket/confirmation is
+// NEVER generated until payment has actually succeeded.
+model TicketOrder {
+  id                String              @id @default(cuid())
+  orderRef          String              @unique // consumer-facing ref, e.g. TCK-xxxx
+  accessToken       String // secret access token for the holder to view/manage this order
+  fanId             String?
+  fan               Fan?                @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  eventId           String
+  event             CelebrityEvent      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  paymentMethodId   String?
+  paymentMethod     PaymentMethod?      @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+
+  customerName      String
+  customerEmail     String
+  customerPhone     String?
+  customerCountry   String?
+
+  subtotalCents     Int
+  feesCents         Int
+  totalCents        Int
+  currency          String              @default("USD")
+
+  status            String              @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAYMENT_PROCESSING | CONFIRMED | FAILED | CANCELLED | REFUNDED
+  paymentStatus     String              @default("UNPAID") // UNPAID | PROCESSING | PAID | FAILED | REFUNDED
+  paidAt            DateTime?
+  amountPaidCents   Int?
+  paymentProvider   String? // gateway key after a real gateway is connected
+  paymentRef        String? // real gateway charge ref
+  officialRef       String? // authorized ticket source's own order/ticket ref (only after success)
+  deliveryMethod    String? // DIGITAL | MOBILE | DOWNLOAD | OFFICIAL_ACCOUNT
+  deliveryDetail    String?
+  notes             String?
+  statusHistoryJson String? // array of {status, at, note} snapshots
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+items         TicketOrderItem[]
+  transactions  TicketTransaction[]
+  bankTransferProofs BankTransferProof[]
+
+  @@index([eventId])
+  @@index([status])
+  @@index([fanId])
+  @@index([customerEmail])
+  @@index([createdAt])
+}
+
+model TicketOrderItem {
+  id            String          @id @default(cuid())
+  orderId       String
+  order         TicketOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryId   String?
+  inventory     TicketInventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  eventId       String
+  ticketName    String // frozen snapshot at order time
+  category      String?
+  quantity      Int
+  unitPriceCents Int
+  feesEachCents Int             @default(0)
+  subtotalCents Int
+  currency      String          @default("USD")
+
+  @@index([orderId])
+  @@index([inventoryId])
+}
+
+// Every money-movement attempt is recorded. SUCCEEDED only happens with a real
+// gateway / real refund; nothing is ever marked succeeded without a transaction.
+model TicketTransaction {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       TicketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind        String   @default("PAYMENT") // PAYMENT | REFUND
+  status      String   @default("INITIATED") // INITIATED | PROCESSING | SUCCEEDED | FAILED
+  amountCents Int
+  currency    String   @default("USD")
+  provider    String?  // gateway key once connected
+  providerRef String?  // real gateway ref
+  message     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// Payment methods a customer can pick at checkout, and the admin's settlement
+// account. Credentials ALWAYS live in backend env vars (envKey reference only),
+// never in the DB and never in frontend JS.
+model PaymentMethod {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "card", "bank-transfer"
+  name        String
+  kind        String   @default("CARD") // CARD | BANK_TRANSFER | WALLET
+  isEnabled   Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  currency    String   @default("USD")
+  // Env var names that must hold this gateway's real credentials (never values).
+  credentialEnvKeysJson String? // JSON array of env var names
+  hasCredentials Boolean @default(false)
+  configJson  String?  // non-secret options
+  // Settlement: the admin's own business account for receiving ticket funds.
+  settlementAccountLabel String?
+  settlementAccountLast4 String?
+  settlementAccountEnvKey String? // env var that holds the real account/detail
+  hasSettlementAccount Boolean @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      TicketOrder[]
+  settlements SettlementRecord[]
+
+  @@index([isEnabled])
+}
+
+// A bank account that customers pay into for Bank Transfer orders. Fully
+// admin-managed so the admin can add/remove countries and change details.
+// Displayed to the customer in a realistic bank-app-style card in checkout.
+model BankAccount {
+  id            String   @id @default(cuid())
+  currency      String   @unique // e.g. "USD", "EUR", "GBP" (upper-case code)
+  countryName   String   // human label, e.g. "United States"
+  countryFlag   String?  // emoji or short label, e.g. "🇺🇸"
+  beneficiary   String   // account holder shown to customer
+  bankName      String
+  accountType   String?  // CHECKING / Savings (where applicable)
+  // Currency-specific identifiers (all optional; only the ones that apply are set).
+  accountNumber String?
+  iban          String?
+  bic           String?
+  swift         String?
+  routing       String?  // ABA (USD)
+  sortCode      String?  // UK
+  institutionNumber String? // CA
+  transitNumber String?  // CA
+  branchCode     String? // BSB/AU, JPY branch, etc.
+  bankCode      String?  // JPY/SG/MX etc.
+  transferType  String   @default("Local transfer")
+  bankAddress   String?
+  isActive      Boolean  @default(true)
+  displayOrder  Int      @default(0)
+  // Optional: an env-var NAME that holds an account-level detail (never the value).
+  envKeyRef     String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bankTransferProofs BankTransferProof[]
+
+  @@index([isActive])
+  @@index([currency])
+}
+
+// A proof a customer submitted for a Bank Transfer payment. Until it is
+// VERIFIED by an admin the associated payment stays Pending Verification (never
+// marked paid from the customer's own submission alone).
+model BankTransferProof {
+  id          String        @id @default(cuid())
+  paymentMethodId String?    // link to the "bank-transfer" method row if present
+  bankAccountId String?
+  bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  amountCents  Int
+  currency     String        @default("USD")
+  senderName   String?       // name on the customer's transfer
+  reference    String?       // reference/MTA the customer entered
+  transferDate DateTime?     // when the customer says they transferred
+  fileName     String?       // stored proof filename
+  fileUrl      String?       // where the proof is stored
+  mimeType     String?
+  status       String        @default("PENDING_VERIFICATION") // PENDING_VERIFICATION | APPROVED | REJECTED
+  adminNote    String?
+  // Which purchase this proof applies to. Only ONE of the two is set.
+  paymentId    String?       // fans-card Payment (if it's a card purchase)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  ticketOrderId String?      // ticket order (if it's a ticket purchase)
+  ticketOrder  TicketOrder?  @relation(fields: [ticketOrderId], references: [id], onDelete: Cascade)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status])
+  @@index([paymentId])
+  @@index([ticketOrderId])
+  @@index([bankAccountId])
+}
+
+// Operational settlement records entered by the admin from REAL settlement
+// statements. Amounts are the admin's bookkeeping of actual money received.
+model SettlementRecord {
+  id              String        @id @default(cuid())
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  amountCents     Int
+  currency        String        @default("USD")
+  status          String        @default("RECORDED") // RECORDED | CLEARED | DISPUTED
+  reference       String?       // admin-entered real settlement/report reference
+  note            String?
+  createdAt       DateTime      @default(now())
+
+  @@index([paymentMethodId])
+}

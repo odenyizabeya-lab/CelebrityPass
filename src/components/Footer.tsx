@@ -1,0 +1,83 @@
+import Link from "next/link";
+
+export default function Footer() {
+  return (
+    <footer className="border-t border-white/[0.06] bg-ink-950/60">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
+        <div className="md:col-span-2">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-600 to-accent-500 text-xs font-black text-white">
+              FV
+            </span>
+            <span className="text-lg font-bold tracking-tight">
+              Fan<span className="gradient-text">Verse</span>
+            </span>
+          </div>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400">
+            The multi-celebrity fan membership platform. One account, official verified fan cards for every creator
+            you love — each with its own community, Fan ID, and QR-verified card page.
+          </p>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold text-white">Explore</h4>
+          <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+            <li>
+              <Link href="/celebrities" className="transition hover:text-white">
+                Celebrity Directory
+              </Link>
+            </li>
+            <li>
+              <Link href="/#how-it-works" className="transition hover:text-white">
+                How It Works
+              </Link>
+            </li>
+            <li>
+              <Link href="/#membership" className="transition hover:text-white">
+                Membership Levels
+              </Link>
+            </li>
+            <li>
+              <Link href="/dashboard" className="transition hover:text-white">
+                Fan Dashboard
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold text-white">Platform</h4>
+          <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+            <li>
+              <Link href="/#faq" className="transition hover:text-white">
+                FAQ
+              </Link>
+            </li>
+            <li>
+              <Link href="/#privacy" className="transition hover:text-white">
+                Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/#terms" className="transition hover:text-white">
+                Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link href="/#contact" className="transition hover:text-white">
+                Contact
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="border-t border-white/[0.06]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-zinc-500 sm:flex-row sm:px-6">
+          <p>&copy; {new Date().getFullYear()} FanVerse. All rights reserved.</p>
+          <p>Each celebrity community displays only real, database-verified member statistics.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
