@@ -114,6 +114,28 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ============ ALL CELEBRITIES ============ */}
+      <section id="all-communities" className="px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Browse everything</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">All Celebrity Communities</h2>
+            </div>
+            <span className="hidden text-sm text-zinc-500 sm:block">Signed, sealed, scrolling</span>
+          </div>
+          {celebrities.length === 0 ? (
+            <EmptyState message="Communities are added by the team — check back soon!" />
+          ) : (
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {celebrities.map((c) => (
+                <CelebrityCard key={c.id} celebrity={c} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* ============ HOW IT WORKS ============ */}
       <section id="how-it-works" className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
