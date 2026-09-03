@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       accentColor,
       isFeatured: Boolean(body.isFeatured ?? false),
       isActive: Boolean(body.isActive ?? true),
+      isVerified: Boolean(body.isVerified ?? false),
       socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
       cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
       website: body.website ? String(body.website) : null,

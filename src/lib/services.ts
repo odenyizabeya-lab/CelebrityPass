@@ -18,6 +18,7 @@ export type CelebritySummary = {
   accentColor: string;
   isFeatured: boolean;
   isActive: boolean;
+  isVerified: boolean;
   fanCount: number;
   countryCount: number;
   createdAt: Date;
@@ -75,6 +76,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
       isActive: c.isActive,
+      isVerified: c.isVerified,
       fanCount: activeFans.length,
       countryCount: countries.size,
       createdAt: c.createdAt,
@@ -123,6 +125,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     accentColor: celebrity.accentColor,
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,
+    isVerified: celebrity.isVerified,
     fanCount: activeFans.length,
     countryCount: countries.size,
     createdAt: celebrity.createdAt,

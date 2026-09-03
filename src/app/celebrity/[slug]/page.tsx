@@ -15,12 +15,53 @@ import type { MembershipLevelType } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+/** Canonical production origin. Falls back to the env override if provided. */
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app").replace(/\/$/, "");
+
+const isHttpUrl = (u: string | null | undefined) => (u ? /^https?:\/\//i.test(u) : false);
+
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const c = await getCelebrityBySlug(slug);
-  return { title: c ? c.name : "Not Found", description: c?.shortBio ?? undefined };
+  if (!c) return { title: "Not Found" };
+
+  const url = `${APP_URL}/celebrity/${c.slug}`;
+  const title = c.name;
+  const description =
+    c.shortBio || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
+  // Only a hosted image is usable by social crawlers (data: URIs are ignored
+  // by WhatsApp/Facebook/X). Each celebrity's own photo is used — never a
+  // shared generic image when a real profile photo exists.
+  const image = isHttpUrl(c.profileImage) ? c.profileImage : undefined;
+  const badgeTitle = c.name;
+  const fullTitle = c.isVerified ? `${title}` : title;
+
+  return {
+    title: fullTitle,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "profile",
+      title: badgeTitle,
+      description: `Official CelebrityPass profile for ${c.name}.`,
+      url,
+      siteName: "CelebrityPass",
+      firstName: c.name.split(" ").slice(0, 1).join(" ") || undefined,
+      username: c.slug,
+      ...(image ? { images: [{ url: image, alt: `${c.name} — CelebrityPass profile` }] } : {}),
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: badgeTitle,
+      description: `Official CelebrityPass profile for ${c.name}.`,
+      ...(image ? { images: [image] } : {}),
+    },
+    other: {
+      "og:image:alt": c.isVerified ? `${c.name} · Verified on CelebrityPass` : `${c.name} — CelebrityPass profile`,
+    },
+  };
 }
 
 export default async function CelebrityPage({ params }: Props) {
@@ -38,6 +79,23 @@ export default async function CelebrityPage({ params }: Props) {
 
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ProfilePage",
+            mainEntity: {
+              "@type": "Person",
+              name: celebrity.name,
+              ...(celebrity.profession ? { jobTitle: celebrity.profession } : {}),
+              ...(celebrity.country ? { address: { "@type": "PostalAddress", addressCountry: celebrity.country } } : {}),
+              ...(isHttpUrl(celebrity.profileImage) ? { image: celebrity.profileImage } : {}),
+              url: `${APP_URL}/celebrity/${celebrity.slug}`,
+            },
+          }),
+        }}
+      />
       {/* Cover */}
       <div className="relative h-52 w-full overflow-hidden sm:h-72">
         {celebrity.coverImage ? (
@@ -77,7 +135,7 @@ export default async function CelebrityPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight sm:text-4xl">
                 {celebrity.name}
-                <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7" />
+                {celebrity.isVerified && <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7" />}
               </h1>
               <span
                 className="rounded-full px-3 py-1 text-xs font-bold text-white"
@@ -90,6 +148,14 @@ export default async function CelebrityPage({ params }: Props) {
               {celebrity.profession}
               {celebrity.city ? ` · ${celebrity.city}` : ""} · {celebrity.country}
             </p>
+            {celebrity.isVerified && (
+              <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#1D9BF0]">
+                <span className="inline-block h-4 w-4">
+                  <VerifiedBadge className="h-4 w-4" />
+                </span>
+                Verified on CelebrityPass
+              </p>
+            )}
             {celebrity.shortBio && <p className="mt-2 max-w-2xl text-zinc-300">{celebrity.shortBio}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <SocialLinksRow links={socials} />
@@ -168,8 +234,8 @@ export default async function CelebrityPage({ params }: Props) {
               <h2 className="text-xl font-black tracking-tight">About the Community</h2>
               <p className="mt-3 max-w-2xl leading-relaxed text-zinc-300">{celebrity.bio || "No biography has been added yet for this community."}</p>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-500">
-                FanVerse hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
-                each community and do not represent contracts with the celebrity.
+                CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
+                each community and do not represent contracts with, or endorsement by, the celebrity.
               </p>
             </section>
 

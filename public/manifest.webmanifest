@@ -1,0 +1,19 @@
+{
+  "name": "CelebrityPass",
+  "short_name": "CelebrityPass",
+  "description": "CelebrityPass is an entertainment platform for legitimate celebrity fan cards, event tickets, concerts, shows, VIP experiences, meet-and-greet experiences, and other legitimate ticketed events.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e1b2e",
+  "theme_color": "#7c3aed",
+  "categories": ["entertainment", "events", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

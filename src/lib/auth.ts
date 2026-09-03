@@ -4,10 +4,16 @@ import { signToken, verifyToken } from "./utils";
 const ADMIN_COOKIE = "fc_admin";
 const FAN_COOKIE = "fc_fan";
 
+/** Cookies only ever travel over HTTPS in production. */
+function secureFlag() {
+  return process.env.NODE_ENV === "production";
+}
+
 export async function createFanSession(fanId: string) {
   const cookieStore = await cookies();
   cookieStore.set(FAN_COOKIE, signToken(fanId), {
     httpOnly: true,
+    secure: secureFlag(),
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
@@ -39,6 +45,7 @@ export async function createAdminSession() {
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_COOKIE, signToken("admin"), {
     httpOnly: true,
+    secure: secureFlag(),
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24,

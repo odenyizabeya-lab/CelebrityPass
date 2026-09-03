@@ -7,15 +7,16 @@ export default function Footer() {
         <div className="md:col-span-2">
           <div className="flex items-center gap-2.5">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-600 to-accent-500 text-xs font-black text-white">
-              FV
+              CP
             </span>
             <span className="text-lg font-bold tracking-tight">
-              Fan<span className="gradient-text">Verse</span>
+              Celebrity<span className="gradient-text">Pass</span>
             </span>
           </div>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400">
-            The multi-celebrity fan membership platform. One account, official verified fan cards for every creator
-            you love — each with its own community, Fan ID, and QR-verified card page.
+            CelebrityPass is an entertainment platform for legitimate celebrity fan cards, event tickets, concerts,
+            shows, VIP experiences, and meet-and-greet experiences. One account, official verified fan cards, and
+            real ticketed events.
           </p>
         </div>
 
@@ -54,18 +55,23 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/#privacy" className="transition hover:text-white">
+              <Link href="/legal/privacy" className="transition hover:text-white">
                 Privacy Policy
               </Link>
             </li>
             <li>
-              <Link href="/#terms" className="transition hover:text-white">
+              <Link href="/legal/terms" className="transition hover:text-white">
                 Terms of Service
               </Link>
             </li>
             <li>
-              <Link href="/#contact" className="transition hover:text-white">
-                Contact
+              <Link href="/legal/payments" className="transition hover:text-white">
+                Payments &amp; Refunds
+              </Link>
+            </li>
+            <li>
+              <Link href="/legal/contact" className="transition hover:text-white">
+                Contact &amp; Support
               </Link>
             </li>
           </ul>
@@ -74,7 +80,7 @@ export default function Footer() {
 
       <div className="border-t border-white/[0.06]">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-zinc-500 sm:flex-row sm:px-6">
-          <p>&copy; {new Date().getFullYear()} FanVerse. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} CelebrityPass. All rights reserved.</p>
           <p>Each celebrity community displays only real, database-verified member statistics.</p>
         </div>
       </div>

@@ -74,6 +74,7 @@ export default async function DashboardPage() {
                   cardDesign: card.celebrity.cardDesign,
                   profileImage: card.celebrity.profileImage,
                   coverImage: card.celebrity.coverImage,
+                  isVerified: card.celebrity.isVerified,
                 },
               };
               return (

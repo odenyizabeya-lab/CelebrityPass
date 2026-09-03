@@ -47,6 +47,24 @@ npm-install-out.txt
 # vercel
 .vercel
 
+# ===========================================================================
+# Android signing — PRIVATE. Never commit keystores, credentials, or signing
+# property files. The real keystore lives OUTSIDE the repo at C:\keystore.
+# ===========================================================================
+*.jks
+*.keystore
+*.p12
+*.jks.*
+keystore.properties
+android/keystore.properties
+!*.p12.example
+!*.jks.example
+/signing/
+
+# Capacitor local config (machine/keystore specifics live here, not committed)
+/android/local.properties
+/.cargo
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

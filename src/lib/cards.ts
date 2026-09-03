@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { cardUrlFor, fanNumberFromSeq, nextFanSeq } from "./utils";
+import { cardUrlFor, fanNumberFromSeq, nextFanSeq, appUrl } from "./utils";
 import { qrSvgDataUri } from "./qr";
 
 /**
@@ -33,7 +33,7 @@ async function issueCard(
 
   const card = await registerCard(fanId, celebrityId, membershipLevelId, fanNumber);
 
-  const baseOrigin = origin || "http://localhost:3000";
+  const baseOrigin = origin || appUrl();
   const qrCode = await qrSvgDataUri(`${baseOrigin}${cardUrl}`);
 
   const final = await prisma.fanCard.update({

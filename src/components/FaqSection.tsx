@@ -5,7 +5,7 @@ import { useState } from "react";
 const FAQS = [
   {
     q: "What is a fan card?",
-    a: "A fan card is an official, digital membership card issued by a celebrity's fan community on FanVerse. Each card is unique to the fan who holds it and the community it belongs to, verified with a Fan ID and a QR code that links to a live card page.",
+    a: "A fan card is an official, digital membership card issued by a celebrity's fan community on CelebrityPass. Each card is unique to the fan who holds it and the community it belongs to, verified with a Fan ID and a QR code that links to a live card page.",
   },
   {
     q: "Is getting a fan card really free?",
@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "How are fan counts and country numbers calculated?",
-    a: "Every statistic on FanVerse is computed live from the database. A 'Fan' is a real registered member, and a country counts only once a real member from that country has an active card. When a community has no members yet, you'll see its honest starting state.",
+    a: "Every statistic on CelebrityPass is computed live from the database. A 'Fan' is a real registered member, and a country counts only once a real member from that country has an active card. When a community has no members yet, you'll see its honest starting state.",
   },
   {
     q: "What can I do with my card link?",

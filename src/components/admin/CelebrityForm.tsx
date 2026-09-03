@@ -23,6 +23,7 @@ type CelebrityLike = Partial<
     | "website"
     | "isFeatured"
     | "isActive"
+    | "isVerified"
     | "instagramFollowers"
     | "tiktokFollowers"
     | "facebookFollowers"
@@ -47,6 +48,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [website, setWebsite] = useState(celebrity?.website ?? "");
   const [isFeatured, setIsFeatured] = useState(celebrity?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(celebrity?.isActive ?? true);
+  const [isVerified, setIsVerified] = useState(celebrity?.isVerified ?? false);
   const [profileImage, setProfileImage] = useState<string | null>(celebrity?.profileImage ?? null);
   const [coverImage, setCoverImage] = useState<string | null>(celebrity?.coverImage ?? null);
   const [igFollowers, setIgFollowers] = useState(celebrity?.instagramFollowers != null ? String(celebrity.instagramFollowers) : "");
@@ -151,6 +153,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       website,
       isFeatured,
       isActive,
+      isVerified,
       accentColor: accent,
       profileImage,
       coverImage,
@@ -195,6 +198,13 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black tracking-tight">{edit ? `Edit ${celebrity!.name}` : "New Celebrity"}</h1>
         <div className="flex items-center gap-4">
+          <Toggle
+            label="Verified"
+            checked={isVerified}
+            onChange={setIsVerified}
+            checkedClass="bg-[#1D9BF0]"
+            title="Shows the blue verified badge ONLY when this celebrity is actually verified."
+          />
           <Toggle label="Featured" checked={isFeatured} onChange={setIsFeatured} />
           <Toggle label="Active" checked={isActive} onChange={setIsActive} />
         </div>
@@ -421,13 +431,25 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  checked,
+  onChange,
+  checkedClass = "bg-primary-500",
+  title,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  checkedClass?: string;
+  title?: string;
+}) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-300">
+    <label title={title} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-300">
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 rounded-full transition ${checked ? "bg-primary-500" : "bg-white/15"}`}
+        className={`relative h-6 w-11 rounded-full transition ${checked ? checkedClass : "bg-white/15"}`}
       >
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? "left-[22px]" : "left-0.5"}`}

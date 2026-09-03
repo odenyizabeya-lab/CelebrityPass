@@ -17,6 +17,9 @@
     "bank:seed": "node scripts/seed-bank-accounts.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@prisma/client": "^6.19.3",
     "next": "16.3.4",
     "prisma": "^6.19.3",

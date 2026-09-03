@@ -18,6 +18,7 @@ export type CardViewData = {
     cardDesign: string | null;
     profileImage: string | null;
     coverImage: string | null;
+    isVerified: boolean;
   };
 };
 
@@ -86,7 +87,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                 </p>
                 <p className="flex items-center gap-1 text-lg font-black leading-tight text-white">
                   {card.celebrity.name}
-                  <VerifiedBadge className="h-4 w-4" />
+                  {card.celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
                 </p>
               </div>
             </div>

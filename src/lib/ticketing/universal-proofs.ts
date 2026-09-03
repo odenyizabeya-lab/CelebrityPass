@@ -36,6 +36,27 @@ export type ProofInput = {
 export const PROOF_OK = "PENDING_VERIFICATION";
 
 /**
+ * Validate the customer-submitted proof shape. Server-side only — the admin
+ * still verifies the actual receipt before settlement, but this prevents
+ * malformed/DoS payloads (huge base64 blobs, non-images, invalid amounts).
+ */
+function validateProof(p: ProofInput): string | null {
+  if (!Number.isFinite(p.amountCents) || p.amountCents <= 0) {
+    return "Please enter a valid transfer amount.";
+  }
+  if (p.fileUrl && (typeof p.fileUrl !== "string" || p.fileUrl.length > 2_500_000)) {
+    return "Uploaded proof is too large.";
+  }
+  if (p.fileUrl && !p.fileUrl.startsWith("data:image/")) {
+    return "The proof must be an image upload.";
+  }
+  if (p.mimeType && !/^image\//.test(p.mimeType)) {
+    return "The proof must be an image upload.";
+  }
+  return null;
+}
+
+/**
  * Submit a bank-transfer proof for ONE kind of purchase. Caller passes the
  * owning fan (for fan cards) or the orderRef+token (for tickets). The purchase
  * is only ever settled via admin verification afterwards.
@@ -81,6 +102,9 @@ export async function submitBankTransferProof(args: {
   if (!bankAccount) {
     return { ok: false, status: 409, event: "BANK_NOT_CONFIGURED", message: `Bank Transfer isn't available for ${currency}.` };
   }
+
+  const proofError = validateProof(args.proof);
+  if (proofError) return { ok: false, status: 400, event: "INVALID_PROOF", message: proofError };
 
   const proof = await prisma.bankTransferProof.create({
     data: {

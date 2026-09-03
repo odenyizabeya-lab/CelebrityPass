@@ -6,8 +6,9 @@ import { eventProviders } from "@/lib/events/sources/registry";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/events/sources — list sources + available providers (admin).
+// GET /api/events/sources — list sources + available providers (admin only).
 export async function GET() {
+  if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const sources = await getEventSources();
   const providers = eventProviders.map((p) => ({
     key: p.key,

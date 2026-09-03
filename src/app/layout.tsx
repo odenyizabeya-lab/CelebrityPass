@@ -2,14 +2,35 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { appUrl } from "@/lib/utils";
+
+const BASE_URL = appUrl();
 
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: {
-    default: "FanVerse — Multi-Celebrity Fan Card Community",
-    template: "%s | FanVerse",
+    default: "CelebrityPass — Multi-Celebrity Fan Card & Events Community",
+    template: "%s | CelebrityPass",
   },
   description:
-    "The multi-celebrity fan membership platform. Get an official verified fan card for your favorite artists, athletes, actors, and creators.",
+    "CelebrityPass is an entertainment platform for legitimate celebrity fan cards, event tickets, concerts, shows, VIP experiences, meet-and-greet experiences, and other legitimate ticketed events.",
+  applicationName: "CelebrityPass",
+  alternates: { canonical: BASE_URL },
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CelebrityPass",
+  },
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({

@@ -66,7 +66,7 @@ export default function AdminLoginForm() {
         </button>
       </div>
 
-      <p className="mt-5 text-center text-xs text-zinc-500">Default password is stored in the .env file (ADMIN_PASSWORD).</p>
+      <p className="mt-5 text-center text-xs text-zinc-500">Authorized administrators only.</p>
     </form>
   );
 }

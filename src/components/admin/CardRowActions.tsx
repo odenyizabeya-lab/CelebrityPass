@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { AdminCardRow } from "@/lib/services";
+import { appUrl } from "@/lib/utils";
 
 export default function CardRowActions({ card }: { card: AdminCardRow }) {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function CardRowActions({ card }: { card: AdminCardRow }) {
     <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         disabled={busy}
-        onClick={() => navigator.clipboard?.writeText(`http://localhost:3000${url}`)}
+        onClick={() => navigator.clipboard?.writeText(`${window.location.origin || appUrl()}${url}`)}
         className="rounded-full px-3 py-1.5 text-xs font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white disabled:opacity-50"
       >
         Copy Link

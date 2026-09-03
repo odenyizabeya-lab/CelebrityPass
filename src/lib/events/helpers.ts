@@ -1,4 +1,4 @@
-// Pure helpers for event status derivation, countdown math and formatting.
+﻿// Pure helpers for event status derivation, countdown math and formatting.
 // Timezone-aware: we compare instants in UTC ("now") against the event's start
 // and end instants. The event's IANA timezone is used for human countdown text.
 
@@ -145,7 +145,7 @@ export function eventIcs(params: {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//FanVerse//Events//EN",
+    "PRODID:-//CelebrityPass//Events//EN",
     "BEGIN:VEVENT",
     `UID:${start}-${params.name.replace(/\s+/g, "-")}`,
     `DTSTAMP:${fmtUtc(new Date())}`,

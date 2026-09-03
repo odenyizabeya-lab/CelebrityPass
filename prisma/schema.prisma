@@ -24,9 +24,10 @@ model Celebrity {
   shortBio       String?
   profileImage   String?           // URL or data URI
   coverImage     String?           // URL or data URI
-  accentColor    String            @default("#8b5cf6")
+accentColor    String            @default("#8b5cf6")
   isFeatured     Boolean           @default(false)
   isActive       Boolean           @default(true)
+  isVerified     Boolean           @default(false) // admin-set: only true when an admin has explicitly verified this profile
   socialLinks    String?           // JSON string: { "instagram": "...", "x": "...", "youtube": "..." }
   cardDesign     String?           // JSON string for this celebrity's fan-card design
   website        String?

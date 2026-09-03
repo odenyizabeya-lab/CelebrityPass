@@ -58,7 +58,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 /** HMAC-sign a value for cookie sessions. */
 export function signToken(payload: string): string {
-  const secret = process.env.COOKIE_SECRET || "fancard-dev-secret";
+  const secret = cookieSecret();
   return `${payload}.${crypto
     .createHmac("sha256", secret)
     .update(payload)
@@ -67,7 +67,7 @@ export function signToken(payload: string): string {
 
 /** Verify and return an HMAC-signed token. */
 export function verifyToken(token: string): string | null {
-  const secret = process.env.COOKIE_SECRET || "fancard-dev-secret";
+  const secret = cookieSecret();
   const idx = token.lastIndexOf(".");
   if (idx < 0) return null;
   const payload = token.slice(0, idx);
@@ -79,9 +79,33 @@ export function verifyToken(token: string): string | null {
   return crypto.timingSafeEqual(a, b) ? payload : null;
 }
 
+/**
+ * Session-signing secret. Fail-closed: in production a real COOKIE_SECRET is
+ * REQUIRED — otherwise an attacker who knows the dev fallback could forge
+ * admin/fan sessions. Local fallback is kept only for `npm run dev`.
+ */
+function cookieSecret(): string {
+  if (process.env.COOKIE_SECRET) return process.env.COOKIE_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "COOKIE_SECRET is not set. It is required in production to prevent session forgery.",
+    );
+  }
+  return "fancard-dev-secret";
+}
+
 /** Relative URL to this fan card. */
 export function cardUrlFor(slug: string, fanNumber: string): string {
   return `/celebrity/${slug}/fan/${fanNumber}`;
+}
+
+/**
+ * Canonical production origin for the whole app (server + client).
+ * Defaults to the registered production domain; override with
+ * NEXT_PUBLIC_APP_URL (inlined at build time).
+ */
+export function appUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app").replace(/\/+$/, "");
 }
 
 /**

@@ -99,12 +99,17 @@ const mockProvider: PaymentProvider = {
 /**
  * Return the configured payment provider. Swap implementations here or via
  * the PAYMENT_PROVIDER env var without touching the rest of the app.
+ *
+ * Fail-closed: only the explicitly-configured provider is used. An unknown
+ * provider name throws instead of silently falling back to the mock, so a
+ * production misconfiguration can never result in free (unsettled) cards.
  */
 export function getPaymentProvider(): PaymentProvider {
   const id = (process.env.PAYMENT_PROVIDER ?? "mock").toLowerCase();
   if (id === "mock") return mockProvider;
-  // Future: `stripe` / `paypal` implementations hook in here.
-  return mockProvider;
+  // `stripe` / `paypal` providers plug in here. Until one is implemented,
+  // requesting it is a hard error — do NOT fall back to the mock.
+  throw new Error(`Payment provider "${id}" is not configured.`);
 }
 
 /**

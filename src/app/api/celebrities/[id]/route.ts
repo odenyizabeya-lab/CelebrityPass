@@ -52,6 +52,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (body.cardDesign !== undefined) data.cardDesign = JSON.stringify(body.cardDesign);
   if (body.isFeatured !== undefined) data.isFeatured = Boolean(body.isFeatured);
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  if (body.isVerified !== undefined) data.isVerified = Boolean(body.isVerified);
 
   const followerFields = ["instagramFollowers", "tiktokFollowers", "facebookFollowers"] as const;
   const anyFollower = followerFields.some((f) => body[f] !== undefined && body[f] !== null && body[f] !== "");
