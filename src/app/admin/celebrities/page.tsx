@@ -120,7 +120,7 @@ export default async function AdminCelebritiesPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="flex items-center gap-1 font-bold text-white">
                       {c.name}
-                      {c.isVerified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                      <VerifiedBadge className="h-3.5 w-3.5" />
                     </p>
                     {c.isFeatured && <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-bold text-gold-400">★ Featured</span>}
                   </div>

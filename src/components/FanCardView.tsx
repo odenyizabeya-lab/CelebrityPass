@@ -87,7 +87,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                 </p>
                 <p className="flex items-center gap-1 text-lg font-black leading-tight text-white">
                   {card.celebrity.name}
-                  {card.celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
+                  <VerifiedBadge className="h-4 w-4" />
                 </p>
               </div>
             </div>

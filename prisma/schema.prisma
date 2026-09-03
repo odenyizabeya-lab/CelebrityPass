@@ -20,14 +20,16 @@ model Celebrity {
   country        String
   city           String?
   profession     String
-  bio            String
+bio            String
   shortBio       String?
+  googleOverview String?            // Google-style factual write-up for this exact celebrity (unique per celebrity)
+  googleInfo     String?            // cached JSON from Wikipedia/Wikidata (born, age, occupations, films, overview)
   profileImage   String?           // URL or data URI
   coverImage     String?           // URL or data URI
-accentColor    String            @default("#8b5cf6")
+  accentColor    String            @default("#8b5cf6")
   isFeatured     Boolean           @default(false)
   isActive       Boolean           @default(true)
-  isVerified     Boolean           @default(false) // admin-set: only true when an admin has explicitly verified this profile
+  isVerified     Boolean           @default(false) // auto-verified for every published celebrity (social-style blue badge on the name line)
   socialLinks    String?           // JSON string: { "instagram": "...", "x": "...", "youtube": "..." }
   cardDesign     String?           // JSON string for this celebrity's fan-card design
   website        String?

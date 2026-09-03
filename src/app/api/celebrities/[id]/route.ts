@@ -40,6 +40,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     "profession",
     "bio",
     "shortBio",
+    "googleOverview",
     "profileImage",
     "coverImage",
     "accentColor",

@@ -17,6 +17,7 @@ type CelebrityLike = Partial<
     | "profession"
     | "bio"
     | "shortBio"
+    | "googleOverview"
     | "accentColor"
     | "socialLinks"
     | "cardDesign"
@@ -45,10 +46,10 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [accent, setAccent] = useState(celebrity?.accentColor ?? "#8b5cf6");
   const [bio, setBio] = useState(celebrity?.bio ?? "");
   const [shortBio, setShortBio] = useState(celebrity?.shortBio ?? "");
+  const [googleOverview, setGoogleOverview] = useState(celebrity?.googleOverview ?? "");
   const [website, setWebsite] = useState(celebrity?.website ?? "");
   const [isFeatured, setIsFeatured] = useState(celebrity?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(celebrity?.isActive ?? true);
-  const [isVerified, setIsVerified] = useState(celebrity?.isVerified ?? false);
   const [profileImage, setProfileImage] = useState<string | null>(celebrity?.profileImage ?? null);
   const [coverImage, setCoverImage] = useState<string | null>(celebrity?.coverImage ?? null);
   const [igFollowers, setIgFollowers] = useState(celebrity?.instagramFollowers != null ? String(celebrity.instagramFollowers) : "");
@@ -150,10 +151,10 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       city,
       bio,
       shortBio,
+      googleOverview,
       website,
       isFeatured,
       isActive,
-      isVerified,
       accentColor: accent,
       profileImage,
       coverImage,
@@ -198,13 +199,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black tracking-tight">{edit ? `Edit ${celebrity!.name}` : "New Celebrity"}</h1>
         <div className="flex items-center gap-4">
-          <Toggle
-            label="Verified"
-            checked={isVerified}
-            onChange={setIsVerified}
-            checkedClass="bg-[#1D9BF0]"
-            title="Shows the blue verified badge ONLY when this celebrity is actually verified."
-          />
           <Toggle label="Featured" checked={isFeatured} onChange={setIsFeatured} />
           <Toggle label="Active" checked={isActive} onChange={setIsActive} />
         </div>
@@ -281,6 +275,21 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
           <label className={labelCls}>Full Bio</label>
           <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className={inputCls} placeholder="Longer community description." />
         </div>
+      </div>
+
+      <div className="mt-5">
+        <label className={labelCls}>Google Overview (per celebrity)</label>
+        <textarea
+          value={googleOverview}
+          onChange={(e) => setGoogleOverview(e.target.value)}
+          rows={4}
+          className={inputCls}
+          placeholder="Paste the factual overview for THIS exact celebrity (as it appears in the Google knowledge panel). Every celebrity has their own unique write-up — never a generic or copied text."
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          Shown right under this celebrity&apos;s name and profession as the Google-style factual overview. Leave blank to
+          fall back to the short bio.
+        </p>
       </div>
 
       {/* Images */}
@@ -431,25 +440,13 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   );
 }
 
-function Toggle({
-  label,
-  checked,
-  onChange,
-  checkedClass = "bg-primary-500",
-  title,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  checkedClass?: string;
-  title?: string;
-}) {
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label title={title} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-300">
+    <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-zinc-300">
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 rounded-full transition ${checked ? checkedClass : "bg-white/15"}`}
+        className={`relative h-6 w-11 rounded-full transition ${checked ? "bg-primary-500" : "bg-white/15"}`}
       >
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? "left-[22px]" : "left-0.5"}`}

@@ -44,6 +44,10 @@ yarn-error.log*
 npm-install-err.txt
 npm-install-out.txt
 
+# local dev server logs
+dev-server.log
+dev-server.err.log
+
 # vercel
 .vercel
 

@@ -73,7 +73,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
       <div className="px-5 pb-5 pt-3">
         <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight text-white group-hover:gradient-text">
           {celebrity.name}
-          {celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
+          <VerifiedBadge className="h-4 w-4" />
         </h3>
         <p className="mt-0.5 text-sm text-zinc-400">
           {celebrity.profession} · {celebrity.country}

@@ -4,6 +4,7 @@ import { slugify, avatarDataUri, coverDataUri } from "@/lib/utils";
 import { defaultFollowerCounts } from "@/lib/followers";
 import { getCelebritySummaries } from "@/lib/services";
 import { isAdminAuthed } from "@/lib/auth";
+import { fetchGoogleInfo } from "@/lib/google-info";
 
 export const dynamic = "force-dynamic";
 
@@ -71,12 +72,13 @@ export async function POST(request: NextRequest) {
       profession: String(body.profession ?? ""),
       bio: String(body.bio ?? ""),
       shortBio: body.shortBio ? String(body.shortBio) : null,
+      googleOverview: body.googleOverview ? String(body.googleOverview) : null,
       profileImage,
       coverImage,
       accentColor,
       isFeatured: Boolean(body.isFeatured ?? false),
       isActive: Boolean(body.isActive ?? true),
-      isVerified: Boolean(body.isVerified ?? false),
+      isVerified: true,
       socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
       cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
       website: body.website ? String(body.website) : null,
@@ -86,6 +88,28 @@ export async function POST(request: NextRequest) {
       followersUpdatedAt: new Date(),
     },
   });
+
+  // Auto-populate the Google-style knowledge panel for a NEW celebrity in the
+  // background (never blocks the create response). If lookups fail, the profile
+  // falls back to its own bio — nothing is ever fabricated.
+  const celebId = celebrity.id;
+  const celebName = celebrity.name;
+  void (async () => {
+    try {
+      const info = await fetchGoogleInfo(celebName, {
+        profession: celebrity.profession,
+        category: celebrity.category,
+      });
+      if (info) {
+        await prisma.celebrity.update({
+          where: { id: celebId },
+          data: { googleInfo: JSON.stringify(info) },
+        });
+      }
+    } catch {
+      /* ignored — keep the admin flow fast and safe */
+    }
+  })();
 
   return NextResponse.json({ celebrity: { id: celebrity.id, slug: celebrity.slug } }, { status: 201 });
 }

@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { tryParseJson } from "./utils";
 import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
+import type { GoogleInfo } from "./google-info";
 
 export type CelebritySummary = {
   id: string;
@@ -88,6 +89,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
 }
 
 export type CelebrityDetail = CelebritySummary & {
+  googleOverview: string | null;
+  googleInfo: GoogleInfo | null;
   socialLinks: SocialLinks;
   cardDesign: CardDesign;
   memberships: MembershipLevelType[];
@@ -120,6 +123,8 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     profession: celebrity.profession,
     bio: celebrity.bio,
     shortBio: celebrity.shortBio,
+    googleOverview: celebrity.googleOverview,
+    googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
     profileImage: celebrity.profileImage,
     coverImage: celebrity.coverImage,
     accentColor: celebrity.accentColor,

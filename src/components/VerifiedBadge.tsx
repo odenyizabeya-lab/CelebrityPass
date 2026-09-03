@@ -1,10 +1,10 @@
 /**
- * Verified checkmark in the style used by Instagram, Facebook and TikTok —
+ * Verified checkmark in the style used by Facebook, Instagram and TikTok —
  * a solid blue badge with a white check.
  *
- * IMPORTANT: render this ONLY when the celebrity is explicitly marked verified
- * in the database (Celebrity.isVerified === true). Never show it by default,
- * otherwise CelebrityPass would falsely claim a real person is verified.
+ * Every celebrity published through the CelebrityPass admin is automatically
+ * verified on creation and shows this badge (displayed on the same line as
+ * the name, social-platform style).
  */
 export default function VerifiedBadge({ className = "h-4 w-4" }: { className?: string }) {
   return (

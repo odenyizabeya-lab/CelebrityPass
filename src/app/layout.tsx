@@ -1,10 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { appUrl } from "@/lib/utils";
 
 const BASE_URL = appUrl();
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -30,7 +34,6 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "CelebrityPass",
   },
-  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({

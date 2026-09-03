@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import CountUp from "@/components/CountUp";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import GooglePanel from "@/components/GooglePanel";
 import { EventsUpcoming, EventsHappeningNow, EventsCompleted, EventsIssueSection } from "@/components/events/EventSections";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
@@ -28,23 +29,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!c) return { title: "Not Found" };
 
   const url = `${APP_URL}/celebrity/${c.slug}`;
-  const title = c.name;
   const description =
     c.shortBio || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
   // Only a hosted image is usable by social crawlers (data: URIs are ignored
   // by WhatsApp/Facebook/X). Each celebrity's own photo is used — never a
   // shared generic image when a real profile photo exists.
   const image = isHttpUrl(c.profileImage) ? c.profileImage : undefined;
-  const badgeTitle = c.name;
-  const fullTitle = c.isVerified ? `${title}` : title;
+  const ogTitle = c.name;
 
   return {
-    title: fullTitle,
+    title: c.name,
     description,
     alternates: { canonical: url },
     openGraph: {
       type: "profile",
-      title: badgeTitle,
+      title: ogTitle,
       description: `Official CelebrityPass profile for ${c.name}.`,
       url,
       siteName: "CelebrityPass",
@@ -54,12 +53,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: image ? "summary_large_image" : "summary",
-      title: badgeTitle,
+      title: ogTitle,
       description: `Official CelebrityPass profile for ${c.name}.`,
       ...(image ? { images: [image] } : {}),
-    },
-    other: {
-      "og:image:alt": c.isVerified ? `${c.name} · Verified on CelebrityPass` : `${c.name} — CelebrityPass profile`,
     },
   };
 }
@@ -133,10 +129,10 @@ export default async function CelebrityPage({ params }: Props) {
           </div>
           <div className="flex-1 pb-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
                 {celebrity.name}
-                {celebrity.isVerified && <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7" />}
               </h1>
+              {celebrity.isVerified && <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7" />}
               <span
                 className="rounded-full px-3 py-1 text-xs font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
@@ -144,24 +140,32 @@ export default async function CelebrityPage({ params }: Props) {
                 {celebrity.category}
               </span>
             </div>
-            <p className="mt-1 text-zinc-400">
+            {/* Profession/title directly below the name, Google knowledge-panel style */}
+            <p className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">
               {celebrity.profession}
-              {celebrity.city ? ` · ${celebrity.city}` : ""} · {celebrity.country}
             </p>
-            {celebrity.isVerified && (
-              <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#1D9BF0]">
-                <span className="inline-block h-4 w-4">
-                  <VerifiedBadge className="h-4 w-4" />
-                </span>
-                Verified on CelebrityPass
+            {/* Google-style factual overview for this exact celebrity */}
+            {celebrity.googleOverview ? (
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-zinc-300">
+                {celebrity.googleOverview}
+              </p>
+            ) : (
+              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+                {celebrity.bio}
+                {celebrity.city ? ` · ${celebrity.city}` : ""}
+                {celebrity.country ? `, ${celebrity.country}` : ""}
               </p>
             )}
-            {celebrity.shortBio && <p className="mt-2 max-w-2xl text-zinc-300">{celebrity.shortBio}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <SocialLinksRow links={socials} />
             </div>
           </div>
         </div>
+
+        {/* Google-style knowledge panel for this exact celebrity */}
+        {celebrity.googleInfo && (
+          <GooglePanel info={celebrity.googleInfo} category={celebrity.category} />
+        )}
 
         {/* Verified follower counts */}
         {(celebrity.instagramFollowers || celebrity.tiktokFollowers || celebrity.facebookFollowers) && (
