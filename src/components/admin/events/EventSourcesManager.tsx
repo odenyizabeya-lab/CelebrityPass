@@ -24,6 +24,7 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
   const router = useRouter();
   const [sources, setSources] = useState<Source[]>(initial);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [tmKeySet, setTmKeySet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
     const data = await res.json();
     setSources(data.sources);
     setProviders(data.providers);
+    setTmKeySet(Boolean(data.ticketmasterKeySet));
   }, []);
 
   useEffect(() => {
@@ -126,7 +128,11 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
               <p className="mt-1 font-mono text-[11px] text-zinc-500">{p.key}</p>
               {p.requiresCredentials && (
                 <p className="mt-2 text-[11px] text-amber-300">
-                  Requires credential env var: {p.credentialEnvVars.join(", ")}
+                  {p.key === "ticketmaster"
+                    ? tmKeySet
+                      ? "Key is set — add this source and run a sync to pull real events."
+                      : "Needs your free Ticketmaster key — paste it in the 'Ticketmaster API key' card above."
+                    : `Requires credential env var: ${p.credentialEnvVars.join(", ")}`}
                 </p>
               )}
             </div>
@@ -172,13 +178,19 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
                   <div className="rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/10">
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Credential status</p>
                     <p className="mt-1 text-xs text-white">
-                      {providers.find((p) => p.key === s.key)?.requiresCredentials
-                        ? "Required"
-                        : s.hasCredentials
-                          ? "Detected in environment"
-                          : "None configured"}
+                      {s.key === "ticketmaster"
+                        ? tmKeySet
+                          ? "Set in admin settings"
+                          : s.hasCredentials
+                            ? "Detected in environment"
+                            : "None configured — paste a key in the card above"
+                        : providers.find((p) => p.key === s.key)?.requiresCredentials
+                          ? "Required"
+                          : s.hasCredentials
+                            ? "Detected in environment"
+                            : "None configured"}
                     </p>
-                    {s.envKey && (
+                    {s.envKey && s.key !== "ticketmaster" && (
                       <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
                         env: {s.envKey} {s.hasCredentials ? "· set" : "· not set (add on the server)"}
                       </p>
@@ -211,10 +223,9 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
       <div className="mt-8 rounded-2xl border border-amber-400/20 bg-amber-500/5 p-5">
         <h3 className="text-sm font-black text-amber-300">Security: no fake or exposed secrets</h3>
         <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-          Provider API keys live only in backend environment variables (e.g. <code className="text-amber-200">EVENT_TICKETING_API_KEY</code>).
-          They are never stored in this database and never included in frontend JavaScript. The admin panel only shows whether a credential is
-          present, not its value. Until you add real credentials, providers return empty results and the site shows legitimate empty states — it
-          never fabricates events.
+          Provider API keys are stored only server-side (admin settings) and are never included in frontend JavaScript.
+          The admin panel only shows whether a credential is present, never its value. Until you add a real key, providers
+          return empty results and the site shows legitimate empty states — it never fabricates events.
         </p>
       </div>
     </div>

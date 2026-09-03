@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
 import { getEventSources } from "@/lib/events/service";
 import { eventProviders } from "@/lib/events/sources/registry";
+import { hasTicketmasterApiKey } from "@/lib/events/sources/ticketing-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +11,14 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const sources = await getEventSources();
+  const tmKeySet = await hasTicketmasterApiKey();
   const providers = eventProviders.map((p) => ({
     key: p.key,
     label: p.label,
     requiresCredentials: p.requiresCredentials,
     credentialEnvVars: p.credentialEnvVars,
   }));
-  return NextResponse.json({ sources, providers });
+  return NextResponse.json({ sources, providers, ticketmasterKeySet: tmKeySet });
 }
 
 // POST /api/events/sources — create/enable a provider-backed source (admin).
@@ -31,7 +33,10 @@ export async function POST(request: NextRequest) {
   if (existing) return NextResponse.json({ error: "Source already exists" }, { status: 409 });
 
   const provider = eventProviders.find((p) => p.key === key);
-  const hasCreds = provider?.credentialEnvVars.some((v) => typeof process.env[v] === "string" && process.env[v]!.length > 0) ?? false;
+  const tmKeySet = key === "ticketmaster" ? await hasTicketmasterApiKey() : false;
+  const hasCreds =
+    (provider?.credentialEnvVars.some((v) => typeof process.env[v] === "string" && process.env[v]!.length > 0) ?? false) ||
+    tmKeySet;
 
   const source = await prisma.eventSource.create({
     data: {

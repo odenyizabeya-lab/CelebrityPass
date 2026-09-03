@@ -2,10 +2,12 @@
 import type { PublicEventProvider } from "./types";
 import { adminManualProvider } from "./admin-manual";
 import { placeholderApiProvider } from "./placeholder-api";
+import { ticketmasterProvider } from "./ticketmaster";
 
 export const eventProviders: PublicEventProvider[] = [
   adminManualProvider,
   placeholderApiProvider,
+  ticketmasterProvider,
 ];
 
 export function getProvider(key: string): PublicEventProvider | undefined {
