@@ -11,7 +11,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app").replace(/\/$/, "");
 
 const config: CapacitorConfig = {
-  appId: "com.celebritypass.app",
+  appId: "com.kcoai.app",
   appName: "CelebrityPass",
   webDir: "out",
   server: {

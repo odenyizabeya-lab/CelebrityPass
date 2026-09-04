@@ -357,6 +357,20 @@ export async function attemptOrderPayment(orderRef: string, token: string | null
   });
   await prisma.ticketTransaction.create({ data: { orderId: order.id, kind: "PAYMENT", status: "SUCCEEDED", amountCents: order.totalCents, currency: order.currency, provider: method.key, providerRef: result.ref, message: "Payment succeeded." } });
 
+  // Fire confirmation email (non-blocking).
+  import("../emails").then(({ notifyOrderConfirmed }) =>
+    notifyOrderConfirmed({
+      to: order.customerEmail,
+      customerName: order.customerName,
+      orderRef: order.orderRef,
+      eventName: order.event.name,
+      totalCents: order.totalCents,
+      currency: order.currency,
+      items: order.items.map((i) => ({ ticketName: i.ticketName, quantity: i.quantity, subtotalCents: i.unitPriceCents * i.quantity })),
+      orderUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/order/${order.orderRef}?t=${order.accessToken}`,
+    }),
+  );
+
   return { ok: true, event: "CONFIRMED", paidRef: result.ref, order: await getOrderForHolder(orderRef, token) };
 }
 

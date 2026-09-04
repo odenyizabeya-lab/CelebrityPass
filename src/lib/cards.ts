@@ -41,6 +41,19 @@ async function issueCard(
     data: { cardUrl, qrCode },
     include: { celebrity: true, fan: true, membershipLevel: true },
   });
+
+  // Fire an email notification (non-blocking).
+  import("./emails").then(({ notifyCardIssued }) =>
+    notifyCardIssued({
+      to: final.fan.email,
+      fanName: final.fan.name,
+      celebrityName: final.celebrity.name,
+      membershipName: final.membershipLevel?.name ?? null,
+      cardNumber: final.fanNumber,
+      cardUrl: `${baseOrigin}${cardUrl}`,
+    }),
+  );
+
   return final;
 }
 

@@ -37,13 +37,14 @@ export async function POST(request: NextRequest) {
   const hasCreds =
     (provider?.credentialEnvVars.some((v) => typeof process.env[v] === "string" && process.env[v]!.length > 0) ?? false) ||
     tmKeySet;
-
+  // No-credential providers (e.g. MusicBrainz) are enabled by default; others
+  // require their key/env credential to be present before enabling.
   const source = await prisma.eventSource.create({
     data: {
       key,
       name: body.name ? String(body.name) : provider?.label ?? key,
       kind: body.kind ? String(body.kind) : provider ? "api" : "manual",
-      enabled: provider ? hasCreds : Boolean(body.enabled ?? true),
+      enabled: provider ? (provider.requiresCredentials ? hasCreds : Boolean(body.enabled ?? true)) : Boolean(body.enabled ?? true),
       baseUrl: body.baseUrl ? String(body.baseUrl) : null,
       configJson: body.config ? JSON.stringify(body.config) : null,
       envKey: provider?.credentialEnvVars[0] ?? null,

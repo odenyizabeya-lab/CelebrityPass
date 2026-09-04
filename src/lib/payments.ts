@@ -1,10 +1,9 @@
 /**
  * Payment gateway layer.
  *
- * All money movement flows through a PaymentProvider. The default provider is
- * "mock", which simulates card authorization locally (no external network
- * required). To go live later, implement `charge` against a real gateway
- * (Stripe, PayPal, etc.) and switch `PAYMENT_PROVIDER` in `.env`.
+ * All money movement flows through a PaymentProvider. Set PAYMENT_PROVIDER in
+ * `.env` to "mock" (dev-only) or "stripe" (production). When "stripe" is set,
+ * STRIPE_SECRET_KEY must also be present.
  */
 
 export type CardDetails = {
@@ -97,6 +96,57 @@ const mockProvider: PaymentProvider = {
 };
 
 /**
+ * Real Stripe payment provider. Uses the Stripe REST API directly (no SDK
+ * dependency). Requires STRIPE_SECRET_KEY in the environment.
+ */
+const stripeProvider: PaymentProvider = {
+  id: "stripe",
+  label: "Stripe",
+  async charge(input: ChargeInput) {
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    if (!secretKey) {
+      return { ok: false, error: "Stripe is not configured on this site." };
+    }
+
+    const [expMonth, expYear] = input.card.expiry.split("/").map((s) => s.trim());
+    const amountInCents = Math.round(input.amount * 100);
+
+    const params = new URLSearchParams();
+    params.append("amount", String(amountInCents));
+    params.append("currency", input.currency.toLowerCase());
+    params.append("description", input.description);
+    params.append("source[number]", input.card.number.replace(/\s+/g, ""));
+    params.append("source[exp_month]", expMonth);
+    params.append("source[exp_year]", `20${expYear}`);
+    params.append("source[cvc]", input.card.cvc);
+    params.append("source[name]", input.card.name);
+    params.append("capture", "true");
+
+    const res = await fetch("https://api.stripe.com/v1/charges", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      const msg =
+        data?.error?.message ??
+        (res.status === 402
+          ? "Your bank declined this transaction."
+          : "Payment processing failed. Please try again.");
+      return { ok: false, error: msg };
+    }
+
+    return { ok: true, ref: data.id };
+  },
+};
+
+/**
  * Return the configured payment provider. Swap implementations here or via
  * the PAYMENT_PROVIDER env var without touching the rest of the app.
  *
@@ -107,8 +157,7 @@ const mockProvider: PaymentProvider = {
 export function getPaymentProvider(): PaymentProvider {
   const id = (process.env.PAYMENT_PROVIDER ?? "mock").toLowerCase();
   if (id === "mock") return mockProvider;
-  // `stripe` / `paypal` providers plug in here. Until one is implemented,
-  // requesting it is a hard error — do NOT fall back to the mock.
+  if (id === "stripe") return stripeProvider;
   throw new Error(`Payment provider "${id}" is not configured.`);
 }
 

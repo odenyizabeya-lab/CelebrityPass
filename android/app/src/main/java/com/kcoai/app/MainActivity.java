@@ -1,4 +1,4 @@
-package com.celebritypass.app;
+package com.kcoai.app;
 
 import com.getcapacitor.BridgeActivity;
 

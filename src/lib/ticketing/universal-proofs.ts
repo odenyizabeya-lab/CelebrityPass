@@ -145,6 +145,20 @@ export async function submitBankTransferProof(args: {
         }),
       },
     });
+    // Send a "transfer received, awaiting verification" email (non-blocking).
+    if (order) {
+      import("../emails").then(({ notifyBankTransferPending }) =>
+        notifyBankTransferPending({
+          to: order.customerEmail,
+          customerName: order.customerName,
+          orderRef: order.orderRef,
+          eventName: order.eventId || "your order",
+          totalCents: order.totalCents,
+          currency: order.currency,
+          orderUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/order/${order.orderRef}?t=${order.accessToken}`,
+        }),
+      );
+    }
   }
 
   return { ok: true, proof: serializeProof(proof), status: "PENDING_VERIFICATION" };
@@ -239,6 +253,25 @@ export async function reviewBankTransferProof(args: {
       },
     }).catch(() => undefined);
     settledKind = "TICKET";
+
+    // Send an order-confirmed email once the transfer is verified (non-blocking).
+    const items = await prisma.ticketOrderItem.findMany({ where: { orderId: order.id } });
+    import("../emails").then(({ notifyOrderConfirmed }) =>
+      notifyOrderConfirmed({
+        to: order.customerEmail,
+        customerName: order.customerName,
+        orderRef: order.orderRef,
+        eventName: order.eventId || "your order",
+        totalCents: order.totalCents,
+        currency: order.currency,
+        items: items.map((i) => ({
+          ticketName: i.ticketName,
+          quantity: i.quantity,
+          subtotalCents: i.unitPriceCents * i.quantity,
+        })),
+        orderUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/order/${order.orderRef}?t=${order.accessToken}`,
+      }),
+    );
   } else {
     return { ok: false, status: 400, message: "This proof is not linked to a purchase." };
   }

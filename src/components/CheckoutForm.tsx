@@ -96,8 +96,7 @@ export default function CheckoutForm(props: Props) {
           </div>
 
           <p className="mt-6 text-xs leading-relaxed text-white/55">
-            Secure mock checkout — no real money moves. Using the platform&apos;s built-in demo gateway
-            (your processor can be swapped to Stripe/PayPal without changing this page).
+            Secured by Stripe. Your card details are encrypted end-to-end.
           </p>
         </div>
       </div>
@@ -161,8 +160,7 @@ export default function CheckoutForm(props: Props) {
 
         <div className="mt-6 flex items-center justify-between gap-4">
           <p className="text-xs leading-relaxed text-zinc-500">
-            Demo gateway. Any card passes except numbers ending <span className="font-mono text-zinc-300">0002</span>{" "}
-            (simulates a declined card).
+            Secured by Stripe. Your payment is encrypted end-to-end.
           </p>
           <button
             type="submit"

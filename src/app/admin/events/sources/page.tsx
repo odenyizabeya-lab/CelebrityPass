@@ -1,5 +1,5 @@
 import EventSourcesManager from "@/components/admin/events/EventSourcesManager";
-import TicketmasterKeySettings from "@/components/admin/events/TicketmasterKeySettings";
+import ProviderKeyManager from "@/components/admin/events/ProviderKeyManager";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function AdminEventSourcesPage() {
         </p>
       </div>
       <div className="mt-6 flex flex-col gap-6">
-        <TicketmasterKeySettings />
+        <ProviderKeyManager />
         <EventSourcesManager sources={sources} />
       </div>
     </div>

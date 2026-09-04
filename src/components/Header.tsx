@@ -17,6 +17,9 @@ export default function Header() {
           <Link href="/celebrities" className="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white">
             Celebrities
           </Link>
+          <Link href="/discovery" className="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white">
+            Events
+          </Link>
           <Link href="/#how-it-works" className="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white">
             How It Works
           </Link>

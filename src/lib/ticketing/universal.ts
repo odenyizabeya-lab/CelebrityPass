@@ -119,8 +119,8 @@ export function isAtmCardReady(): boolean {
   return Boolean(g && g.hasCredentials());
 }
 
-export const ATM_CARD_PUBLIC_KEY_ENV = "ATM_CARD_PUBLIC_KEY";
-export const ATM_CARD_SECRET_KEY_ENV = "ATM_CARD_SECRET_KEY";
+export const ATM_CARD_PUBLIC_KEY_ENV = "STRIPE_PUBLIC_KEY";
+export const ATM_CARD_SECRET_KEY_ENV = "STRIPE_SECRET_KEY";
 
 /** Placement/status report for the admin ATM Card config. Never exposes values. */
 export function atmCardConfigStatus(): {
@@ -136,6 +136,6 @@ export function atmCardConfigStatus(): {
     publicKey,
     secretKey,
     gatewayRegistered,
-    connected: gatewayRegistered && publicKey && secretKey,
+    connected: gatewayRegistered && secretKey,
   };
 }

@@ -29,6 +29,11 @@ export default function Footer() {
               </Link>
             </li>
             <li>
+              <Link href="/discovery" className="transition hover:text-white">
+                Event Discovery
+              </Link>
+            </li>
+            <li>
               <Link href="/#how-it-works" className="transition hover:text-white">
                 How It Works
               </Link>

@@ -1,8 +1,8 @@
 // Ticket provider registry — register every available ticket provider here.
 import type { TicketProvider } from "./types";
-import { placeholderTicketingProvider } from "./placeholder";
+import { ticketmasterTicketProvider } from "./ticketmaster";
 
-export const ticketProviders: TicketProvider[] = [placeholderTicketingProvider];
+export const ticketProviders: TicketProvider[] = [ticketmasterTicketProvider];
 
 export function getTicketProvider(key: string): TicketProvider | undefined {
   return ticketProviders.find((p) => p.key === key);

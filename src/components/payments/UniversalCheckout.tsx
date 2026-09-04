@@ -36,7 +36,6 @@ export type MethodOption = {
 
 type Props = {
   kind: "FAN_CARD" | "TICKET";
-  /** Pre-resolved methods (server can pass them), or a URL to fetch them. */
   methods: MethodOption[];
   defaultMethod: "bank-transfer" | "atm-card" | null;
   amountCents: number;
@@ -44,14 +43,24 @@ type Props = {
   purchaseTitle: string;
   accent: string;
   redirectUrl: string;
-  /** Set for FAN_CARD purchases. */
   purchaseId?: string;
-  /** Set for TICKET purchases. */
   orderRef?: string;
 };
 
 const inputCls =
   "w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-emerald-500";
+
+function formatCardNumber(v: string) {
+  return v
+    .replace(/\D/g, "")
+    .slice(0, 19)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function formatExpiry(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+}
 
 export default function UniversalCheckout(props: Props) {
   const [method, setMethod] = useState<"bank-transfer" | "atm-card" | null>(props.defaultMethod);
@@ -60,11 +69,18 @@ export default function UniversalCheckout(props: Props) {
   const [info, setInfo] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  // Bank transfer fields
   const [senderName, setSenderName] = useState("");
   const [reference, setReference] = useState("");
   const [transferDate, setTransferDate] = useState("");
   const [proofName, setProofName] = useState<string | null>(null);
   const [proofData, setProofData] = useState<string | null>(null);
+
+  // Card fields
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
 
   const total = useMemo(() => formatMoney(props.amountCents / 100, props.currency), [props.amountCents, props.currency]);
 
@@ -132,30 +148,52 @@ export default function UniversalCheckout(props: Props) {
     }
   };
 
-  const payByCard = async () => {
+  const payByCard = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     setInfo(null);
+
+    if (!cardName.trim()) { setError("Enter the cardholder name."); return; }
+    const num = cardNumber.replace(/\s+/g, "");
+    if (num.length < 13 || num.length > 19 || !/^\d+$/.test(num)) { setError("Enter a valid card number."); return; }
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) { setError("Enter expiry as MM/YY."); return; }
+    if (!/^\d{3,4}$/.test(cardCvc)) { setError("Enter a valid security code."); return; }
+
     setProcessing(true);
-    // The real processor provides a secure token/session. With none connected,
-    // this is guarded earlier; here we push through the universal charge route.
     try {
-      const res = await fetch("/api/universal/atm-card", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: props.kind,
-          purchaseId: props.kind === "FAN_CARD" ? props.purchaseId : undefined,
-          orderRef: props.kind === "TICKET" ? props.orderRef : undefined,
-          provider: "secured-session-placeholder", // replaced by the real processor's token
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Card payment could not be completed.");
-        setProcessing(false);
-        return;
+      if (props.kind === "FAN_CARD") {
+        const res = await fetch(`/api/payments/${props.purchaseId}/pay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Card payment failed. Please try again.");
+          setProcessing(false);
+          return;
+        }
+        window.location.href = props.redirectUrl;
+      } else {
+        const res = await fetch("/api/universal/atm-card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "TICKET",
+            orderRef: props.orderRef,
+            card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Card payment could not be completed.");
+          setProcessing(false);
+          return;
+        }
+        window.location.href = props.redirectUrl;
       }
-      window.location.href = props.redirectUrl;
     } catch {
       setError("Network error. Please try again.");
       setProcessing(false);
@@ -278,27 +316,82 @@ export default function UniversalCheckout(props: Props) {
         </form>
       )}
 
-      {method === "atm-card" && (
-        <div className="space-y-4">
-          {cardAvailable ? (
+      {method === "atm-card" && cardAvailable && (
+        <form onSubmit={payByCard} className="space-y-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 2 · Card payment</p>
+            <p className="mt-1 text-sm text-zinc-400">Enter your card details to pay {total} securely.</p>
+          </div>
+
+          <div className="space-y-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 2 · Card payment</p>
-              <p className="mt-1 text-sm text-zinc-400">You&apos;ll be taken to a secure card screen to authorize {total}.</p>
-              {error && <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
-              <button
-                onClick={payByCard}
-                disabled={processing}
-                className="btn-grad mt-4 rounded-full px-8 py-3 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {processing ? "Connecting to secure card screen…" : `Pay ${total} by card`}
-              </button>
+              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Cardholder Name</label>
+              <input
+                required
+                value={cardName}
+                onChange={(e) => setCardName(e.target.value)}
+                className={inputCls}
+                placeholder="Name on card"
+              />
             </div>
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-6 text-sm text-zinc-400">
-              <p className="font-semibold text-zinc-200">ATM Card is not enabled yet.</p>
-              <p className="mt-1">{cardUnavailableReason ?? "No card processor is connected on this site."} Please use Bank Transfer.</p>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Card Number</label>
+              <input
+                required
+                inputMode="numeric"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                className={`${inputCls} font-mono`}
+                placeholder="4242 4242 4242 4242"
+              />
             </div>
-          )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Expiry</label>
+                <input
+                  required
+                  inputMode="numeric"
+                  value={cardExpiry}
+                  onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
+                  className={`${inputCls} font-mono`}
+                  placeholder="MM/YY"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">CVC</label>
+                <input
+                  required
+                  inputMode="numeric"
+                  value={cardCvc}
+                  onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className={`${inputCls} font-mono`}
+                  placeholder="123"
+                />
+              </div>
+            </div>
+          </div>
+
+          {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
+
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-zinc-500">
+              Secured by Stripe. Your card details are encrypted end-to-end.
+            </p>
+            <button
+              type="submit"
+              disabled={processing}
+              className="btn-grad shrink-0 rounded-full px-8 py-3 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {processing ? "Processing…" : `Pay ${total}`}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {method === "atm-card" && !cardAvailable && (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-6 text-sm text-zinc-400">
+          <p className="font-semibold text-zinc-200">ATM Card is not enabled yet.</p>
+          <p className="mt-1">{cardUnavailableReason ?? "No card processor is connected on this site."} Please use Bank Transfer.</p>
         </div>
       )}
 
