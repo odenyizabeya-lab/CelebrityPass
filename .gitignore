@@ -72,3 +72,6 @@ android/keystore.properties
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*

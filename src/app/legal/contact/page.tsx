@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import LegalShell from "@/components/legal/LegalShell";
+import ContactForm from "@/components/legal/ContactForm";
 
 export const metadata: Metadata = {
   title: "Contact & Support",
@@ -8,9 +9,12 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <LegalShell title="Contact & Support" updated="September 2, 2026">
-      <p>We&apos;re here to help. Choose the option that best matches your question.</p>
+    <LegalShell title="Contact & Support" updated="September 4, 2026">
+      <p>We&apos;re here to help. Send us a message below, or use the direct contact options that best match your question.</p>
 
+      <ContactForm />
+
+      <h2 className="text-base font-bold text-white">Direct contact options</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
           <h2 className="text-base font-bold text-white">General Support</h2>
@@ -34,12 +38,12 @@ export default function ContactPage() {
         </div>
 
         <div className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
-          <h2 className="text-base font-bold text-white">Privacy</h2>
+          <h2 className="text-base font-bold text-white">Privacy &amp; Data</h2>
           <p className="mt-2 text-sm text-zinc-400">
             Requests to access, correct, or delete your personal data.
           </p>
-          <a href="mailto:privacy@celebritypass.app" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
-            privacy@celebritypass.app
+          <a href="/legal/rights" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
+            User Rights &amp; Data Requests
           </a>
         </div>
 
@@ -54,16 +58,9 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <h2 className="text-base font-bold text-white">Operating Address</h2>
-      <p className="text-sm text-zinc-400">
-        CelebrityPass
-        <br />
-        Support: <a href="mailto:support@celebritypass.app" className="text-primary-400 underline">support@celebritypass.app</a>
-      </p>
-
       <p className="text-xs text-zinc-500">
-        For urgent account-security issues, email support with the subject line &quot;Security&quot; and we will
-        prioritize your request.
+        For urgent account-security issues, choose the <strong>Security</strong> category in the form above, or email
+        support with the subject line &quot;Security&quot;, and we will prioritize your request.
       </p>
     </LegalShell>
   );

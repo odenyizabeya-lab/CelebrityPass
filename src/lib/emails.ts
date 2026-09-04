@@ -196,6 +196,34 @@ async function send(to: string[], subject: string, html: string) {
   }
 }
 
+/**
+ * Generic transactional email (used by contact/support and account features).
+ * Resolves the configured `EMAIL_FROM` and sends to one or more recipients.
+ * Always resolves — if no provider is configured it logs and returns false.
+ */
+export async function sendEmail(
+  to: string[],
+  subject: string,
+  html: string,
+): Promise<boolean> {
+  const client = await getClient();
+  if (!client) {
+    console.warn("[email] No email provider configured. Skipping:", subject);
+    return false;
+  }
+  const from =
+    (await prisma.appSetting.findUnique({ where: { key: "EMAIL_FROM" } }))?.value ??
+    process.env.EMAIL_FROM ??
+    "CelebrityPass <noreply@celebritypass.app>";
+  try {
+    await client.emails.send({ from, to, subject, html });
+    return true;
+  } catch (err) {
+    console.error("[email] Failed to send:", subject, err);
+    return false;
+  }
+}
+
 /** Send when a fan card is issued (free tier or after payment). */
 export async function notifyCardIssued(input: {
   to: string;

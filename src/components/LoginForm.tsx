@@ -79,8 +79,13 @@ export default function LoginForm() {
         </button>
       </div>
 
-      <p className="mt-5 text-center text-xs text-zinc-500">
-        Don&apos;t have an account? <a href="/celebrities" className="text-primary-400 hover:text-primary-300">Join any community</a> to create one.
+      <p className="mt-3 text-center text-xs text-zinc-500">
+        <a href="/reset-password" className="text-zinc-400 underline hover:text-white">Forgot your password?</a>
+      </p>
+
+      <p className="mt-4 text-center text-xs text-zinc-500">
+        Don&apos;t have an account? <a href="/register" className="text-primary-400 hover:text-primary-300">Create one</a>, or{" "}
+        <a href="/celebrities" className="text-primary-400 hover:text-primary-300">join any community</a> to create one.
       </p>
     </form>
   );

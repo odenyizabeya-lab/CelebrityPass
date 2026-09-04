@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalShell title="Terms of Service" updated="September 2, 2026">
+    <LegalShell title="Terms of Service" updated="September 4, 2026">
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the{" "}
         <strong>CelebrityPass</strong> application, website, and services. By creating an account or using
@@ -49,6 +49,19 @@ export default function TermsPage() {
         with other users&apos; accounts or data; or use the service for unlawful purposes.
       </p>
 
+      <h2 className="text-base font-bold text-white">5a. Prohibited Activities</h2>
+      <p>
+        You may not use CelebrityPass to engage in, attempt, or facilitate any of the following:
+      </p>
+      <ul className="list-disc space-y-1 pl-5">
+        <li>Fraud, identity theft, or the impersonation of any person, the platform, or a celebrity.</li>
+        <li>Providing false, misleading, or fabricated payment or verification information.</li>
+        <li>Creating multiple accounts to abuse promotions, statistics, or community features.</li>
+        <li>Harassment, abuse, threats, hate speech, or the posting of content that is unlawful.</li>
+        <li>Reselling, transferring, or misrepresenting fan cards, tickets, or memberships without authorization.</li>
+        <li>Attempting to breach or circumvent our security, authentication, or rate-limiting measures.</li>
+      </ul>
+
       <h2 className="text-base font-bold text-white">6. Payment Terms</h2>
       <p>
         Payments are made via Bank Transfer or ATM Card. Bank-transfer payments remain pending until verified manually;
@@ -82,9 +95,29 @@ export default function TermsPage() {
         Continued use after changes constitutes acceptance of the updated Terms.
       </p>
 
+      <h2 className="text-base font-bold text-white">Third-Party Services &amp; Personal Data</h2>
+      <p>
+        The service may rely on third-party services (for example, hosting, payment processing, and email delivery) to
+        operate. Your use of the service and your personal data are handled in line with our{" "}
+        <a href="/legal/privacy" className="text-primary-400 underline">Privacy Policy</a>. Payments are governed by
+        our{" "}
+        <a href="/legal/payments" className="text-primary-400 underline">Payments &amp; Refunds</a>{" "}
+        page.
+      </p>
+
+      <h2 className="text-base font-bold text-white">Governing Law</h2>
+      <p>
+        The laws applicable to these Terms, and the jurisdiction for any dispute, depend on the country and legal
+        entity that operates CelebrityPass. CelebrityPass will state its governing-law provisions once the relevant
+        operating country and legal details are confirmed. Until then, these terms are provided without a claim of a
+        specific governing law or jurisdiction.
+      </p>
+
       <h2 className="text-base font-bold text-white">11. Contact</h2>
       <p>
-        Questions about these Terms can be sent to{" "}
+        Questions about these Terms can be sent through our{" "}
+        <a href="/legal/contact" className="text-primary-400 underline">Contact &amp; Support</a>{" "}
+        page or by emailing{" "}
         <a href="mailto:support@celebritypass.app" className="text-primary-400 underline">
           support@celebritypass.app
         </a>

@@ -17,15 +17,30 @@ export default function LegalShell({
           Home
         </Link>
         <span aria-hidden>·</span>
+        <Link href="/about" className="transition hover:text-white">
+          About
+        </Link>
+        <span aria-hidden>·</span>
         <Link href="/legal/privacy" className="transition hover:text-white">
           Privacy
         </Link>
+        <span aria-hidden>·</span>
         <Link href="/legal/terms" className="transition hover:text-white">
           Terms
         </Link>
+        <span aria-hidden>·</span>
+        <Link href="/security" className="transition hover:text-white">
+          Security
+        </Link>
+        <span aria-hidden>·</span>
+        <Link href="/legal/rights" className="transition hover:text-white">
+          Rights
+        </Link>
+        <span aria-hidden>·</span>
         <Link href="/legal/payments" className="transition hover:text-white">
           Payments &amp; Refunds
         </Link>
+        <span aria-hidden>·</span>
         <Link href="/legal/contact" className="transition hover:text-white">
           Contact
         </Link>

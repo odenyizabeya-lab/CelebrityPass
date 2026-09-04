@@ -25,5 +25,6 @@ export async function GET() {
     await clearFanSession();
     return NextResponse.json({ fan: null });
   }
-  return NextResponse.json({ fan });
+  const { password: _password, ...safeFan } = fan;
+  return NextResponse.json({ fan: safeFan });
 }
