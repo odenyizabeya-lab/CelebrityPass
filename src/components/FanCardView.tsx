@@ -11,6 +11,7 @@ export type CardViewData = {
   fanName: string;
   fanCountry: string | null;
   membershipName: string | null;
+  membershipPrice: number | null;
   celebrity: {
     name: string;
     slug: string;
@@ -28,25 +29,40 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   EXPIRED: { label: "Expired", cls: "bg-zinc-500/15 text-zinc-300 ring-zinc-400/30" },
 };
 
+// Cards at or above this price render in the premium black-gold "ELITE" skin.
+const PREMIUM_MIN_PRICE = 2500;
+
 /** Renders an official fan membership card for the given card data. */
 export default function FanCardView({ card }: { card: CardViewData }) {
   const design = tryParseJson<CardDesign>(card.celebrity.cardDesign, {
     primary: card.celebrity.accentColor,
   });
+  const premium = (card.membershipPrice ?? 0) >= PREMIUM_MIN_PRICE;
   const primary = design.primary || card.celebrity.accentColor;
-  const accent = design.accent || "#f59e0b";
+  const accent = premium ? "#f0b429" : design.accent || "#f59e0b";
   const gradientFrom = primary;
   const gradientTo = "#0b0c10";
   const status = STATUS_BADGE[card.status] ?? { label: card.status, cls: "bg-zinc-500/15 text-zinc-300" };
+  const badgeText = premium ? "ELITE EXPERIENCE" : design.badgeText ?? "FAN CARD";
+  const watermark = premium ? "OFFICIAL ELITE MEMBER" : design.watermark ?? "Official Fan Member";
 
   return (
     <div className="w-full max-w-2xl">
       <div
-        className="relative overflow-hidden rounded-3xl shadow-2xl ring-1 ring-white/15"
-        style={{ background: `linear-gradient(125deg, ${gradientFrom} 0%, #27104a 46%, ${gradientTo} 100%)` }}
+        className={`relative overflow-hidden rounded-3xl shadow-2xl ${
+          premium ? "ring-2 ring-amber-400/60" : "ring-1 ring-white/15"
+        }`}
+        style={{
+          background: premium
+            ? "linear-gradient(125deg, #1b1510 0%, #3a2b16 46%, #0b0c10 100%)"
+            : `linear-gradient(125deg, ${gradientFrom} 0%, #27104a 46%, ${gradientTo} 100%)`,
+        }}
       >
         {/* Holographic shine */}
         <div className="pointer-events-none absolute -inset-x-10 -top-24 h-48 rotate-6 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+        {premium && (
+          <div className="pointer-events-none absolute -left-10 top-1/3 h-40 w-32 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-300/15 to-transparent" />
+        )}
 
         {/* Watermark */}
         <div
@@ -69,7 +85,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                     alt={card.celebrity.name}
                     width={60}
                     height={75}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover object-top"
                     unoptimized
                   />
                 ) : (
@@ -163,10 +179,10 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                 className="text-[10px] font-black uppercase tracking-[0.2em]"
                 style={{ color: accent }}
               >
-                {design.badgeText ?? "FAN CARD"}
+                {badgeText}
               </p>
               <p className="mt-0.5 text-[10px] uppercase tracking-widest text-white/50">
-                {design.watermark ?? "Official Fan Member"}
+                {watermark}
               </p>
             </div>
           </div>

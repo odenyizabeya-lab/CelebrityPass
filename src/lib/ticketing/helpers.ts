@@ -54,3 +54,8 @@ export function clampQuantity(qty: number, available: number | null | undefined,
   if (available != null && available >= 0) q = Math.min(q, available);
   return q;
 }
+
+/** Unique ticket code for QR display, e.g. TKT-a1b2c3d4e5f6. */
+export function newTicketCode(): string {
+  return `TKT-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import EventDiscoverySearch from "@/components/EventDiscoverySearch";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Event Discovery — CelebrityPass",

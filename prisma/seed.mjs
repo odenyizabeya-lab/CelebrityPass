@@ -5,6 +5,7 @@
 //   computed live from the database, so a fresh install shows a truthful
 //   "starting state" until real registrations arrive.
 import { PrismaClient } from "@prisma/client";
+import { upsertPremiumLevels } from "./premium-levels.mjs";
 
 const prisma = new PrismaClient();
 
@@ -279,6 +280,8 @@ async function main() {
   const started = Date.now();
   let created = 0;
   let updated = 0;
+  let premiumCreated = 0;
+  let premiumUpdated = 0;
 
   for (const c of celebrities) {
     const profile = avatarDataUri(c.name, c.accentColor);
@@ -342,6 +345,11 @@ async function main() {
         await prisma.membershipLevel.create({ data: levelData });
       }
     }
+
+    // Premium "Experience" tiers ($2,500 – $3,000,000), same for every community.
+    const premiumResult = await upsertPremiumLevels(prisma, celebrity);
+    premiumCreated += premiumResult.created;
+    premiumUpdated += premiumResult.updated;
   }
 
   const totals = await Promise.all([
@@ -352,6 +360,7 @@ async function main() {
 
   console.log(`Seeded ${celebrities.length} celebrity communities in ${Date.now() - started}ms.`);
   console.log(`Created: ${created}, updated: ${updated}.`);
+  console.log(`Premium experience tiers created: ${premiumCreated}, updated: ${premiumUpdated}.`);
   console.log(`Database now holds: ${totals[0]} celebrities, ${totals[1]} fans, ${totals[2]} fan cards.`);
   console.log("Note: no fake fans were inserted — live counters reflect real data only.");
 }

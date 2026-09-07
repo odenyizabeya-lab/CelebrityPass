@@ -68,7 +68,7 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-8">
-        <MembershipsManager celebrityId={celebrity.id} initial={celebrity.memberships} initialPhoto={celebrity.profileImage} />
+        <MembershipsManager celebrityId={celebrity.id} initial={celebrity.memberships} />
       </div>
 
       <div className="glass mt-8 rounded-3xl border-rose-500/20 p-6 sm:p-8">

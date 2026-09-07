@@ -22,7 +22,7 @@ export default async function TicketsSection({ event }: { event: EventSummary })
         </div>
         {view.ticketLastSyncedAt && (
           <span className="text-[11px] text-zinc-500">
-            Availability last synchronized {new Date(view.ticketLastSyncedAt).toLocaleString()}
+            Last updated {new Date(view.ticketLastSyncedAt).toLocaleString()}
           </span>
         )}
       </div>
@@ -41,10 +41,31 @@ export default async function TicketsSection({ event }: { event: EventSummary })
 
         {event.status === "UPCOMING" && (
           <>
-            {sellable.length === 0 && others.length === 0 && (
+            {event.ticketsEnabled && (
+              <div className="rounded-2xl bg-emerald-500/10 p-5 ring-1 ring-emerald-400/25">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">🆓 Free QR-code ticket — register now</p>
+                    <p className="mt-1 text-sm text-emerald-200/80">
+                      {event.maxRegistrations != null
+                        ? `${event.registrationCount} / ${event.maxRegistrations} registered`
+                        : `${event.registrationCount} registered`}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/celebrity/${event.celebritySlug}/event/${event.eventId}/tickets`}
+                    className="btn-grad rounded-full px-5 py-2.5 text-sm font-bold text-white"
+                  >
+                    Register Free
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {sellable.length === 0 && others.length === 0 && !event.ticketsEnabled && (
               <EmptyState
-                title="No tickets listed"
-                message="No ticket inventory has been reported by our connected ticket sources for this event."
+                title="No tickets listed yet"
+                message="Ticket information for this event will appear here once it is added by the event organizer."
               />
             )}
 
@@ -123,7 +144,7 @@ export default async function TicketsSection({ event }: { event: EventSummary })
 
             {view.ticketLastSyncedAt && (
               <p className="text-xs text-zinc-600">
-                Availability is shown exactly as last reported by the connected ticket source — it may not be real-time.
+                Availability shown here is as last updated by the event organizer.
               </p>
             )}
           </>

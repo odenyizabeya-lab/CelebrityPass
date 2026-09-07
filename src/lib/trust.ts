@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "./db";
 
-/** Best-effort client IP extraction behind a proxy (Vercel/Next). */
+/** Best-effort client IP extraction behind a proxy (Cloudflare/Next). */
 export function clientIp(request: NextRequest): string {
   const fwd = request.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();

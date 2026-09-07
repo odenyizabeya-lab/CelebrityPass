@@ -6,11 +6,9 @@ import type { MembershipLevel } from "@prisma/client";
 export default function MembershipsManager({
   celebrityId,
   initial,
-  initialPhoto,
 }: {
   celebrityId: string;
   initial: MembershipLevel[];
-  initialPhoto?: string | null;
 }) {
   const [items, setItems] = useState<MembershipLevel[]>(initial);
   const [name, setName] = useState("");
@@ -20,14 +18,11 @@ export default function MembershipsManager({
   const [currency, setCurrency] = useState("USD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setScanMsg(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/celebrities/${celebrityId}/memberships`, {
@@ -53,49 +48,12 @@ export default function MembershipsManager({
       setDescription("");
       setBenefits("");
       setPrice("");
-      setScanMsg(null);
       setBusy(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
       setError("Network error.");
       setBusy(false);
-    }
-  };
-
-  const scanMembership = async () => {
-    setError(null);
-    setScanMsg(null);
-    if (!initialPhoto) {
-      setScanMsg("No celebrity photo is saved on this page yet. Save the celebrity first, then Scan for memberships.");
-      return;
-    }
-    setScanning(true);
-    try {
-      const res = await fetch("/api/admin/membership-scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: initialPhoto }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setScanning(false);
-        setScanMsg(`${data.error ?? "Scan failed."}${data.hint ? " " + data.hint : ""}`);
-        return;
-      }
-      const m = data.data;
-      setName(m && m.name ? m.name : "");
-      setDescription(m?.description ?? "");
-      setBenefits(m?.benefits ?? "");
-      setPrice(m?.price != null ? String(m.price) : "");
-      setCurrency(m?.currency || "USD");
-      setScanning(false);
-      setScanMsg(
-        `✔ Auto-filled from the celebrity photo: ${m?.name ?? "level"}`,
-      );
-    } catch {
-      setScanning(false);
-      setScanMsg("Network error during scan. Please try again.");
     }
   };
 
@@ -135,9 +93,6 @@ export default function MembershipsManager({
       {error && (
         <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
       )}
-      {scanMsg && (
-        <div className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">{scanMsg}</div>
-      )}
 
       {items.length > 0 && (
         <ul className="mt-5 divide-y divide-white/[0.05]">
@@ -175,8 +130,14 @@ export default function MembershipsManager({
 
       <form onSubmit={add} className="mt-5 grid gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-2 lg:grid-cols-3">
         <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Level name (e.g. VIP)" />
-        <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Description" />
-        <input value={benefits} onChange={(e) => setBenefits(e.target.value)} className={inputCls} placeholder="Benefits (optional)" />
+        <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Tagline / one-line description" />
+        <textarea
+          value={benefits}
+          onChange={(e) => setBenefits(e.target.value)}
+          className={`${inputCls} resize-y sm:col-span-2 lg:col-span-3`}
+          rows={4}
+          placeholder={"Benefits list — one per line:\nPrivate one-on-one meet & greet\nSigned collector's photo\nPriority event access"}
+        />
         <div className="flex gap-2">
           <input value={price} onChange={(e) => setPrice(e.target.value)} className={inputCls} placeholder="Price (leave blank = free)" type="number" min="0" step="0.01" />
           <input value={currency} onChange={(e) => setCurrency(e.target.value)} className={`${inputCls} w-20`} placeholder="USD" />
@@ -184,22 +145,10 @@ export default function MembershipsManager({
         <button type="submit" disabled={busy} className="btn-grad rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
           {busy ? "Adding…" : "+ Add Level"}
         </button>
-        <button
-          type="button"
-          onClick={scanMembership}
-          disabled={scanning}
-          className={`rounded-xl px-4 py-2.5 text-sm font-bold ring-1 transition disabled:opacity-60 ${
-            scanning
-              ? "bg-primary-500/20 text-primary-200 ring-primary-400/40"
-              : "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white ring-emerald-400/40 hover:opacity-90"
-          }`}
-        >
-          {scanning ? "Scanning…" : "✨ Scan with AI"}
-        </button>
       </form>
       <p className="mt-3 text-xs text-zinc-500">
-        Press <strong>✨ Scan with AI</strong> to auto-fill this level using the celebrity&apos;s saved photo above. Then
-        review and edit, and press <strong>+ Add Level</strong> to save.
+        Levels priced at <strong>$2,500+</strong> render as premium Signature Experience tiers with the benefit list above
+        shown as bullets. Example: <strong>Red Carpet</strong> $2,500 · <strong>The Immortal</strong> $3,000,000.
       </p>
     </div>
   );

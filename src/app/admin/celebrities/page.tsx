@@ -109,7 +109,7 @@ export default async function AdminCelebritiesPage({
               <li key={c.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
                   {c.profileImage ? (
-                    <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full object-cover" unoptimized />
+                    <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full object-cover object-top" unoptimized />
                   ) : (
                     <div className="grid h-full w-full place-items-center text-sm font-bold text-white" style={{ backgroundColor: c.accentColor }}>
                       {c.name[0]}

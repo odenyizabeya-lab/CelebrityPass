@@ -30,6 +30,9 @@ type AdminEvent = {
   ticketUrl: string | null;
   sourceUrl: string | null;
   verification: VerificationStatus;
+  registrationEnabled: boolean;
+  maxRegistrations: number | null;
+  ticketsEnabled: boolean;
   lastSyncedAt: string | null;
   updatedAt: string;
 };
@@ -392,6 +395,9 @@ function EventFormModal({
     sourceUrl: event?.sourceUrl ?? "",
     statusOverride: event?.status === "POSTPONED" || event?.status === "CANCELLED" ? event.status : "NONE",
     verification: event?.verification ?? "UNVERIFIED",
+    ticketsEnabled: event?.ticketsEnabled ?? false,
+    registrationEnabled: event?.registrationEnabled ?? false,
+    maxRegistrations: event?.maxRegistrations != null ? String(event.maxRegistrations) : "",
   }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -420,6 +426,9 @@ function EventFormModal({
         sourceUrl: form.sourceUrl || null,
         status: form.statusOverride,
         verification: form.verification,
+        ticketsEnabled: form.ticketsEnabled,
+        registrationEnabled: form.registrationEnabled,
+        maxRegistrations: form.maxRegistrations ? parseInt(form.maxRegistrations, 10) : null,
       };
       const res = await fetch(event ? `/api/events/${event.eventId}` : "/api/events", {
         method: event ? "PATCH" : "POST",
@@ -528,7 +537,7 @@ function EventFormModal({
               <label className={label}>Source URL</label>
               <input className={input} value={form.sourceUrl} onChange={(e) => set("sourceUrl", e.target.value)} placeholder="Original public source" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={label}>Status override</label>
                 <select className={input} value={form.statusOverride} onChange={(e) => set("statusOverride", e.target.value)}>
@@ -544,6 +553,26 @@ function EventFormModal({
                     <option key={v} value={v}>{v.charAt(0) + v.slice(1).toLowerCase()}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Free registration / QR tickets */}
+          <div className="glass rounded-2xl p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Free Registration &amp; QR Tickets</p>
+            <p className="mt-1 text-[11px] text-zinc-500">Enable free fan registration with QR-code tickets. No payment required.</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+              <label className="flex items-center gap-2 text-sm text-white">
+                <input type="checkbox" checked={form.ticketsEnabled} onChange={(e) => set("ticketsEnabled", e.target.checked)} className="h-4 w-4" />
+                Enable free QR tickets
+              </label>
+              <label className="flex items-center gap-2 text-sm text-white">
+                <input type="checkbox" checked={form.registrationEnabled} onChange={(e) => set("registrationEnabled", e.target.checked)} className="h-4 w-4" />
+                Show registration form
+              </label>
+              <div>
+                <label className="text-xs text-zinc-400">Max registrations (blank = unlimited)</label>
+                <input type="number" min="0" className={input} value={form.maxRegistrations} onChange={(e) => set("maxRegistrations", e.target.value)} placeholder="Unlimited" />
               </div>
             </div>
           </div>

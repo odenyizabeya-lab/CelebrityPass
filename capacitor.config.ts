@@ -3,7 +3,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 /**
  * CelebrityPass — Capacitor configuration.
  *
- * The web application is a server-rendered Next.js app (Prisma + SQLite on the
+ * The web application is a server-rendered Next.js app (Prisma on the
  * backend), so the Android app is a secure WebView shell that loads the hosted
  * production site rather than a static bundle. Set NEXT_PUBLIC_APP_URL to your
  * production HTTPS domain before building the release (see .env.example).

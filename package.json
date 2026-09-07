@@ -4,8 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && prisma generate && next build",
+    "build": "prisma migrate deploy && prisma generate && node prisma/apply-premium-levels.mjs && next build",
     "start": "next start",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "postinstall": "prisma generate",
     "lint": "eslint",
     "db:generate": "prisma generate",
@@ -14,6 +18,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:setup": "prisma generate && prisma db push && node prisma/seed.mjs",
+    "premium:apply": "node prisma/apply-premium-levels.mjs",
     "events:seed": "node prisma/seed-events.mjs",
     "events:sync": "node scripts/sync-events.mjs",
     "tickets:sync": "node scripts/sync-tickets.mjs",
@@ -31,6 +36,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
@@ -39,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.0.0"
   }
 }

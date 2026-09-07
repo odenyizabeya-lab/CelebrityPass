@@ -132,6 +132,17 @@ function OrderBody({
             Delivery: {deliveryMethodLabel(order.deliveryMethod)}
             {order.deliveryDetail ? <span className="mt-1 block text-zinc-500">{order.deliveryDetail}</span> : null}
           </p>
+
+          {/* Free ticket QR link */}
+          {order.totalCents === 0 && (
+            <Link
+              href={`/order/${order.orderRef}/ticket?t=${order.accessToken}`}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-500/20 px-5 py-3 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/30"
+            >
+              🎫 View your QR ticket →
+            </Link>
+          )}
+
           <p className="mt-3 rounded-xl bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-zinc-400 ring-1 ring-white/10">
             Your tickets are issued by the official ticket source tied to this event. This confirmation only records the successful
             payment — the ticket itself comes from the authorized seller.

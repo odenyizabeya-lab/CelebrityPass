@@ -7,11 +7,32 @@
 // "musicbrainz.org" linked events (when available).
 //
 // Only publicly announced events are fetched; nothing is ever fabricated.
+// NOTE: MusicBrainz event coverage is community-maintained and mostly
+// historical — it is a discovery/history source, not a live ticket feed.
 import type { PrismaClient } from "@prisma/client";
 import type { PublicEventProvider, PublicEventFetchResult, PublicEventRecord, ProviderOptions } from "./types";
+import { isEventType } from "../types";
 
 const API_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "CelebrityPass/1.0 (event-discovery)";
+
+// Keep events that start inside this window (recent past → upcoming). The
+// sync engine derives COMPLETED/current status from dates; going further
+// back would only flood the DB with stale history.
+const RECENT_LOOKBACK_MS = 93 * 24 * 3600 * 1000; // ~3 months
+const UPCOMING_HORIZON_MS = 18 * 30 * 24 * 3600 * 1000; // ~18 months
+const MAX_PER_ARTIST = 100;
+
+type MusicBrainzEvent = {
+  id?: string;
+  name?: string;
+  time?: string;
+  type?: string;
+  setlist?: string;
+  disambiguation?: string;
+  cancelled?: boolean;
+  "life-span"?: { begin?: string; end?: string; ended?: boolean };
+};
 
 async function searchArtistMbid(name: string): Promise<string | null> {
   const url = `${API_BASE}/artist/?query=${encodeURIComponent(name)}&fmt=json&limit=1`;
@@ -28,6 +49,16 @@ async function searchArtistMbid(name: string): Promise<string | null> {
   return artist.id;
 }
 
+/** Combine a "YYYY-MM-DD" begin date with an announced "HH:mm(:ss)" time. */
+function parseEventStart(dateStr: string, time: string): Date | null {
+  let timePart = "00:00:00";
+  if (time && /^\d{1,2}:\d{2}(:\d{2})?$/.test(time)) {
+    timePart = time.length === 5 ? `${time}:00` : time;
+  }
+  const d = new Date(`${dateStr}T${timePart}Z`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 async function getArtistEvents(mbid: string): Promise<PublicEventRecord[]> {
   // MusicBrainz exposes events via the "events" relationship in artist detail.
   const url = `${API_BASE}/artist/${mbid}?inc=event-rels&fmt=json`;
@@ -40,62 +71,58 @@ async function getArtistEvents(mbid: string): Promise<PublicEventRecord[]> {
   if (!res.ok) return [];
 
   const data = (await res.json()) as {
-    relations?: {
-      event?: {
-        id?: string;
-        name?: string;
-        time?: string;
-        type?: string;
-        setlist?: string;
-        lifeSpan?: { begin?: string; end?: string };
-      };
-      type?: string;
-      "target-type"?: string;
-    }[];
+    relations?: { "target-type"?: string; event?: MusicBrainzEvent }[];
     name?: string;
   };
 
   const records: PublicEventRecord[] = [];
   const artistName = data.name ?? "";
+  const now = Date.now();
+  const minBegin = now - RECENT_LOOKBACK_MS;
+  const maxBegin = now + UPCOMING_HORIZON_MS;
 
   for (const rel of data.relations ?? []) {
     // Only performance relationships pointing at an event.
     if (rel["target-type"] !== "event") continue;
     const ev = rel.event;
-    if (!ev?.name) continue;
+    if (!ev) continue;
 
-    // The date comes from the event's life-span begin; `time` (HH:mm) is the
-    // announced time-of-day. Combine them into a UTC instant.
-    const dateStr = ev.lifeSpan?.begin;
+    // The date lives under the "life-span" key (hyphenated). `time` (HH:mm)
+    // is the announced time-of-day. Combine them into a UTC instant.
+    const dateStr = ev["life-span"]?.begin;
     if (!dateStr) continue;
-    let startDate: Date;
-    if (ev.time && /^\d{1,2}:\d{2}/.test(ev.time)) {
-      startDate = new Date(`${dateStr}T${ev.time}:00Z`);
-    } else {
-      startDate = new Date(`${dateStr}T00:00:00Z`);
-    }
-    if (isNaN(startDate.getTime())) continue;
+    const startAt = parseEventStart(dateStr, ev.time ?? "");
+    if (!startAt) continue;
+    // Skip stale/too-far history and anything beyond the upcoming horizon.
+    if (startAt.getTime() < minBegin || startAt.getTime() > maxBegin) continue;
+
+    const title = ev.name ?? "Concert";
+    const label = ev.disambiguation ? `${title} (${ev.disambiguation})` : title;
+    const name = artistName ? `${artistName} — ${label}` : label;
 
     records.push({
       externalId: ev.id ?? null,
       sourceUrl: `https://musicbrainz.org/event/${ev.id}`,
-      name: `${artistName} — ${ev.name}`,
-      type: ev.type ?? "Concert",
-      description: ev.setlist ? `Setlist available` : null,
+      name,
+      type: ev.type && isEventType(ev.type) ? ev.type : "Other",
+      description: ev.setlist ? "Setlist noted on MusicBrainz." : null,
       venue: null,
       city: null,
       region: null,
       country: null,
-      startAt: startDate,
-      endAt: ev.lifeSpan?.end ? new Date(ev.lifeSpan.end) : null,
+      startAt,
+      endAt: ev["life-span"]?.end ? new Date(`${ev["life-span"].end}T00:00:00Z`) : null,
       timezone: null,
       allDay: false,
       officialUrl: `https://musicbrainz.org/event/${ev.id}`,
       ticketUrl: null,
+      statusOverride: ev.cancelled ? "CANCELLED" : null,
     });
   }
 
-  return records;
+  // Soonest first, capped so one artist can never flood the feed.
+  records.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  return records.slice(0, MAX_PER_ARTIST);
 }
 
 export const musicbrainzProvider: PublicEventProvider = {

@@ -237,10 +237,19 @@ model CelebrityEvent {
   verifiedBy     String?  // "admin" etc.
   verifiedAt     DateTime?
 
+  // Free registration settings
+  registrationEnabled  Boolean  @default(false)
+  maxRegistrations     Int?     // null = unlimited
+  registrationCount    Int      @default(0)
+
+  // Free QR tickets enabled (set true to allow fans to register + get QR tickets)
+  ticketsEnabled       Boolean  @default(false)
+
   sources        EventSourceLink[]
   updates        EventUpdate[]
   ticketInventory TicketInventory[]
   ticketOrders   TicketOrder[]
+  registrations  EventRegistration[]
   lastSyncedAt   DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -249,6 +258,33 @@ model CelebrityEvent {
   @@index([status])
   @@index([startAt])
   @@index([verification])
+}
+
+// A fan registration for a free event ticket with QR code.
+model EventRegistration {
+  id            String   @id @default(cuid())
+  eventId       String
+  event         CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderId       String?  // linked TicketOrder if created via checkout
+  order         TicketOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  name          String
+  email         String
+  phone         String?
+  country       String?
+
+  ticketCode    String   @unique // unique ticket identifier, e.g. TKT-xxxx
+  ticketQrData  String   // data encoded in the QR code
+  checkedIn     Boolean  @default(false)
+  checkedInAt   DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([email])
+  @@index([ticketCode])
+  @@index([eventId, email])
 }
 
 // Audit trail: every meaningful status/verification change on an event.
@@ -340,12 +376,16 @@ model TicketOrder {
   notes             String?
   statusHistoryJson String? // array of {status, at, note} snapshots
 
+  // QR ticket code (set when order is confirmed for free registration)
+  ticketCode        String?  @unique
+
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
 items         TicketOrderItem[]
   transactions  TicketTransaction[]
   bankTransferProofs BankTransferProof[]
+  registrations EventRegistration[]
 
   @@index([eventId])
   @@index([status])

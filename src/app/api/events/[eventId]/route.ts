@@ -40,6 +40,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.ticketUrl !== undefined) data.ticketUrl = body.ticketUrl ? String(body.ticketUrl) : null;
   if (body.sourceUrl !== undefined) data.sourceUrl = body.sourceUrl ? String(body.sourceUrl) : null;
 
+  // Free registration / QR tickets
+  if (body.ticketsEnabled !== undefined) data.ticketsEnabled = Boolean(body.ticketsEnabled);
+  if (body.registrationEnabled !== undefined) data.registrationEnabled = Boolean(body.registrationEnabled);
+  if (body.maxRegistrations !== undefined) data.maxRegistrations = body.maxRegistrations != null ? Number(body.maxRegistrations) : null;
+
   const startAt = body.startAt ? new Date(body.startAt) : existing.startAt;
   const endAt = body.endAt ? new Date(body.endAt) : body.endAt === null ? null : existing.endAt;
   data.startAt = startAt;

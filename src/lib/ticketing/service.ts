@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { computeEventStatus } from "@/lib/events/helpers";
 import { isCommerceState, requireGateway } from "./gateways";
-import { clampQuantity, newAccessToken, newOrderRef, pushStatusHistory } from "./helpers";
+import { clampQuantity, newAccessToken, newOrderRef, newTicketCode, pushStatusHistory } from "./helpers";
 import { MAX_TICKETS_PER_ORDER } from "./types";
 import type { PrismaClient } from "@prisma/client";
 
@@ -148,14 +148,18 @@ export async function createTicketOrder(input: {
 
   const subtotal = lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0);
   const fees = lines.reduce((sum, l) => sum + l.feesEachCents * l.quantity, 0);
+  const totalCents = subtotal + fees;
+  const isFree = totalCents === 0;
 
   const orderRef = newOrderRef();
   const accessToken = newAccessToken();
+  const ticketCode = isFree ? newTicketCode() : null;
 
   const order = await prisma.ticketOrder.create({
     data: {
       orderRef,
       accessToken,
+      ticketCode,
       fanId: input.fanId ?? null,
       eventId: event.id,
       customerName: input.customer.name.trim(),
@@ -164,11 +168,19 @@ export async function createTicketOrder(input: {
       customerCountry: input.customer.country?.trim() || null,
       subtotalCents: subtotal,
       feesCents: fees,
-      totalCents: subtotal + fees,
+      totalCents,
       currency,
-      status: "PENDING_PAYMENT",
-      paymentStatus: "UNPAID",
-      statusHistoryJson: pushStatusHistory(null, { status: "PENDING_PAYMENT", at: new Date().toISOString(), note: "Order created (awaiting payment)." }),
+      status: isFree ? "CONFIRMED" : "PENDING_PAYMENT",
+      paymentStatus: isFree ? "PAID" : "UNPAID",
+      paidAt: isFree ? new Date() : null,
+      amountPaidCents: isFree ? 0 : null,
+      deliveryMethod: isFree ? "DIGITAL" : null,
+      deliveryDetail: isFree ? "Free registration — show your QR ticket at the door." : null,
+      statusHistoryJson: pushStatusHistory(null, {
+        status: isFree ? "CONFIRMED" : "PENDING_PAYMENT",
+        at: new Date().toISOString(),
+        note: isFree ? "Free registration confirmed instantly." : "Order created (awaiting payment).",
+      }),
       items: {
         create: lines.map((l) => ({
           inventoryId: l.inventoryId,
@@ -185,17 +197,53 @@ export async function createTicketOrder(input: {
       transactions: {
         create: {
           kind: "PAYMENT",
-          status: "INITIATED",
-          amountCents: subtotal + fees,
+          status: isFree ? "SUCCEEDED" : "INITIATED",
+          amountCents: totalCents,
           currency,
-          message: "Payment attempt not yet made.",
+          message: isFree ? "Free registration — no payment required." : "Payment attempt not yet made.",
         },
       },
     },
     include: { items: true },
   });
 
-  return { orderRef, accessToken, orderId: order.id };
+  // For free orders: create EventRegistration record and update event count
+  if (isFree && ticketCode) {
+    const qrData = JSON.stringify({ ticketCode, eventId: event.eventId, orderRef });
+    await prisma.eventRegistration.create({
+      data: {
+        eventId: event.id,
+        orderId: order.id,
+        name: input.customer.name.trim(),
+        email: input.customer.email.trim().toLowerCase(),
+        phone: input.customer.phone?.trim() || null,
+        country: input.customer.country?.trim() || null,
+        ticketCode,
+        ticketQrData: qrData,
+      },
+    });
+    await prisma.celebrityEvent.update({
+      where: { id: event.id },
+      data: { registrationCount: { increment: 1 } },
+    });
+
+    // Fire confirmation email (non-blocking).
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    import("../emails").then(({ notifyOrderConfirmed }) =>
+      notifyOrderConfirmed({
+        to: input.customer.email.trim().toLowerCase(),
+        customerName: input.customer.name.trim(),
+        orderRef: order.orderRef,
+        eventName: event.name,
+        totalCents: 0,
+        currency,
+        items: lines.map((l) => ({ ticketName: l.ticketName, quantity: l.quantity, subtotalCents: 0 })),
+        orderUrl: `${appUrl}/order/${order.orderRef}?t=${accessToken}`,
+      }),
+    );
+  }
+
+  return { orderRef, accessToken, orderId: order.id, ticketCode };
 }
 
 export function orderPublicView(order: {

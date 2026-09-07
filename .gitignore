@@ -48,8 +48,10 @@ npm-install-out.txt
 dev-server.log
 dev-server.err.log
 
-# vercel
-.vercel
+# cloudflare
+.wrangler
+.dev.vars
+.open-next
 
 # ===========================================================================
 # Android signing — PRIVATE. Never commit keystores, credentials, or signing
@@ -65,6 +67,9 @@ android/keystore.properties
 !*.jks.example
 /signing/
 
+# Vercel local project link (has project/org IDs, not meant to be shared)
+/.vercel
+
 # Capacitor local config (machine/keystore specifics live here, not committed)
 /android/local.properties
 /.cargo
@@ -72,6 +77,3 @@ android/keystore.properties
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-.vercel
-.env*

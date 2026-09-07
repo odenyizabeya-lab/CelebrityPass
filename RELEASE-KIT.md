@@ -9,7 +9,7 @@ Generated: 2026-09-02. Final status: signed Android build produced; web build gr
 The `app-release.aab`/`app-release.apk` are **signed and installable NOW**, but the app loads the **hosted web application** in a WebView (it is a server-rendered Next.js app with a database — it cannot run fully inside an APK). The APK is a secure shell that opens `NEXT_PUBLIC_APP_URL`.
 
 - Until the web app is deployed over HTTPS at a real domain, the APK will show an error page.
-- **To make the app functional:** deploy this Next.js app to a host (VPS = Node + Prisma + SQLite; or Vercel/Railway etc.), set the required env vars, and set `NEXT_PUBLIC_APP_URL` to that HTTPS domain, then rebuild the AAB (`npm run build:android` below).
+- **To make the app functional:** deploy this Next.js app to a host (VPS = Node + Prisma + SQLite; or Cloudflare Workers/Pages etc.), set the required env vars, and set `NEXT_PUBLIC_APP_URL` to that HTTPS domain, then rebuild the AAB (`npm run build:android` below).
 - `capacitor.config.ts` currently uses the placeholder `https://celebritypass.app`. Change it via the `NEXT_PUBLIC_APP_URL` env var before the final Play build.
 
 ---

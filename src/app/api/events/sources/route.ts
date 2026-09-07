@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
 import { getEventSources } from "@/lib/events/service";
 import { eventProviders } from "@/lib/events/sources/registry";
-import { hasTicketmasterApiKey } from "@/lib/events/sources/ticketing-settings";
+import { hasProviderKey } from "@/lib/events/sources/provider-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -11,18 +11,16 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const sources = await getEventSources();
-  const tmKeySet = await hasTicketmasterApiKey();
   const providers = eventProviders.map((p) => ({
     key: p.key,
     label: p.label,
     requiresCredentials: p.requiresCredentials,
     credentialEnvVars: p.credentialEnvVars,
   }));
-  return NextResponse.json({ sources, providers, ticketmasterKeySet: tmKeySet });
+  return NextResponse.json({ sources, providers });
 }
 
 // POST /api/events/sources — create/enable a provider-backed source (admin).
-// Credentials are NOT stored here — only an env-key reference and mask flag.
 export async function POST(request: NextRequest) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
@@ -33,12 +31,7 @@ export async function POST(request: NextRequest) {
   if (existing) return NextResponse.json({ error: "Source already exists" }, { status: 409 });
 
   const provider = eventProviders.find((p) => p.key === key);
-  const tmKeySet = key === "ticketmaster" ? await hasTicketmasterApiKey() : false;
-  const hasCreds =
-    (provider?.credentialEnvVars.some((v) => typeof process.env[v] === "string" && process.env[v]!.length > 0) ?? false) ||
-    tmKeySet;
-  // No-credential providers (e.g. MusicBrainz) are enabled by default; others
-  // require their key/env credential to be present before enabling.
+  const hasCreds = provider ? await hasProviderKey(key) : false;
   const source = await prisma.eventSource.create({
     data: {
       key,

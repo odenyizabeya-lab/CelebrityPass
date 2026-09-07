@@ -6,7 +6,7 @@ import FaqSection from "@/components/FaqSection";
 import { getCelebritySummaries, getPlatformStats } from "@/lib/services";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [stats, celebrities] = await Promise.all([getPlatformStats(), getCelebritySummaries()]);
@@ -14,11 +14,12 @@ export default async function HomePage() {
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
   const popular = [...celebrities].sort((a, b) => b.fanCount - a.fanCount).slice(0, 4);
 
-  const memberCountries = await prisma.fan.findMany({
+  const memberCountryGroups = await prisma.fan.groupBy({
     where: { isActive: true, country: { not: null } },
-    select: { country: true },
-    distinct: ["country"],
+    by: ["country"],
+    _count: { _all: true },
   });
+  const memberCountries = memberCountryGroups.map((g) => ({ country: g.country ?? "" }));
 
   return (
     <div className="overflow-hidden">

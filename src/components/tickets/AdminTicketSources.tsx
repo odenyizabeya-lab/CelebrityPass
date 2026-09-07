@@ -64,11 +64,25 @@ export default function AdminTicketSources({ sources, providers }: { sources: So
       {error && <p className="mb-4 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200 ring-1 ring-rose-400/20">{error}</p>}
 
       <section className="mb-6">
-        <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Registered ticket providers</h2>
+        <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Ticket setup</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Ticket inventory can only come from these authorized providers (never from the manual “admin” source).
+          Tickets are added manually through the admin inventory panel — free event registration with QR tickets. No external
+          ticket providers or API keys are required.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {providers.length === 0 && (
+            <div className="glass rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-white">Manual ticket setup</p>
+                <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-300 ring-1 ring-emerald-400/30">
+                  FREE
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-400">
+                Add tickets and availability directly in Admin → Tickets → Inventory. Works out of the box with zero configuration.
+              </p>
+            </div>
+          )}
           {providers.map((p) => (
             <div key={p.key} className="glass rounded-2xl p-4">
               <div className="flex items-center justify-between">

@@ -1,21 +1,14 @@
-// Provider registry — register every available event provider here.
+// Provider registry — free providers, plus keyed providers whose key is
+// entered in admin (never exposed to the browser).
 import type { PublicEventProvider } from "./types";
 import { adminManualProvider } from "./admin-manual";
-import { eventbriteProvider } from "./placeholder-api";
-import { ticketmasterProvider } from "./ticketmaster";
-import { bandsintownProvider } from "./bandsintown";
-import { setlistFmProvider } from "./setlistfm";
 import { musicbrainzProvider } from "./musicbrainz";
-import { seatgeekProvider } from "./seatgeek";
+import { ticketmasterProvider } from "./ticketmaster";
 
 export const eventProviders: PublicEventProvider[] = [
   adminManualProvider,
-  ticketmasterProvider,
-  eventbriteProvider,
-  bandsintownProvider,
-  setlistFmProvider,
   musicbrainzProvider,
-  seatgeekProvider,
+  ticketmasterProvider,
 ];
 
 export function getProvider(key: string): PublicEventProvider | undefined {

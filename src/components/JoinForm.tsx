@@ -15,6 +15,17 @@ const COUNTRIES = [
   "United Kingdom", "United States", "Vietnam",
 ];
 
+// Membership levels priced at or above this are treated as premium "Signature
+// Experience" tiers and get the featured, full-width treatment in the form.
+const PREMIUM_MIN_PRICE = 2500;
+
+function benefitLines(text?: string | null): string[] {
+  return (text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export default function JoinForm({
   slug,
   celebrityName,
@@ -31,6 +42,9 @@ export default function JoinForm({
   const presetLevel = searchParams.get("level") ?? "";
   const defaultLevel =
     memberships.find((m) => m.id === presetLevel)?.id ?? memberships[0]?.id ?? "";
+
+  const standard = memberships.filter((m) => (m.price ?? 0) < PREMIUM_MIN_PRICE);
+  const premium = memberships.filter((m) => (m.price ?? 0) >= PREMIUM_MIN_PRICE);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -121,45 +135,97 @@ export default function JoinForm({
       {memberships.length > 0 && (
         <div className="mt-6">
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Membership Level *</label>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {memberships.map((m) => (
-              <label
-                key={m.id}
-                className={`relative cursor-pointer rounded-2xl border p-4 transition ${
-                  level === m.id
-                    ? "border-primary-500 bg-primary-600/15"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/25"
-                }`}
-                style={level === m.id ? { boxShadow: `0 0 0 1px ${accent}` } : undefined}
-              >
-                <input
-                  type="radio"
-                  name="level"
-                  value={m.id}
-                  checked={level === m.id}
-                  onChange={() => setLevel(m.id)}
-                  className="sr-only"
-                />
-                <span className="text-sm font-bold" style={{ color: accent }}>
-                  {m.name}
-                </span>
-                {m.price != null && m.price > 0 ? (
-                  <span className="ml-1.5 text-xs font-bold text-emerald-300">{formatMoney(m.price, m.currency)}</span>
-                ) : (
-                  <span className="ml-1.5 text-xs font-bold text-emerald-300">Free</span>
-                )}
-                <span className="mt-1 block text-xs leading-relaxed text-zinc-400">
-                  {m.description ?? m.benefits ?? `Official ${celebrityName} fan card`}
-                </span>
-              </label>
-            ))}
-          </div>
+          {standard.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {standard.map((m) => (
+                <label
+                  key={m.id}
+                  className={`relative cursor-pointer rounded-2xl border p-4 transition ${
+                    level === m.id
+                      ? "border-primary-500 bg-primary-600/15"
+                      : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                  }`}
+                  style={level === m.id ? { boxShadow: `0 0 0 1px ${accent}` } : undefined}
+                >
+                  <input
+                    type="radio"
+                    name="level"
+                    value={m.id}
+                    checked={level === m.id}
+                    onChange={() => setLevel(m.id)}
+                    className="sr-only"
+                  />
+                  <span className="text-sm font-bold" style={{ color: accent }}>
+                    {m.name}
+                  </span>
+                  {m.price != null && m.price > 0 ? (
+                    <span className="ml-1.5 text-xs font-bold text-emerald-300">{formatMoney(m.price, m.currency)}</span>
+                  ) : (
+                    <span className="ml-1.5 text-xs font-bold text-emerald-300">Free</span>
+                  )}
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-400">
+                    {m.description ?? m.benefits ?? `Official ${celebrityName} fan card`}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {premium.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
+                Signature Experiences · {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}
+              </p>
+              <div className="space-y-3">
+                {premium.map((m) => {
+                  const selected = level === m.id;
+                  return (
+                    <label
+                      key={m.id}
+                      className={`relative block cursor-pointer rounded-2xl border p-5 transition ${
+                        selected
+                          ? "border-amber-400/60 bg-gradient-to-br from-amber-400/10 via-white/[0.03] to-rose-500/5 shadow-[0_0_40px_rgba(251,191,36,0.12)]"
+                          : "border-white/10 bg-white/[0.03] hover:border-amber-400/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="level"
+                        value={m.id}
+                        checked={selected}
+                        onChange={() => setLevel(m.id)}
+                        className="sr-only"
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 text-base font-black text-white">
+                          {m.name}
+                          <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
+                            Experience
+                          </span>
+                        </span>
+                        <span className="text-base font-black text-amber-300">{formatMoney(m.price ?? 0, m.currency)}</span>
+                      </div>
+                      {m.description && <p className="mt-1.5 text-sm font-medium text-zinc-300">{m.description}</p>}
+                      <ul className="mt-3 space-y-1.5">
+                        {benefitLines(m.benefits ?? m.description).map((line) => (
+                          <li key={line} className="flex items-start gap-2 text-sm leading-relaxed text-zinc-400">
+                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" />
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-zinc-500">
-          Joining is free. Your card is issued instantly. You&apos;ll receive your unique Fan ID and card page.
+          Free and standard tiers are issued instantly. Signature Experience tiers complete after payment at checkout.
         </p>
         <button
           type="submit"

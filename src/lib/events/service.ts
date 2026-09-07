@@ -27,6 +27,10 @@ export type EventSummary = {
   ticketUrl: string | null;
   sourceUrl: string | null;
   verification: string;
+  registrationEnabled: boolean;
+  maxRegistrations: number | null;
+  registrationCount: number;
+  ticketsEnabled: boolean;
   lastSyncedAt: Date | null;
   updatedAt: Date;
   /** True when a connected ticket source reports sellable inventory for this event. */
@@ -54,6 +58,10 @@ type EventRow = {
   ticketUrl: string | null;
   sourceUrl: string | null;
   verification: string;
+  registrationEnabled: boolean;
+  maxRegistrations: number | null;
+  registrationCount: number;
+  ticketsEnabled: boolean;
   lastSyncedAt: Date | null;
   updatedAt: Date;
 };
@@ -87,6 +95,10 @@ function toSummary(row: EventRow): EventSummary {
     ticketUrl: row.ticketUrl,
     sourceUrl: row.sourceUrl,
     verification: row.verification,
+    registrationEnabled: row.registrationEnabled,
+    maxRegistrations: row.maxRegistrations,
+    registrationCount: row.registrationCount,
+    ticketsEnabled: row.ticketsEnabled,
     lastSyncedAt: row.lastSyncedAt,
     updatedAt: row.updatedAt,
   };

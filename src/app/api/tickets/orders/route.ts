@@ -35,7 +35,12 @@ export async function POST(request: NextRequest) {
       },
     });
     return NextResponse.json(
-      { ok: true, orderRef: result.orderRef, token: result.accessToken },
+      {
+        ok: true,
+        orderRef: result.orderRef,
+        token: result.accessToken,
+        ticketCode: result.ticketCode ?? null,
+      },
       { status: 201 },
     );
   } catch (e) {

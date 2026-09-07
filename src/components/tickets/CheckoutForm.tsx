@@ -63,7 +63,12 @@ export default function CheckoutForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not place the order.");
-      router.push(`/order/${data.orderRef}?t=${data.token}&created=1`);
+      // Free orders are auto-confirmed — go straight to the ticket page
+      if (data.ticketCode) {
+        router.push(`/order/${data.orderRef}/ticket?t=${data.token}`);
+      } else {
+        router.push(`/order/${data.orderRef}?t=${data.token}&created=1`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not place the order.");
       setBusy(false);
@@ -93,8 +98,15 @@ export default function CheckoutForm({
         </section>
 
         <section className="glass rounded-2xl p-6">
-          <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500">Pay with</h3>
-          {paymentMethods.length === 0 ? (
+          <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500">
+            {totals.total === 0 ? "Free Registration" : "Pay with"}
+          </h3>
+          {totals.total === 0 ? (
+            <div className="mt-3 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200/90 ring-1 ring-emerald-400/20">
+              This event is <strong>free to attend</strong>. No payment details are required — you&apos;ll receive a QR ticket
+              immediately after registering.
+            </div>
+          ) : paymentMethods.length === 0 ? (
             <div className="mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90 ring-1 ring-amber-400/20">
               No payment method is configured on this site yet. Your order will be saved as <strong>awaiting payment</strong>{" "}
               {officialTicketUrl ? (
@@ -129,8 +141,9 @@ export default function CheckoutForm({
           )}
 
           <p className="mt-4 text-[11px] leading-relaxed text-zinc-500">
-            Your card is issued only after the payment is successfully processed by the connected gateway. We never store your payment
-            details in the browser.
+            {totals.total === 0
+              ? "No payment details are needed. Your QR ticket is issued instantly after registration."
+              : "Your card is issued only after the payment is successfully processed by the connected gateway. We never store your payment details in the browser."}
           </p>
         </section>
 
@@ -141,10 +154,12 @@ export default function CheckoutForm({
           disabled={busy}
           className="btn-grad w-full rounded-full py-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Placing order…" : "Review & place order"}
+          {busy ? "Registering…" : totals.total === 0 ? "Get Free Ticket" : "Review & place order"}
         </button>
         <p className="text-center text-[11px] text-zinc-500">
-          Placing an order does not charge you and is not a confirmation. Confirmation happens only after a successful payment.
+          {totals.total === 0
+            ? "Your QR ticket will appear instantly after registration."
+            : "Placing an order does not charge you and is not a confirmation. Confirmation happens only after a successful payment."}
         </p>
       </div>
 

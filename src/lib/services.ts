@@ -44,11 +44,30 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
 
   const celebrities = await prisma.celebrity.findMany({
     where,
-    include: {
-      fans: { where: { status: "ACTIVE" }, select: { id: true, fan: { select: { country: true } } } },
-    },
     orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
   });
+
+  const [countRows, countryRows] = await Promise.all([
+    prisma.fanCard.groupBy({
+      by: ["celebrityId"],
+      where: { status: "ACTIVE" },
+      _count: { _all: true },
+    }),
+    prisma.fanCard.findMany({
+      where: { status: "ACTIVE" },
+      select: { celebrityId: true, fan: { select: { country: true } } },
+    }),
+  ]);
+
+  const fanCountByCeleb = new Map(countRows.map((r) => [r.celebrityId, r._count._all]));
+  const countriesByCeleb = new Map<string, Set<string>>();
+  for (const row of countryRows) {
+    const cc = row.fan.country;
+    if (!cc) continue;
+    const set = countriesByCeleb.get(row.celebrityId) ?? new Set<string>();
+    set.add(cc);
+    countriesByCeleb.set(row.celebrityId, set);
+  }
 
   const q = filters.search?.trim().toLowerCase();
   const filtered = q
@@ -60,8 +79,6 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
     : celebrities;
 
   return filtered.map((c) => {
-    const activeFans = c.fans;
-    const countries = new Set(activeFans.map((f) => f.fan.country).filter(Boolean));
     return {
       id: c.id,
       slug: c.slug,
@@ -78,8 +95,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       isFeatured: c.isFeatured,
       isActive: c.isActive,
       isVerified: c.isVerified,
-      fanCount: activeFans.length,
-      countryCount: countries.size,
+      fanCount: fanCountByCeleb.get(c.id) ?? 0,
+      countryCount: countriesByCeleb.get(c.id)?.size ?? 0,
       createdAt: c.createdAt,
       instagramFollowers: c.instagramFollowers,
       tiktokFollowers: c.tiktokFollowers,
@@ -171,21 +188,20 @@ export type PlatformStats = {
 
 /** Live platform statistics — every figure comes from the database. */
 export async function getPlatformStats(): Promise<PlatformStats> {
-  const [celebrities, activeCelebrities, fans, activeCards, totalCards] = await Promise.all([
+  const [celebrities, activeCelebrities, fans, activeCards, totalCards, countriesRows] = await Promise.all([
     prisma.celebrity.count(),
     prisma.celebrity.count({ where: { isActive: true } }),
     prisma.fan.count({ where: { isActive: true } }),
     prisma.fanCard.count({ where: { status: "ACTIVE" } }),
     prisma.fanCard.count(),
+    prisma.fan.groupBy({
+      by: ["country"],
+      where: { isActive: true, country: { not: null } },
+      _count: { _all: true },
+    }),
   ]);
 
-  const countriesRows = await prisma.fan.findMany({
-    where: { isActive: true, country: { not: null } },
-    select: { country: true },
-  });
-  const countries = new Set(countriesRows.map((r) => r.country)).size;
-
-  return { celebrities, activeCelebrities, fans, activeCards, totalCards, countries };
+  return { celebrities, activeCelebrities, fans, activeCards, totalCards, countries: countriesRows.length };
 }
 
 /** Distinct filter options derived from the database. */

@@ -13,7 +13,7 @@ export function timingSafeEqualStr(a: string, b: string): boolean {
 /**
  * Lightweight in-memory sliding-window rate limiter keyed by an arbitrary
  * string (e.g. caller IP). Slows brute-force attempts on login endpoints.
- * In-memory scope is fine for a single-instance deployment (our VPS model).
+ * In-memory scope is fine for a single-instance deployment (our Cloudflare model).
  */
 export function makeRateLimiter(limit: number, windowMs: number) {
   const hits = new Map<string, number[]>();

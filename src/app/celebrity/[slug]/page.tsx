@@ -14,12 +14,22 @@ import { getCelebrityEvents } from "@/lib/events/service";
 import { tryParseJson, type SocialLinks } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 /** Canonical production origin. Falls back to the env override if provided. */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app").replace(/\/$/, "");
 
 const isHttpUrl = (u: string | null | undefined) => (u ? /^https?:\/\//i.test(u) : false);
+
+// Memberships priced at or above this are premium "Signature Experience" tiers.
+const PREMIUM_MIN_PRICE = 2500;
+
+function benefitLines(text?: string | null): string[] {
+  return (text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -115,7 +125,7 @@ export default async function CelebrityPage({ params }: Props) {
                 alt={celebrity.name}
                 width={180}
                 height={225}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover object-top"
                 unoptimized
               />
             ) : (
@@ -243,20 +253,42 @@ export default async function CelebrityPage({ params }: Props) {
               </p>
             </section>
 
-            <section>
-              <h2 className="text-xl font-black tracking-tight">Membership Levels</h2>
-              {!hasMemberships ? (
-                <div className="mt-4">
-                  <EmptyState message="Membership levels haven't been configured for this community yet." />
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                  {celebrity.memberships.map((level) => (
-                    <MembershipLevelCard key={level.id} level={level} slug={celebrity.slug} accent={celebrity.accentColor} />
-                  ))}
-                </div>
-              )}
-            </section>
+<section>
+  <h2 className="text-xl font-black tracking-tight">Membership Levels</h2>
+  {!hasMemberships ? (
+    <div className="mt-4">
+      <EmptyState message="Membership levels haven't been configured for this community yet." />
+    </div>
+  ) : (
+    <div className="mt-6 space-y-10">
+      {celebrity.memberships.some((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE) && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {celebrity.memberships
+            .filter((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE)
+            .map((level) => (
+              <MembershipLevelCard key={level.id} level={level} slug={celebrity.slug} accent={celebrity.accentColor} />
+            ))}
+        </div>
+      )}
+      {celebrity.memberships.some((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE) && (
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">Signature Experiences</p>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
+            Private one-on-one meetings, home visits, and live performances — the real experiences stars sell — from{" "}
+            {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}.
+          </p>
+          <div className="mt-4 space-y-4">
+            {celebrity.memberships
+              .filter((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE)
+              .map((level) => (
+                <PremiumLevelCard key={level.id} level={level} slug={celebrity.slug} />
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )}
+</section>
           </div>
 
           {/* Fan card preview */}
@@ -294,6 +326,43 @@ function MembershipLevelCard({ level, slug, accent }: { level: MembershipLevelTy
         className="mt-4 rounded-full py-2 text-center text-sm font-semibold ring-1 ring-white/15 text-white transition hover:bg-white/5"
       >
         Choose this level
+      </Link>
+    </div>
+  );
+}
+
+function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.08] via-white/[0.02] to-rose-500/[0.04] p-5 sm:p-6">
+      <div className="pointer-events-none absolute -inset-x-10 -top-16 h-28 rotate-6 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent" />
+      <div className="relative flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex w-fit rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
+              Experience
+            </span>
+            <h3 className="text-lg font-black text-white">{level.name}</h3>
+          </div>
+          {level.description && <p className="mt-1.5 text-sm font-medium text-zinc-300">{level.description}</p>}
+        </div>
+        <p className="text-lg font-black text-amber-300">
+          {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : "Free"}
+        </p>
+      </div>
+      <ul className="relative mt-4 space-y-2">
+        {benefitLines(level.benefits ?? level.description).map((line) => (
+          <li key={line} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/90" />
+            {line}
+          </li>
+        ))}
+      </ul>
+      <Link
+        href={`/celebrity/${slug}/join?level=${level.id}`}
+        className="relative mt-5 inline-flex w-full items-center justify-center rounded-full py-2.5 text-center text-sm font-bold text-ink-900 transition hover:brightness-110"
+        style={{ background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" }}
+      >
+        Choose this experience
       </Link>
     </div>
   );

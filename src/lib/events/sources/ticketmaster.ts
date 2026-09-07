@@ -1,101 +1,105 @@
-// Ticketmaster Discovery API event provider.
+// Ticketmaster Discovery API v2 event provider.
 //
-// Real, publicly announced events are pulled from Ticketmaster's Discovery API
-// (free developer key). The key is read from the admin-managed AppSetting (with
-// a fallback to the EVENT_TICKETING_API_KEY env var) — never from the browser.
+// Pulls publicly listed concerts/shows from the official Ticketmaster
+// Discovery API (https://app.ticketmaster.com/discovery/v2/events.json).
+// Registration for an API key is free (https://developer.ticketmaster.com);
+// the key is read from admin settings (AppSetting) or the
+// EVENT_TICKETING_API_KEY env var — never from the browser.
 //
-// We search events by each active celebrity's name, map them to the platform's
-// PublicEventRecord shape, and let the sync engine match them to the correct
-// celebrity. Anything ambiguous is skipped; nothing is ever fabricated.
+// Only publicly announced events are fetched; nothing is ever fabricated.
+// When no key is configured the provider returns an empty, honest result.
 import type { PrismaClient } from "@prisma/client";
 import type { PublicEventProvider, PublicEventFetchResult, PublicEventRecord, ProviderOptions } from "./types";
-import { getTicketmasterApiKey } from "./ticketing-settings";
+import { ProviderError } from "./types";
+import { getProviderKey } from "./provider-settings";
 
-const API_BASE = "https://app.ticketmaster.com/discovery/v2";
+const API_BASE = "https://app.ticketmaster.com";
+const EVENTS_URL = `${API_BASE}/discovery/v2/events.json`;
+const DEFAULT_DAYS_AHEAD = 550;
+const MAX_PER_CELEBRITY = 100;
+const PAGE_SIZE = 50;
 
-async function getApiKey(): Promise<string> {
-  return getTicketmasterApiKey();
-}
-
-/** Decode a human-friendly event type from Ticketmaster's classification. */
-function eventType(classification: unknown[]): string {
-  const primary = classification?.[0] as { segment?: { name?: string }; genre?: { name?: string } } | undefined;
-  if (primary?.segment?.name) {
-    const seg = primary.segment.name.toLowerCase();
-    const gen = primary.genre?.name?.toLowerCase() ?? "";
-    if (seg.includes("music")) return gen.includes("concert") ? "Concert" : "Concert";
-    if (seg.includes("sports")) return "Sporting Event";
-    if (seg.includes("arts")) return "Arts & Theatre";
-    if (seg.includes("film")) return "Film";
-    if (seg.includes("family")) return "Family";
-    return "Event";
-  }
-  return "Other";
-}
-
-function toRecord(ev: {
+type TmEvent = {
   id?: string;
   name?: string;
   url?: string;
-  dates?: { start?: { dateTime?: string; localDate?: string; localTime?: string; timezone?: string; noSpecificTime?: boolean } };
-  _embedded?: { venues?: { name?: string; city?: { name?: string }; state?: { stateCode?: string }; country?: { countryCode?: string } }[]; attractions?: { name?: string }[] };
-  classification?: unknown[];
-}): PublicEventRecord | null {
-  const name = ev.name?.trim();
-  const start = ev.dates?.start;
-  if (!name || name.length === 0) return null;
-
-  // Build a UTC date from Ticketmaster's local date/time + timezone.
-  let startDate: Date;
-  const zone = start?.timezone;
-  const localDateTime = start?.dateTime; // already ISO with offset when timezone-present
-  if (localDateTime) {
-    startDate = new Date(localDateTime);
-  } else if (start?.localDate) {
-    const time = start.localTime || "00:00:00";
-    // Ticketmaster omits a real offset for local-only values; fall back to UTC to stay honest.
-    const iso = `${start.localDate}T${time}${zone ? "Z" : "Z"}`;
-    startDate = new Date(isNaN(Date.parse(iso)) ? new Date(`${start.localDate}T00:00:00Z`) : Date.parse(iso));
-  } else {
-    return null; // no usable date -> skip (never guess)
-  }
-  if (isNaN(startDate.getTime())) return null;
-
-  const venue = ev._embedded?.venues?.[0];
-  const cityName = venue?.city?.name;
-  const region = venue?.state?.stateCode ?? undefined;
-  const country = venue?.country?.countryCode ?? undefined;
-
-  return {
-    externalId: ev.id ?? null,
-    sourceUrl: ev.url ?? null,
-    name,
-    type: eventType(ev.classification ?? []),
-    venue: venue?.name ?? null,
-    city: cityName ?? null,
-    region: region ?? null,
-    country: country ?? null,
-    startAt: startDate,
-    endAt: null,
-    timezone: zone ?? null,
-    allDay: Boolean(start?.noSpecificTime),
-    officialUrl: ev.url ?? null,
-    ticketUrl: ev.url ?? null,
+  info?: string;
+  dates?: {
+    timezone?: string;
+    status?: { code?: string };
+    start?: { dateTime?: string; localDate?: string; localTime?: string };
+    end?: { dateTime?: string; localDate?: string; localTime?: string };
   };
+  classifications?: { segment?: { name?: string } }[];
+  _embedded?: {
+    venues?: { name?: string; city?: { name?: string }; state?: { name?: string }; country?: { name?: string } }[];
+  };
+};
+
+type TmResponse = {
+  _embedded?: { events?: TmEvent[] };
+  page?: { number?: number; totalPages?: number };
+};
+
+function mapEventType(ev: TmEvent): string {
+  const seg = (ev.classifications?.[0]?.segment?.name ?? "").toLowerCase();
+  const name = (ev.name ?? "").toLowerCase();
+  if (seg === "music") {
+    if (name.includes("festival")) return "Festival";
+    return "Concert";
+  }
+  if (seg === "sports") return "Sports appearance";
+  return "Other";
+}
+
+function parseStart(ev: TmEvent): Date | null {
+  const start = ev.dates?.start;
+  if (!start) return null;
+  const raw = start.dateTime ?? (start.localDate && start.localTime ? `${start.localDate}T${start.localTime}Z` : start.localDate ? `${start.localDate}T00:00:00Z` : null);
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+async function fetchEventsPage(apiKey: string, celebrityName: string, startIso: string, endIso: string, page: number, size: number): Promise<TmEvent[]> {
+  const params = new URLSearchParams({
+    apikey: apiKey,
+    keyword: celebrityName,
+    size: String(size),
+    page: String(page),
+    sort: "date,asc",
+    startDateTime: startIso,
+    endDateTime: endIso,
+    includeTBA: "no",
+    includeTest: "no",
+  });
+  const res = await fetch(`${EVENTS_URL}?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new ProviderError("Ticketmaster API rejected the key (401/403). Check the key in admin settings.");
+  }
+  if (!res.ok) {
+    throw new ProviderError(`Ticketmaster API returned status ${res.status}.`);
+  }
+  const data = (await res.json()) as TmResponse;
+  return data._embedded?.events ?? [];
 }
 
 export const ticketmasterProvider: PublicEventProvider = {
   key: "ticketmaster",
-  label: "Ticketmaster — real concerts, sports & theatre events",
+  label: "Ticketmaster — official US & Europe concert/show listings",
   requiresCredentials: true,
-  credentialEnvVars: ["EVENT_TICKETING_API_KEY"], // env fallback; admin-pasted key also works
+  credentialEnvVars: ["EVENT_TICKETING_API_KEY"],
   async fetchEvents(ctx: { prisma: PrismaClient; options: ProviderOptions }): Promise<PublicEventFetchResult> {
-    const apiKey = await getApiKey();
+    const config = ctx.options.config ?? {};
+    const daysAhead = typeof config.daysAhead === "number" ? config.daysAhead : DEFAULT_DAYS_AHEAD;
+
+    const apiKey = await getProviderKey("ticketmaster");
     if (!apiKey) {
       return {
         records: [],
-        message:
-          "Ticketmaster key not configured. Paste your free API key (developer.ticketmaster.com) in Admin → Event settings.",
+        message: "Ticketmaster key not configured yet — add it in Admin → Events → API Keys and save.",
       };
     }
 
@@ -105,44 +109,55 @@ export const ticketmasterProvider: PublicEventProvider = {
     });
 
     const records: PublicEventRecord[] = [];
+    const now = new Date();
+    // Ticketmaster requires the exact format YYYY-MM-DDTHH:mm:ssZ (no millis).
+    const toApiIso = (d: Date) => `${d.toISOString().slice(0, 19)}Z`;
+    const startIso = toApiIso(now);
+    const endIso = toApiIso(new Date(now.getTime() + daysAhead * 24 * 3600 * 1000));
     let errors = 0;
 
     for (const celeb of celebrities) {
       try {
-        const url =
-          `${API_BASE}/events.json?keyword=${encodeURIComponent(celeb.name)}` +
-          `&apikey=${encodeURIComponent(apiKey)}&size=20&sort=date,asc`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (res.status === 429) {
-          // rate-limited: back off and continue (honest, transient)
-          await new Promise((r) => setTimeout(r, 1200));
-          continue;
+        // Up to two pages (100 events) per celebrity, soonest first.
+        for (let page = 0; page < Math.ceil(MAX_PER_CELEBRITY / PAGE_SIZE); page++) {
+          const events = await fetchEventsPage(apiKey, celeb.name, startIso, endIso, page, PAGE_SIZE);
+          for (const ev of events) {
+            const id = ev.id;
+            if (!id || !ev.name) continue;
+            const startAt = parseStart(ev);
+            if (!startAt) continue;
+
+            const venue = ev._embedded?.venues?.[0];
+            records.push({
+              externalId: id,
+              sourceUrl: ev.url ?? null,
+              name: `${celeb.name} — ${ev.name}`,
+              type: mapEventType(ev),
+              description: ev.info ? (ev.info.length > 600 ? `${ev.info.slice(0, 597)}…` : ev.info) : null,
+              venue: venue?.name ?? null,
+              city: venue?.city?.name ?? null,
+              region: venue?.state?.name ?? null,
+              country: venue?.country?.name ?? null,
+              startAt,
+              endAt: ev.dates?.end?.dateTime ? new Date(ev.dates.end.dateTime) : null,
+              timezone: ev.dates?.timezone ?? null,
+              allDay: false,
+              officialUrl: ev.url ?? null,
+              ticketUrl: ev.url ?? null,
+              statusOverride: ev.dates?.status?.code === "cancelled" ? "CANCELLED" : ev.dates?.status?.code === "postponed" || ev.dates?.status?.code === "rescheduled" ? "POSTPONED" : null,
+            });
+          }
+          if (events.length < PAGE_SIZE) break;
         }
-        if (res.status === 401 || res.status === 403) {
-          errors++;
-          continue; // bad/expired key — other celebrities won't work either; will surface via message below
-        }
-        if (!res.ok) {
-          errors++;
-          continue;
-        }
-        const data = (await res.json()) as Record<string, unknown>;
-        const events = (data as { _embedded?: { events?: unknown[] } })?._embedded?.events ?? [];
-        for (const e of events.slice(0, 20)) {
-          const rec = toRecord(e as Parameters<typeof toRecord>[0]);
-          if (rec) records.push(rec);
-        }
-        // Be a good citizen: 2 concurrent-series is too little; we just do sequential + small delay.
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, 600)); // stay well under 5 req/sec
       } catch {
         errors++;
       }
     }
 
-    const message =
-      errors > 0
-        ? `Fetched ${records.length} event record(s) (${errors} celebrity lookups failed or rate-limited).`
-        : `Fetched ${records.length} event record(s).`;
+    const message = errors > 0
+      ? `Fetched ${records.length} event(s) from Ticketmaster (${errors} celebrity lookup(s) failed).`
+      : `Fetched ${records.length} event(s) from Ticketmaster.`;
     return { records, message };
   },
 };

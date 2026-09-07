@@ -156,9 +156,14 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
       <div className="mt-2">
         <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Provider API Keys</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Store API keys securely server-side. Keys are never exposed to the browser.
+          Some providers need a free API key. Paste it here once; saving it adds the source and syncs events automatically.
         </p>
         <div className="mt-3 space-y-3">
+          {Object.keys(providerKeys).length === 0 && (
+            <p className="rounded-2xl bg-white/[0.03] px-4 py-3 text-sm text-zinc-400 ring-1 ring-white/10">
+              No key-based providers are configured. Built-in sources (MusicBrainz, manual events) work with zero setup.
+            </p>
+          )}
           {Object.entries(providerKeys).map(([key, config]) => (
             <div key={key} className="glass rounded-2xl p-4">
               <div className="flex items-center justify-between gap-3">
@@ -243,13 +248,9 @@ export default function EventSourcesManager({ sources: initial }: { sources: Sou
               <p className="mt-1 font-mono text-[11px] text-zinc-500">{p.key}</p>
               {p.requiresCredentials && (
                 <p className="mt-2 text-[11px] text-amber-300">
-                  {p.key === "ticketmaster"
-                    ? hasKey("ticketmaster")
-                      ? "Key is set — add this source and run a sync to pull real events."
-                      : "Needs your free Ticketmaster key — paste it in the API Keys section above."
-                    : hasKey(p.key)
-                      ? "Key is set — add this source and run a sync."
-                      : `Requires API key — paste it in the API Keys section above.`}
+                  {hasKey(p.key)
+                    ? "Key is set — add this source and run a sync."
+                    : `Requires API key — paste it in the API Keys section above.`}
                 </p>
               )}
               {!p.requiresCredentials && (

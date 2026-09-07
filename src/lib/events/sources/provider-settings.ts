@@ -11,12 +11,14 @@ export type ProviderKeyConfig = {
   label: string;
 };
 
+// No external API providers configured. All event/ticket management is
+// handled internally via the admin panel and built-in free registration.
 export const PROVIDER_KEY_CONFIGS: Record<string, ProviderKeyConfig> = {
-  ticketmaster: { settingKey: "ticketmaster_api_key", envVar: "EVENT_TICKETING_API_KEY", label: "Ticketmaster" },
-  eventbrite: { settingKey: "EVENTBRITE_TOKEN", envVar: "EVENTBRITE_TOKEN", label: "Eventbrite" },
-  bandsintown: { settingKey: "bandsintown_app_id", envVar: "BANDSINTOWN_APP_ID", label: "Bandsintown" },
-  setlistfm: { settingKey: "setlistfm_api_key", envVar: "SETLISTFM_API_KEY", label: "setlist.fm" },
-  seatgeek: { settingKey: "seatgeek_client_id", envVar: "SEATGEEK_CLIENT_ID", label: "SeatGeek" },
+  ticketmaster: {
+    settingKey: "ticketmaster_api_key",
+    envVar: "EVENT_TICKETING_API_KEY",
+    label: "Ticketmaster Discovery API",
+  },
 };
 
 /** Check if a provider's API key is configured (settings or env). */
@@ -70,49 +72,16 @@ export async function testProviderConnection(providerKey: string): Promise<{ ok:
         return { ok: false, message: `MusicBrainz API returned status ${res.status}.` };
       }
       case "ticketmaster": {
-        const res = await fetch(
-          `https://app.ticketmaster.com/discovery/v2/events.json?keyword=test&apikey=${encodeURIComponent(key)}&size=1`,
-          { headers: { Accept: "application/json" } },
-        );
-        if (res.ok) return { ok: true, message: "Ticketmaster API connection successful." };
-        if (res.status === 401 || res.status === 403) return { ok: false, message: "Ticketmaster API key is invalid or expired." };
+        if (!key) return { ok: false, message: "No Ticketmaster API key configured yet." };
+        const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?apikey=${encodeURIComponent(key)}&size=1&includeTest=no`, {
+          headers: { Accept: "application/json" },
+        });
+        if (res.ok) return { ok: true, message: "Ticketmaster API connection successful — key is valid." };
+        if (res.status === 401 || res.status === 403) return { ok: false, message: "Ticketmaster rejected the key (401/403). Double-check the key." };
         return { ok: false, message: `Ticketmaster API returned status ${res.status}.` };
       }
-      case "bandsintown": {
-        const res = await fetch(
-          `https://rest.bandsintown.com/artists/Metallica?app_id=${encodeURIComponent(key)}`,
-          { headers: { Accept: "application/json" } },
-        );
-        if (res.ok) return { ok: true, message: "Bandsintown API connection successful." };
-        if (res.status === 401 || res.status === 403) return { ok: false, message: "Bandsintown app_id is invalid." };
-        return { ok: false, message: `Bandsintown API returned status ${res.status}.` };
-      }
-      case "setlistfm": {
-        const res = await fetch("https://api.setlist.fm/rest/1.0/search/artists?artistName=Metallica&p=1", {
-          headers: { "x-api-key": key, Accept: "application/json" },
-        });
-        if (res.ok) return { ok: true, message: "setlist.fm API connection successful." };
-        if (res.status === 401 || res.status === 403) return { ok: false, message: "setlist.fm API key is invalid." };
-        return { ok: false, message: `setlist.fm API returned status ${res.status}.` };
-      }
-      case "lastfm":
-      case "seatgeek": {
-        const res = await fetch(
-          `https://api.seatgeek.com/2/events?q=test&client_id=${encodeURIComponent(key)}&per_page=1`,
-          { headers: { Accept: "application/json" } },
-        );
-        if (res.ok) return { ok: true, message: "SeatGeek API connection successful." };
-        if (res.status === 401 || res.status === 403) return { ok: false, message: "SeatGeek client_id is invalid." };
-        return { ok: false, message: `SeatGeek API returned status ${res.status}.` };
-      }
-      case "eventbrite": {
-        const res = await fetch("https://www.eventbriteapi.com/v3/events/search/?q=test&page_size=1", {
-          headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
-        });
-        if (res.ok) return { ok: true, message: "Eventbrite API connection successful." };
-        if (res.status === 401 || res.status === 403) return { ok: false, message: "Eventbrite token is invalid." };
-        return { ok: false, message: `Eventbrite API returned status ${res.status}.` };
-      }
+      case "manual":
+        return { ok: true, message: "Manual events require no API key — added directly through the admin panel." };
       default:
         return { ok: false, message: `Unknown provider: ${providerKey}` };
     }

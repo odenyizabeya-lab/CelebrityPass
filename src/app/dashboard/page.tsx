@@ -67,6 +67,7 @@ export default async function DashboardPage() {
                 fanName: fan.name,
                 fanCountry: fan.country,
                 membershipName: card.membershipLevel?.name ?? null,
+                membershipPrice: card.membershipLevel?.price ?? null,
                 celebrity: {
                   name: card.celebrity.name,
                   slug: card.celebrity.slug,
@@ -87,7 +88,7 @@ export default async function DashboardPage() {
                           alt={card.celebrity.name}
                           width={48}
                           height={60}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover object-top"
                           unoptimized
                         />
                       ) : (

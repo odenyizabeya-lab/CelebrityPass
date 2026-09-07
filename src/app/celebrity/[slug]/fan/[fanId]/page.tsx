@@ -32,6 +32,7 @@ export default async function FanCardPage({ params }: Props) {
     fanName: card.fan.name,
     fanCountry: card.fan.country,
     membershipName: card.membershipLevel?.name ?? null,
+    membershipPrice: card.membershipLevel?.price ?? null,
     celebrity: {
       name: card.celebrity.name,
       slug: card.celebrity.slug,

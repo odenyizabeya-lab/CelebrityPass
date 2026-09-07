@@ -80,6 +80,9 @@ export async function POST(request: NextRequest) {
       verification,
       verifiedBy: verification === "VERIFIED" || verification === "UPDATED" ? "admin" : null,
       verifiedAt: verification === "VERIFIED" || verification === "UPDATED" ? new Date() : null,
+      ticketsEnabled: Boolean(body.ticketsEnabled),
+      registrationEnabled: Boolean(body.registrationEnabled),
+      maxRegistrations: body.maxRegistrations != null ? Number(body.maxRegistrations) : null,
       lastSyncedAt: new Date(),
     },
   });

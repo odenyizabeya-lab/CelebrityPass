@@ -59,84 +59,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [design, setDesign] = useState<CardDesign>(initialDesign);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [flaggedFill, setFlaggedFill] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-
-  // Auto-fill the whole form from the AI scanner's returned fields.
-  function applyScan(data: {
-    name: string;
-    category: string;
-    profession: string;
-    country: string;
-    city: string;
-    shortBio: string;
-    bio: string;
-    website: string;
-    instagramUrl: string;
-    xUrl: string;
-    youtubeUrl: string;
-    tiktokUrl: string;
-    facebookUrl: string;
-    accentColor: string;
-    instagramFollowers: number | null;
-    tiktokFollowers: number | null;
-    facebookFollowers: number | null;
-  }) {
-    setName(data.name);
-    setSlug(edit ? slug : slugify(data.name));
-    setCategory(data.category || "Public Figure");
-    setProfession(data.profession);
-    setCountry(data.country);
-    setCity(data.city);
-    setShortBio(data.shortBio);
-    setBio(data.bio);
-    setWebsite(data.website);
-    setAccent(/^#[0-9a-fA-F]{6}$/.test(data.accentColor) ? data.accentColor : "#8b5cf6");
-    setIgFollowers(data.instagramFollowers != null ? String(data.instagramFollowers) : "");
-    setTtFollowers(data.tiktokFollowers != null ? String(data.tiktokFollowers) : "");
-    setFbFollowers(data.facebookFollowers != null ? String(data.facebookFollowers) : "");
-    setSocials((s) => ({
-      ...s,
-      instagram: data.instagramUrl || s.instagram || "",
-      x: data.xUrl || s.x || "",
-      youtube: data.youtubeUrl || s.youtube || "",
-      tiktok: data.tiktokUrl || s.tiktok || "",
-      facebook: data.facebookUrl || s.facebook || "",
-      official: data.website || s.official || "",
-    }));
-    setFlaggedFill(`Auto-filled from the photo of ${data.name}.`);
-  }
-
-  const scanImage = async () => {
-    if (!profileImage) {
-      setError("Upload a profile photo first, then press Scan.");
-      setFlaggedFill(null);
-      return;
-    }
-    setError(null);
-    setFlaggedFill(null);
-    setScanning(true);
-    try {
-      const res = await fetch("/api/admin/celebrity-scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: profileImage }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setScanning(false);
-        setError(data.error ?? "Scan failed. Please try again.");
-        setFlaggedFill(data.hint ?? null);
-        return;
-      }
-      applyScan(data.data);
-      setScanning(false);
-    } catch {
-      setScanning(false);
-      setError("Network error during scan. Please try again.");
-    }
-  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,29 +220,13 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-zinc-300">Profile / Avatar Image</span>
-            <button
-              type="button"
-              onClick={scanImage}
-              disabled={scanning || !profileImage}
-              className={`rounded-full px-4 py-2 text-xs font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                scanning
-                  ? "bg-primary-500/20 text-primary-200 ring-primary-400/40"
-                  : "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white ring-emerald-400/40 hover:opacity-90"
-              }`}
-            >
-              {scanning ? "Scanning…" : "✨ Scan with AI"}
-            </button>
           </div>
           <ImageUpload
             label=""
             value={profileImage}
-            onPick={(data) => {
-              setProfileImage(data);
-              setFlaggedFill(null);
-            }}
+            onPick={(data) => setProfileImage(data)}
             onRemove={() => setProfileImage(null)}
           />
-          {flaggedFill && <p className="mt-2 text-xs text-emerald-300">{flaggedFill}</p>}
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -334,8 +241,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         </div>
       </div>
       <p className="mt-3 text-xs text-zinc-500">
-        Upload a celebrity photo and press <strong>✨ Scan with AI</strong> — it fills the whole form for you. Then review and
-        edit anything before saving. Leave images empty to use an auto-generated design.
+        Upload a celebrity photo. Leave images empty to use an auto-generated design.
       </p>
 
       {/* Follower counts */}
@@ -474,7 +380,7 @@ function ImageUpload({
       {value ? (
         <div className="relative overflow-hidden rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="" className="h-40 w-full object-cover" />
+          <img src={value} alt="" className="h-40 w-full bg-ink-900/60 object-contain" />
           <button
             type="button"
             onClick={onRemove}

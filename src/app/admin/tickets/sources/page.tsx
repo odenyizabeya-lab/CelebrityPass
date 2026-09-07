@@ -27,7 +27,7 @@ export default async function AdminTicketSourcesPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">Ticket sources</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Enable ticket sync on a provider-backed source to pull real inventory. The manual “admin” source can never supply tickets.
+            Tickets are set up directly through the admin panel — free registration with QR tickets, no API keys required.
           </p>
         </div>
         <Link href="/admin/tickets" className="text-sm font-semibold text-zinc-400 transition hover:text-white">← Tickets</Link>
