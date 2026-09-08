@@ -38,10 +38,12 @@ bio            String
   tiktokFollowers    Int?
   facebookFollowers  Int?
   followersUpdatedAt DateTime?
+  socialAutoPost  Boolean         @default(true) // eligible for automatic social posting
   fans           FanCard[]
   memberships    MembershipLevel[]
   payments       Payment[]
   events         CelebrityEvent[]
+  socialArticles SocialArticle[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -62,6 +64,7 @@ model MembershipLevel {
   currency    String      @default("USD")
   displayOrder Int        @default(0)
   isActive    Boolean     @default(true)
+  socialAutoPost Boolean  @default(true) // eligible for automatic social posting
   cards       FanCard[]
   payments    Payment[]
 
@@ -244,6 +247,7 @@ model CelebrityEvent {
 
   // Free QR tickets enabled (set true to allow fans to register + get QR tickets)
   ticketsEnabled       Boolean  @default(false)
+  socialAutoPost       Boolean  @default(true) // eligible for automatic social posting
 
   sources        EventSourceLink[]
   updates        EventUpdate[]
@@ -606,4 +610,248 @@ model SettlementRecord {
   createdAt       DateTime      @default(now())
 
   @@index([paymentMethodId])
+}
+
+// ===========================================================================
+// SOCIAL MEDIA PUBLISHING (Marketing / Social Media Automation)
+// ---------------------------------------------------------------------------
+// Admin-only. Real credentials and access tokens NEVER live in frontend code:
+//   - Platform app credentials come from server-side env vars (referenced by
+//     name only in SocialPlatform.credentialEnvKeysJson).
+//   - Access/refresh tokens are encrypted at rest with AES-256-GCM using the
+//     SOCIAL_TOKEN_ENCRYPTION_KEY env var and are never returned to the client.
+// The SocialPlatform rows are seeded once and managed from the admin dashboard.
+// ===========================================================================
+
+// One row per supported platform (TikTok, Telegram, WhatsApp, Facebook,
+// Instagram, YouTube, X, Pinterest, LinkedIn). Seeded, not user-created.
+model SocialPlatform {
+  id            String   @id @default(cuid())
+  key           String   @unique // tiktok | telegram | whatsapp | facebook | instagram | youtube | x | pinterest | linkedin
+  name          String
+  color         String   @default("#8b5cf6")
+  icon          String?  // short glyph/label used by UI accents
+  supportsText  Boolean  @default(true)
+  supportsImage Boolean  @default(true)
+  supportsVideo Boolean  @default(false)
+  // OAuth based platforms need app approval / business verification before
+  // content posting works. This flags what the admin dashboard must show.
+  requiresApproval Boolean @default(false)
+  approvalStatus String   @default("not_required") // not_required | required | pending | approved | denied
+  approvalNote  String?   // human message explaining the requirement
+  authUrl       String?   // official OAuth authorize endpoint (null = token-entry, e.g. Telegram bot)
+  tokenUrl      String?   // official token exchange endpoint
+  credentialEnvKeysJson String? // JSON array of env var names that hold app credentials (never values)
+  hasCredentials Boolean  @default(false)
+  scopesJson    String?   // JSON array of required OAuth scopes
+  enabled       Boolean   @default(true)
+  apiStatus     String    @default("not_configured") // not_configured | configured | needs_approval | degraded | error | ok
+  apiNote       String?
+  displayOrder  Int       @default(0)
+  accounts      SocialAccount[]
+  schedules     SocialSchedule[]
+  queueItems    SocialQueueItem[]
+  posts         SocialPost[]
+  logs          SocialPostLog[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([enabled])
+  @@index([apiStatus])
+}
+
+// A connected social account owned by the admin. Tokens are encrypted at rest.
+model SocialAccount {
+  id                  String          @id @default(cuid())
+  platformKey         String
+  platform            SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  externalUserId      String?         // provider's user/platform id
+  externalUsername    String?         // handle shown in the dashboard
+  externalUrl         String?
+  accountType         String?         // influencer | business | page | bot | channel
+  scopes              String?         // JSON array of granted scopes
+  tokenEncrypted      String?         // AES-256-GCM "iv.tag.data" (never plaintext)
+  refreshTokenEncrypted String?
+  tokenExpiresAt      DateTime?
+  tokenIssuedAt       DateTime?
+  isConnected         Boolean         @default(true)
+  status              String          @default("connected") // connected | expired | needs_refresh | invalid | revoked
+  lastError           String?
+  lastCheckedAt       DateTime?
+  rawProfileJson      String?         // cached profile snapshot (no tokens)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  queueItems          SocialQueueItem[]
+  posts               SocialPost[]
+
+  @@index([platformKey])
+  @@index([status])
+}
+
+// Singleton global automation configuration (one row, id always 1).
+model SocialConfig {
+  id              Int      @id @default(1)
+  automationEnabled Boolean @default(false) // master switch for automatic posting
+  paused          Boolean  @default(false)  // pause all automation (resume = false)
+  approvalMode    String   @default("auto") // auto = publish immediately | approval = hold for admin approval
+  maxPostsPerDay  Int      @default(10)     // global daily cap per platform
+  maxRetries      Int      @default(3)
+  retryBackoffMinutes Int  @default(30)     // base backoff before retrying a failed post
+  dedupeWindowDays Int     @default(30)     // prevent re-posting the same content within N days
+  contentTypesJson String  @default("[\"celebrity\",\"membership\",\"event\",\"article\",\"promo\"]")
+  updatedAt       DateTime @updatedAt
+}
+
+// One posting schedule per platform (the "Automatic posting" engine driver).
+model SocialSchedule {
+  id            String          @id @default(cuid())
+  platformKey   String
+  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  name          String?         // admin label
+  enabled       Boolean         @default(false)
+  contentTypesJson String       @default("[]") // subset of content types this schedule posts
+  frequency     String          @default("daily") // hourly | daily | weekly | custom
+  intervalMinutes Int?          // for hourly / custom frequencies
+  timesJson     String          @default("[]") // e.g. ["09:00","18:00"] — HH:MM in UTC
+  weekdaysJson  String?         // for weekly, e.g. [1,3,5] (1=Monday)
+  maxPerDay     Int?            // per-schedule cap, overrides global maxPostsPerDay
+  nextRunAt     DateTime?       // next time the engine scans for new content
+  lastRunAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([platformKey])
+  @@index([enabled])
+}
+
+// A single item in the publishing pipeline (automatic or manual).
+model SocialQueueItem {
+  id            String          @id @default(cuid())
+  contentKey    String          // dedupe key, e.g. "membership:clxyz" | "promo:abc" | "article:clxyz"
+  platformKey   String
+  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  accountId     String?
+  account       SocialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contentType   String          // celebrity | membership | event | article | promo
+  contentRefId  String?         // id of the source entity
+  title         String
+  caption       String?
+  mediaJson     String?         // JSON array of assets {url, mimeType, name} or asset ids
+  linkUrl       String?
+  source        String          @default("AUTO") // AUTO | MANUAL | PROMO
+  status        String          @default("QUEUED") // DRAFT | QUEUED | SCHEDULED | APPROVAL_REQUIRED | PROCESSING | PUBLISHED | FAILED | CANCELLED | SKIPPED
+  scheduledFor  DateTime?
+  attempts      Int             @default(0)
+  maxAttempts   Int             @default(3)
+  nextAttemptAt DateTime?
+  lastError     String?
+  externalPostId String?
+  externalUrl   String?
+  publishedAt   DateTime?
+  dedupeHash    String?         // content fingerprint for repeat-content prevention
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  logs          SocialPostLog[]
+
+  @@unique([contentKey, platformKey])
+  @@index([status])
+  @@index([platformKey])
+  @@index([scheduledFor])
+  @@index([contentType])
+}
+
+// Published (or fully attempted) posts, one row per successful/failed publish.
+model SocialPost {
+  id            String          @id @default(cuid())
+  queueItemId   String?
+  platformKey   String
+  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  accountId     String?
+  account       SocialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  title         String
+  caption       String?
+  mediaJson     String?
+  linkUrl       String?
+  contentType   String?
+  source        String          @default("MANUAL") // AUTO | MANUAL | PROMO
+  externalPostId String?
+  externalUrl   String?
+  status        String          @default("PUBLISHED") // PUBLISHED | FAILED | SKIPPED
+  error         String?         // final error when FAILED
+  publishedAt   DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@index([platformKey])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+// Append-only audit log of every publish attempt, success and failure.
+model SocialPostLog {
+  id            String           @id @default(cuid())
+  queueItemId   String?
+  queueItem     SocialQueueItem? @relation(fields: [queueItemId], references: [id], onDelete: SetNull)
+  platformKey   String
+  platform      SocialPlatform   @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  postId        String?
+  level         String           @default("info") // info | success | warn | error
+  message       String
+  detail        String?          // API snapshot WITHOUT tokens
+  status        String?          // related queue status at log time
+  createdAt     DateTime         @default(now())
+
+  @@index([queueItemId])
+  @@index([platformKey])
+  @@index([postId])
+  @@index([createdAt])
+}
+
+// Marketplace news/articles that can be auto-published to social accounts.
+model SocialArticle {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  summary       String?
+  body          String?
+  author        String?
+  category      String   @default("News")
+  coverImage    String?  // URL or data URI
+  status        String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  autoPostEnabled Boolean @default(true) // eligible for automatic social posting
+  linkedCelebrityId String?
+  linkedCelebrity Celebrity? @relation(fields: [linkedCelebrityId], references: [id], onDelete: SetNull)
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([publishedAt])
+}
+
+// Uploaded or referenced media attached to posts.
+model SocialMediaAsset {
+  id          String   @id @default(cuid())
+  fileName    String?
+  mimeType    String?
+  sizeBytes   Int?
+  storage     String   @default("db") // db (inline data URI) | url
+  dataUri     String?  // inline base64 data when stored in db
+  url         String?  // external URL when referenced
+  platformKey String?
+  createdAt   DateTime @default(now())
+}
+
+// CSRF-safe OAuth state rows so the callback can verify the flow originated
+// from this dashboard.
+model SocialOAuthState {
+  id          String   @id @default(cuid())
+  state       String   @unique
+  platformKey String
+  redirectTo  String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([state])
+  @@index([expiresAt])
 }

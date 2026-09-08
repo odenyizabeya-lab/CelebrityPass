@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/fans" label="Fans" />
           <AdminLink href="/admin/cards" label="Cards" />
           <AdminLink href="/admin/payments" label="Payments" />
+          <AdminLink href="/admin/marketing/overview" label="Marketing" />
         </nav>
         <div className="mt-8 border-t border-white/[0.06] pt-5">
           <p className="px-2 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Platform</p>
@@ -47,6 +48,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/fans" label="Fans" compact />
           <AdminLink href="/admin/cards" label="Cards" compact />
           <AdminLink href="/admin/payments" label="Payments" compact />
+          <AdminLink href="/admin/marketing/overview" label="Marketing" compact />
           <AdminLink href="/admin/payments/bank" label="Bank Accounts" compact />
           <AdminLink href="/admin/payments/verify" label="Verify Transfers" compact />
           <AdminLink href="/admin/notifications" label="Notifications" compact />
