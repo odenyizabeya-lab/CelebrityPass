@@ -11,7 +11,23 @@
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-export type AiErrorType = "invalid_key" | "quota" | "model" | "unsupported_combination" | "server" | "network" | "timeout";
+// A key is only reported as "invalid" when the Gemini API actually confirms it
+// (HTTP 401, or 400 with reason API_KEY_INVALID / "api key not valid"). Other
+// 403 PERMISSION_DENIED responses mean the key is valid but the project blocks
+// the request: billing not enabled for the model, the Generative Language API
+// not enabled, or the key restricted (API/IP/referrer allow-lists).
+export type AiErrorType =
+  | "invalid_key" // Gemini confirmed the key is bad
+  | "api_disabled" // Generative Language API not enabled for the project
+  | "billing" // key is valid but the model requires billing / a paid plan
+  | "project_restriction" // key is valid but restricted so this request is blocked
+  | "permission" // valid key, 403 for another reason
+  | "model" // model id not found / not available for this key
+  | "quota"
+  | "unsupported_combination"
+  | "server"
+  | "network"
+  | "timeout";
 
 export class AiCallError extends Error {
   type: AiErrorType;
@@ -28,6 +44,14 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
     switch (e.type) {
       case "invalid_key":
         return { message: "The Gemini API key was rejected. Check the key in Admin → AI Settings." };
+      case "api_disabled":
+        return { message: "Google rejected the request: the Generative Language (Gemini) API is not enabled for this project." };
+      case "billing":
+        return { message: "The Gemini key is valid, but this model requires billing on the Google project (or the project plan doesn't include it)." };
+      case "project_restriction":
+        return { message: "The Gemini key is valid but is restricted and blocked this request — check its API/IP/referrer restrictions in Google Cloud." };
+      case "permission":
+        return { message: "Google denied access (403) even though the key is valid. Check the API is enabled and the project allows this model." };
       case "quota":
         return { message: "The Gemini API has reached its limit (quota/rate limit). An automatic fallback key is used if one is configured." };
       case "model":
@@ -36,6 +60,8 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
         return { message: "Web research was rejected by the API and could not fall back." };
       case "timeout":
         return { message: "Gemini took too long to respond. Try again in a moment." };
+      case "network":
+        return { message: "Could not reach the Gemini API (network error). Try again in a moment." };
       default:
         return { message: `Gemini request failed: ${e.message}` };
     }
@@ -43,22 +69,58 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
   return { message: `Gemini request failed: ${e instanceof Error ? e.message : String(e)}` };
 }
 
-function classifyError(status: number, text: string, hadSearchTool: boolean): AiErrorType {
-  const t = (text || "").toLowerCase();
-  if (status === 401) return "invalid_key";
-  if (status === 403) {
-    if (t.includes("quota") || t.includes("rate") || t.includes("limit") || t.includes("exhausted")) return "quota";
-    return "invalid_key";
-  }
-  if (status === 429) return "quota";
-  if (status === 400) {
-    if (t.includes("api key") || t.includes("key is not valid") || t.includes("unauthorized")) return "invalid_key";
-    if (t.includes("model")) return "model";
-    if (hadSearchTool && /(search|grounding|schema|mime type|mimetype|not supported|combination|cannot use)/.test(t)) {
-      return "unsupported_combination";
+type GeminiErrorBody = { status: string; reason: string; message: string };
+
+/** Parse the Gemini REST error payload (never contains the API key). */
+export function parseGeminiError(text: string): GeminiErrorBody {
+  try {
+    const j = JSON.parse(text);
+    const e = j?.error;
+    if (e && typeof e === "object") {
+      const reason = Array.isArray(e.details) && typeof e.details[0]?.reason === "string" ? e.details[0].reason : "";
+      return { status: String(e.status ?? "").toUpperCase(), reason, message: String(e.message ?? "") };
     }
+  } catch {
+    /* non-JSON body below */
+  }
+  return { status: "", reason: "", message: text };
+}
+
+export function classifyError(status: number, text: string, hadSearchTool: boolean): AiErrorType {
+  const body = parseGeminiError(text);
+  const t = body.message.toLowerCase();
+  const has = (...words: string[]) => words.some((w) => t.includes(w));
+
+  if (status === 401) return "invalid_key"; // unauthenticated — confirmed bad/missing key
+
+  if (status === 429 || body.status === "RESOURCE_EXHAUSTED") return "quota";
+
+  if (status === 404 || body.status === "NOT_FOUND") return "model";
+
+  if (status === 400) {
+    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "key is not valid", "invalid api key", "unauthenticated")) {
+      return "invalid_key";
+    }
+    if (body.reason === "PROJECT_INVALID" || body.reason === "USER_PROJECT_INVALID" || has("project not found", "project id")) {
+      return "project_restriction";
+    }
+    if (has("referrer", "ip address", "api key internal", "restriction")) return "project_restriction";
+    if (has("model")) return "model";
+    if (hadSearchTool && /(search|grounding|schema|mime type|mimetype|not supported|combination|cannot use)/.test(t)) return "unsupported_combination";
+    if (has("not enabled", "disabled", "enable")) return "api_disabled";
     return "model";
   }
+
+  if (status === 403) {
+    // FAILED_PRECONDITION is Gemini's signal that the model needs billing/paid access.
+    if (body.status === "FAILED_PRECONDITION" || has("billing", "paid", "upgrade", "pricing", "payment", "plan")) return "billing";
+    if (has("quota", "rate", "limit", "exhausted")) return "quota";
+    if (has("restricted", "restriction", "ip addresses", "referrer", "android package", "permitted")) return "project_restriction";
+    if (has("not enabled", "disabled", "enable the", "api key that cannot")) return "api_disabled";
+    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "invalid api key")) return "invalid_key";
+    return "permission";
+  }
+
   if (status >= 500) return "server";
   return "server";
 }
@@ -102,7 +164,9 @@ type CallOptions = {
 export async function geminiJson<T>(opts: CallOptions): Promise<T> {
   const { credentials, system, userText, schema, useSearch, temperature } = opts;
   const timeoutMs = opts.timeoutMs ?? 55_000;
-  const url = `${API_BASE}/${encodeURIComponent(credentials.model)}:generateContent?key=${encodeURIComponent(credentials.key)}`;
+  // Key travels in the X-Goog-Api-Key header — never in the URL, so it can't
+  // leak into request logs, proxy history, or query-string dumps.
+  const url = `${API_BASE}/${encodeURIComponent(credentials.model)}:generateContent`;
 
   const parts: Array<Record<string, unknown>> = [];
   const img = opts.imageDataUri ? parseDataUri(opts.imageDataUri) : null;
@@ -128,7 +192,10 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
     try {
       res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": credentials.key,
+        },
         body: JSON.stringify(body),
         signal: controller.signal,
         cache: "no-store",
@@ -136,8 +203,11 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
     } finally {
       clearTimeout(timer);
     }
-  } catch {
-    throw new AiCallError("timeout", `Gemini request timed out after ${Math.round(timeoutMs / 1000)}s.`);
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") {
+      throw new AiCallError("timeout", `Gemini request timed out after ${Math.round(timeoutMs / 1000)}s.`);
+    }
+    throw new AiCallError("network", "Could not reach the Gemini API (network error).");
   }
 
   const text = await res.text().catch(() => "");

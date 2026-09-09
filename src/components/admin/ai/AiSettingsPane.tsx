@@ -15,6 +15,9 @@ type Status = {
   backupConfigured: boolean;
   primaryLast4: string;
   backupLast4: string;
+  primarySource: "db" | "env" | "";
+  backupSource: "db" | "env" | "";
+  encryptionEnabled: boolean;
 };
 
 async function getStatus(): Promise<Status | null> {
@@ -140,15 +143,20 @@ export default function AiSettingsPane() {
       <div className="glass rounded-2xl p-6">
         <h2 className="text-lg font-black text-white">API keys</h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Your keys are stored encrypted in place, server-side only. The dashboard never shows a full key — only a masked
-          hint. Leave a field empty to keep the current key.
+          Keys are server-side only — never sent back to the browser (you only see a masked hint), never logged, and never
+          included in error messages. Recommended: set <code className="text-zinc-300">GEMINI_API_KEY</code> in the server
+          environment so no key is ever stored in a database. Keys saved here end up in the database; set{" "}
+          <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the environment to encrypt them at rest.
         </p>
 
         <div className="mt-5 space-y-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-sm font-semibold text-zinc-300">Primary key (used first)</label>
-              <KeyStatus configured={status?.primaryConfigured} />
+              <div className="flex items-center gap-2">
+                <SourceChip source={status?.primarySource} />
+                <KeyStatus configured={status?.primaryConfigured} />
+              </div>
             </div>
             <input
               type="password"
@@ -164,7 +172,10 @@ export default function AiSettingsPane() {
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-sm font-semibold text-zinc-300">Backup key (automatic fallback)</label>
-              <KeyStatus configured={status?.backupConfigured} />
+              <div className="flex items-center gap-2">
+                <SourceChip source={status?.backupSource} />
+                <KeyStatus configured={status?.backupConfigured} />
+              </div>
             </div>
             <input
               type="password"
@@ -183,6 +194,14 @@ export default function AiSettingsPane() {
               Primary key → backup key → <code className="text-zinc-300">GEMINI_API_KEY</code> →{" "}
               <code className="text-zinc-300">GEMINI_BACKUP_API_KEY</code> environment variables. Never displayed in
               frontend code or browser traffic.
+            </p>
+            <p className="mt-1.5 text-xs leading-5 text-zinc-500">
+              At-rest storage:{" "}
+              {status?.encryptionEnabled ? (
+                <span className="text-emerald-400">encrypted — AI_KEY_ENCRYPTION_KEY is set</span>
+              ) : (
+                <span className="text-amber-400">not encrypted — set AI_KEY_ENCRYPTION_KEY (or use env vars) to protect stored keys</span>
+              )}
             </p>
           </div>
         </div>
@@ -223,4 +242,14 @@ function KeyStatus({ configured }: { configured: boolean | undefined }) {
       {configured ? "● configured" : "○ not set"}
     </span>
   );
+}
+
+function SourceChip({ source }: { source: "db" | "env" | "" | undefined }) {
+  if (source === "env") {
+    return <span className="rounded bg-primary-500/15 px-1.5 py-0.5 text-[10px] font-bold text-primary-300">env</span>;
+  }
+  if (source === "db") {
+    return <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">db</span>;
+  }
+  return null;
 }
