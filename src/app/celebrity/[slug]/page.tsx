@@ -109,7 +109,7 @@ export default async function CelebrityPage({ params }: Props) {
         }}
       />
       {/* Cover */}
-      <div className="relative h-52 w-full overflow-hidden sm:h-72">
+      <div className="relative h-64 w-full overflow-hidden sm:h-80">
         {celebrity.coverImage ? (
           <Image src={celebrity.coverImage} alt="" fill priority sizes="100vw" className="object-cover" unoptimized />
         ) : (
@@ -121,23 +121,23 @@ export default async function CelebrityPage({ params }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/30 to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         {/* Profile header */}
-        <div className="-mt-20 flex flex-col gap-5 sm:flex-row sm:items-end">
-          <div className="w-32 shrink-0 sm:w-40">
-            <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-2xl ring-4 ring-ink-900">
+        <div className="-mt-24 flex flex-col gap-6 sm:flex-row sm:items-end">
+          <div className="w-40 shrink-0 sm:w-52">
+            <div className="aspect-[4/5] overflow-hidden rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
               {celebrity.profileImage ? (
                 <Image
                   src={celebrity.profileImage}
                   alt={celebrity.name}
-                  width={180}
-                  height={225}
-                  className="h-full w-full object-cover object-top"
+                  width={208}
+                  height={260}
+                  className="h-full w-full object-contain"
                   unoptimized
                 />
               ) : (
                 <div
-                  className="grid h-full w-full place-items-center rounded-xl text-3xl font-black text-white sm:text-4xl"
+                  className="grid h-full w-full place-items-center rounded-2xl text-4xl font-black text-white sm:text-5xl"
                   style={{ backgroundColor: celebrity.accentColor }}
                 >
                   {celebrity.name.slice(0, 1)}
@@ -152,29 +152,29 @@ export default async function CelebrityPage({ params }: Props) {
               </h1>
               {celebrity.isVerified && <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7" />}
               <span
-                className="rounded-full px-3 py-1 text-xs font-bold text-white"
+                className="rounded-full px-3.5 py-1.5 text-sm font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
               >
                 {celebrity.category}
               </span>
             </div>
             {/* Profession/title directly below the name, Google knowledge-panel style */}
-            <p className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">
+            <p className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
               {celebrity.profession}
             </p>
             {/* Google-style factual overview for this exact celebrity */}
             {celebrity.googleOverview ? (
-              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-zinc-300">
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-300 sm:text-lg">
                 {celebrity.googleOverview}
               </p>
             ) : (
-              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+              <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
                 {celebrity.bio}
                 {celebrity.city ? ` · ${celebrity.city}` : ""}
                 {celebrity.country ? `, ${celebrity.country}` : ""}
               </p>
             )}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2.5">
               <SocialLinksRow links={socials} />
             </div>
           </div>
@@ -187,7 +187,7 @@ export default async function CelebrityPage({ params }: Props) {
 
         {/* Verified follower counts */}
         {(celebrity.instagramFollowers || celebrity.tiktokFollowers || celebrity.facebookFollowers) && (
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FollowerTile icon="instagram" label="Instagram" count={celebrity.instagramFollowers} url={socials.instagram} />
             <FollowerTile icon="tiktok" label="TikTok" count={celebrity.tiktokFollowers} url={socials.tiktok} />
             <FollowerTile icon="facebook" label="Facebook" count={celebrity.facebookFollowers} url={socials.facebook} />
@@ -196,44 +196,44 @@ export default async function CelebrityPage({ params }: Props) {
 
         {/* Stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-2xl font-black text-white">
+          <div className="glass rounded-3xl px-6 py-5">
+            <p className="text-3xl font-black text-white">
               <CountUp value={celebrity.fanCount} />
             </p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.registeredFans" /></p>
+            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.registeredFans" /></p>
           </div>
-          <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-2xl font-black text-white">
+          <div className="glass rounded-3xl px-6 py-5">
+            <p className="text-3xl font-black text-white">
               <CountUp value={celebrity.countryCount} />
             </p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="countries.title" /></p>
+            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="countries.title" /></p>
           </div>
-          <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-2xl font-black text-white">{celebrity.memberships.length}</p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.onCommunity" /></p>
+          <div className="glass rounded-3xl px-6 py-5">
+            <p className="text-3xl font-black text-white">{celebrity.memberships.length}</p>
+            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.onCommunity" /></p>
           </div>
-          <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-2xl font-black text-white">{celebrity.isFeatured ? <><span aria-hidden>*</span> <T k="membership.featured" /></> : <T k="membership.open" />}</p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.communityStatus" /></p>
+          <div className="glass rounded-3xl px-6 py-5">
+            <p className="text-3xl font-black text-white">{celebrity.isFeatured ? <><span aria-hidden>*</span> <T k="membership.featured" /></> : <T k="membership.open" />}</p>
+            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.communityStatus" /></p>
           </div>
         </div>
 
         {/* CTA row */}
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-10 flex flex-wrap gap-4">
           <Link
             href={`/celebrity/${celebrity.slug}/join`}
-            className="btn-grad inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold text-white"
+            className="btn-grad inline-flex items-center gap-2.5 rounded-full px-9 py-4 text-base font-bold text-white transition active:scale-[0.98]"
           >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
             </svg>
             <T k="join.getFanCard" />
           </Link>
           <Link
             href={`/celebrity/${celebrity.slug}/join`}
-            className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold text-white ring-1 ring-white/20 transition hover:bg-white/5"
+            className="inline-flex items-center gap-2.5 rounded-full px-9 py-4 text-base font-bold text-white ring-1 ring-white/20 transition hover:bg-white/5 active:scale-[0.98]"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-6 0M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             <T k="join.joinCommunity" />
@@ -241,7 +241,7 @@ export default async function CelebrityPage({ params }: Props) {
         </div>
 
         {/* Public events */}
-        <div className="mt-12 space-y-12">
+        <div className="mt-16 space-y-14">
           <EventsHappeningNow events={events.happening} />
           <EventsUpcoming events={events.upcoming} accent={celebrity.accentColor} lastSyncedAt={lastSyncedAt} />
           <EventsIssueSection events={[...events.postponed, ...events.cancelled]} />
@@ -249,28 +249,28 @@ export default async function CelebrityPage({ params }: Props) {
         </div>
 
         {/* Body grid */}
-        <div className="mt-14 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
+        <div className="mt-16 grid gap-12 lg:grid-cols-[1.4fr_1fr]">
           {/* Bio + community info */}
-          <div className="space-y-10">
+          <div className="space-y-14">
             <section>
-              <h2 className="text-xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
-              <p className="mt-3 max-w-2xl leading-relaxed text-zinc-300">{celebrity.bio || "No biography has been added yet for this community."}</p>
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-500">
+              <h2 className="text-2xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
+              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-zinc-300">{celebrity.bio || "No biography has been added yet for this community."}</p>
+              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-500">
                 CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
                 each community and do not represent contracts with, or endorsement by, the celebrity.
               </p>
             </section>
 
 <section>
-  <h2 className="text-xl font-black tracking-tight"><T k="membership.onCommunity" /></h2>
+  <h2 className="text-2xl font-black tracking-tight"><T k="membership.onCommunity" /></h2>
   {!hasMemberships ? (
     <div className="mt-4">
       <EmptyState message={<T k="membership.notConfigured" />} />
     </div>
   ) : (
-    <div className="mt-6 space-y-10">
+    <div className="mt-8 space-y-12">
       {celebrity.memberships.some((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE) && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-3">
           {celebrity.memberships
             .filter((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE)
             .map((level) => (
@@ -280,12 +280,12 @@ export default async function CelebrityPage({ params }: Props) {
       )}
       {celebrity.memberships.some((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE) && (
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300"><T k="membership.signatureExperiences" /></p>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300"><T k="membership.signatureExperiences" /></p>
+          <p className="mt-2 max-w-2xl text-base leading-relaxed text-zinc-400">
             <T k="membership.signatureSub" /> — <T k="membership.from" /> {formatMoney(PREMIUM_MIN_PRICE, "USD")}{" "}
             <T k="membership.to" /> {formatMoney(3000000, "USD")}.
           </p>
-          <div className="mt-4 space-y-4">
+          <div className="mt-6 space-y-5">
             {celebrity.memberships
               .filter((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE)
               .map((level) => (
@@ -319,18 +319,18 @@ export default async function CelebrityPage({ params }: Props) {
 
 function MembershipLevelCard({ level, slug, accent }: { level: MembershipLevelType; slug: string; accent: string }) {
   return (
-    <div className="glass card-hover flex flex-col rounded-2xl p-5">
-      <span className="inline-flex w-fit text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
+    <div className="glass card-hover flex flex-col rounded-3xl p-6">
+      <span className="inline-flex w-fit text-xs font-black uppercase tracking-widest" style={{ color: accent }}>
         <T k="membership.level" vars={{ n: level.displayOrder + 1 }} />
       </span>
-      <h3 className="mt-1 text-lg font-bold text-white">{level.name}</h3>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">{level.benefits ?? level.description}</p>
-      <p className="mt-3 text-sm font-black" style={{ color: accent }}>
+      <h3 className="mt-2 text-xl font-bold text-white">{level.name}</h3>
+      <p className="mt-2 flex-1 text-base leading-relaxed text-zinc-400">{level.benefits ?? level.description}</p>
+      <p className="mt-4 text-xl font-black" style={{ color: accent }}>
         {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
       </p>
       <Link
         href={`/celebrity/${slug}/join?level=${level.id}`}
-        className="mt-4 rounded-full py-2 text-center text-sm font-semibold ring-1 ring-white/15 text-white transition hover:bg-white/5"
+        className="mt-5 rounded-2xl py-3 text-center text-sm font-bold ring-1 ring-white/15 text-white transition hover:bg-white/5"
       >
         <T k="membership.chooseLevel" />
       </Link>
@@ -340,33 +340,33 @@ function MembershipLevelCard({ level, slug, accent }: { level: MembershipLevelTy
 
 function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: string }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.08] via-white/[0.02] to-rose-500/[0.04] p-5 sm:p-6">
+    <div className="relative overflow-hidden rounded-3xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.08] via-white/[0.02] to-rose-500/[0.04] p-6 sm:p-7">
       <div className="pointer-events-none absolute -inset-x-10 -top-16 h-28 rotate-6 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent" />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex w-fit rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex w-fit rounded-full bg-amber-400/15 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
               Experience
             </span>
-            <h3 className="text-lg font-black text-white">{level.name}</h3>
+            <h3 className="text-xl font-black text-white">{level.name}</h3>
           </div>
-          {level.description && <p className="mt-1.5 text-sm font-medium text-zinc-300">{level.description}</p>}
+          {level.description && <p className="mt-2 text-base font-medium text-zinc-300">{level.description}</p>}
         </div>
-        <p className="text-lg font-black text-amber-300">
+        <p className="text-xl font-black text-amber-300">
           {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
         </p>
       </div>
-      <ul className="relative mt-4 space-y-2">
+      <ul className="relative mt-5 space-y-3">
         {benefitLines(level.benefits ?? level.description).map((line) => (
-          <li key={line} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/90" />
+          <li key={line} className="flex items-start gap-3 text-base leading-relaxed text-zinc-300">
+            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-amber-400/90" />
             {line}
           </li>
         ))}
       </ul>
       <Link
         href={`/celebrity/${slug}/join?level=${level.id}`}
-        className="relative mt-5 inline-flex w-full items-center justify-center rounded-full py-2.5 text-center text-sm font-bold text-ink-900 transition hover:brightness-110"
+        className="relative mt-6 inline-flex w-full items-center justify-center rounded-2xl py-3.5 text-center text-base font-bold text-ink-900 transition hover:brightness-110 active:scale-[0.99]"
         style={{ background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" }}
       >
         <T k="membership.chooseExperience" />
@@ -470,13 +470,13 @@ function FollowerTile({
     <>
       <div className="flex items-center gap-2.5">
         <PlatformIcon icon={icon} />
-        <span className="text-sm font-semibold text-zinc-400">{label}</span>
+        <span className="text-base font-semibold text-zinc-400">{label}</span>
       </div>
-      <p className="mt-2 text-2xl font-black text-white">{formatFollowerCount(count)}</p>
-      <p className="text-xs text-zinc-500">followers</p>
+      <p className="mt-3 text-3xl font-black text-white">{formatFollowerCount(count)}</p>
+      <p className="mt-1 text-sm text-zinc-500">followers</p>
     </>
   );
-  const cls = "glass card-hover block rounded-2xl px-5 py-4";
+  const cls = "glass card-hover block rounded-3xl px-6 py-5";
   return url ? (
     <a href={url} target="_blank" rel="noreferrer" className={cls}>
       {inner}

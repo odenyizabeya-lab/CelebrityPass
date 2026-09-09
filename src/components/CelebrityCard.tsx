@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { CelebritySummary } from "@/lib/services";
 import CountUp from "./CountUp";
 import VerifiedBadge from "./VerifiedBadge";
@@ -14,20 +17,34 @@ const CATEGORY_STYLES: Record<string, string> = {
 };
 
 export default function CelebrityCard({ celebrity }: { celebrity: CelebritySummary }) {
+  const router = useRouter();
   const catStyle = CATEGORY_STYLES[celebrity.category] ?? CATEGORY_STYLES["Public Figure"];
+  const profileUrl = `/celebrity/${celebrity.slug}`;
+
+  const openProfile = () => router.push(profileUrl);
+
   return (
-    <Link
-      key={celebrity.id}
-      href={`/celebrity/${celebrity.slug}`}
-      className="card-hover glass group block overflow-hidden rounded-2xl"
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={`Open ${celebrity.name} profile`}
+      onClick={openProfile}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          openProfile();
+        }
+      }}
+      className="card-hover glass group flex cursor-pointer flex-col overflow-hidden rounded-3xl"
     >
-      <div className="relative h-14 overflow-hidden">
+      {/* Cover */}
+      <div className="relative h-36 overflow-hidden sm:h-44">
         {celebrity.coverImage ? (
           <Image
             src={celebrity.coverImage}
             alt=""
             fill
-            sizes="(max-width: 768px) 50vw, 25vw"
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover transition duration-500 group-hover:scale-105"
             unoptimized
           />
@@ -39,21 +56,22 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
         )}
       </div>
 
-      <div className="flex items-start justify-between px-5 pt-3">
-        <div className="relative -mt-10">
-          <div className="h-16 w-16 overflow-hidden rounded-2xl bg-ink-900 p-1 shadow-lg ring-4 ring-ink-900">
+      {/* Avatar row */}
+      <div className="flex items-start justify-between px-6 pt-3">
+        <div className="relative -mt-12">
+          <div className="h-24 w-24 overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
             {celebrity.profileImage ? (
               <Image
                 src={celebrity.profileImage}
                 alt={celebrity.name}
-                width={80}
-                height={100}
-                className="h-full w-full rounded-xl object-cover object-top"
+                width={96}
+                height={120}
+                className="h-full w-full object-contain object-top"
                 unoptimized
               />
             ) : (
               <div
-                className="grid h-full w-full place-items-center rounded-xl text-lg font-bold text-white"
+                className="grid h-full w-full place-items-center rounded-xl text-2xl font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
               >
                 {celebrity.name
@@ -65,40 +83,66 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
             )}
           </div>
         </div>
-        <span className={`mt-2 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${catStyle}`}>
+        <span className={`mt-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ${catStyle}`}>
           {celebrity.category}
         </span>
       </div>
 
-      <div className="px-5 pb-5 pt-3">
+      <div className="flex flex-1 flex-col px-6 pb-6 pt-4">
+        {/* Name + verified badge kept exactly as published */}
         <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight text-white group-hover:gradient-text">
           {celebrity.name}
           {celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
         </h3>
-        <p className="mt-0.5 text-sm text-zinc-400">
+        <p className="mt-1 text-base font-medium text-zinc-300">
           {celebrity.profession} · {celebrity.country}
         </p>
-        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-zinc-500">
+        <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-zinc-500">
           {celebrity.shortBio ?? celebrity.bio}
         </p>
 
-        <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5">
           <div>
-            <p className="text-base font-bold text-white">
+            <p className="text-xl font-black text-white">
               <CountUp value={celebrity.fanCount} />{" "}
-              <span className="text-xs font-medium text-zinc-500">
+              <span className="text-sm font-medium text-zinc-500">
                 {celebrity.fanCount === 1 ? "Fan" : "Fans"}
               </span>
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="mt-0.5 text-sm text-zinc-500">
               {celebrity.countryCount} {celebrity.countryCount === 1 ? "country" : "countries"} · live
             </p>
           </div>
-          <span className="btn-grad rounded-full px-4 py-2 text-xs font-semibold text-white">
-            Enter Community
+          <span className="rounded-full px-3.5 py-1.5 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/30 bg-emerald-500/10">
+            Live community
           </span>
         </div>
+
+        {/* Full-width action buttons, large touch targets */}
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Link
+            href={profileUrl}
+            onClick={(e) => e.stopPropagation()}
+            className="btn-grad inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold text-white transition active:scale-[0.98]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.46 12a10.3 10.3 0 0119.08 0 10.3 10.3 0 01-19.08 0z" />
+            </svg>
+            View Profile
+          </Link>
+          <Link
+            href={`${profileUrl}/join`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold text-white ring-1 ring-white/20 transition hover:bg-white/5 active:scale-[0.98]"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-6 0M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Enter Community
+          </Link>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

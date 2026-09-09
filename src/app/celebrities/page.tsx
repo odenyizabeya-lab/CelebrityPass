@@ -34,10 +34,10 @@ export default async function CelebritiesPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-      <div className="mb-8 text-center">
+      <div className="mb-10 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Fan Communities</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Celebrity Directory</h1>
-        <p className="mx-auto mt-4 max-w-xl text-zinc-400">
+        <p className="mx-auto mt-4 max-w-xl text-base text-zinc-400">
           {celebrities.length} active {celebrities.length === 1 ? "community" : "communities"} · search, filter, and
           enter any fan community to claim your official card.
         </p>
@@ -77,7 +77,7 @@ export default async function CelebritiesPage({
             </div>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {celebrities.map((c) => (
               <CelebrityCard key={c.id} celebrity={c} />
             ))}
