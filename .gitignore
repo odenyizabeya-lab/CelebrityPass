@@ -48,10 +48,7 @@ npm-install-out.txt
 dev-server.log
 dev-server.err.log
 
-# cloudflare
-.wrangler
-.dev.vars
-.open-next
+# (migrated from Cloudflare to Vercel — Cloudflare-specific artifacts no longer produced)
 
 # ===========================================================================
 # Android signing — PRIVATE. Never commit keystores, credentials, or signing

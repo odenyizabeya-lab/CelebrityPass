@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdminAuthed } from "@/lib/auth";
+import { createServerSupabase, isAdminAuthedSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const authed = await isAdminAuthed();
+  const authed = await isAdminAuthedSupabase();
   if (!authed) redirect("/admin/login");
 
   return (
@@ -80,8 +80,9 @@ function SignOutForm() {
     <form
       action={async () => {
         "use server";
-        const { clearAdminSession } = await import("@/lib/auth");
-        await clearAdminSession();
+        const { createServerSupabase } = await import("@/lib/supabase/server");
+        const supabase = await createServerSupabase();
+        await supabase.auth.signOut();
         redirect("/admin/login");
       }}
     >
