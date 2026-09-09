@@ -54,6 +54,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [website, setWebsite] = useState(celebrity?.website ?? "");
   const [isFeatured, setIsFeatured] = useState(celebrity?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(celebrity?.isActive ?? true);
+  const [isVerified, setIsVerified] = useState(celebrity?.isVerified ?? true);
   const [profileImage, setProfileImage] = useState<string | null>(celebrity?.profileImage ?? null);
   const [coverImage, setCoverImage] = useState<string | null>(celebrity?.coverImage ?? null);
   const [igFollowers, setIgFollowers] = useState(celebrity?.instagramFollowers != null ? String(celebrity.instagramFollowers) : "");
@@ -89,6 +90,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       website,
       isFeatured,
       isActive,
+      isVerified,
       accentColor: accent,
       profileImage,
       coverImage,
@@ -300,8 +302,9 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
     <form onSubmit={submit} className="glass rounded-3xl p-6 sm:p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black tracking-tight">{edit ? `Edit ${celebrity!.name}` : "New Celebrity"}</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Toggle label="Featured" checked={isFeatured} onChange={setIsFeatured} />
+          <Toggle label="Verified" checked={isVerified} onChange={setIsVerified} />
           <Toggle label="Active" checked={isActive} onChange={setIsActive} />
         </div>
       </div>
