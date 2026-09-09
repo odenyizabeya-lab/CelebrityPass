@@ -61,7 +61,7 @@ export type ScanProfile = {
     watermark: string | null;
     accent: string | null;
   };
-  /** Exactly 3 prepared base membership tiers (Member / Gold / VIP style). */
+  /** Exactly 2 prepared base membership tiers (paid Premium / VIP standard). */
   baseMemberships: PrepMembershipTier[];
   /** Public source URLs the research actually used (evidence trail). */
   sourceUrls: string[];

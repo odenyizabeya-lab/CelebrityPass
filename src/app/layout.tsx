@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import LanguageProvider from "@/lib/i18n/language-context";
+import {
+  localeDir,
+  parseAcceptLanguage,
+  resolveInitialLocale,
+} from "@/lib/i18n/locales";
 import { appUrl } from "@/lib/utils";
 
 const BASE_URL = appUrl();
@@ -36,15 +43,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const h = await headers();
+  const serverCountry =
+    h.get("x-vercel-ip-country") ?? h.get("cf-ipcountry") ?? null;
+  const initialLocale = resolveInitialLocale(
+    null,
+    serverCountry,
+    parseAcceptLanguage(h.get("accept-language")),
+  );
+
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang={initialLocale} dir={localeDir(initialLocale)} className="h-full antialiased">
       <body className="flex min-h-full flex-col bg-aurora">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <LanguageProvider initialLocale={initialLocale} serverCountry={serverCountry}>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import FanCardView, { type CardViewData } from "@/components/FanCardView";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import T from "@/components/T";
 
 export const dynamic = "force-dynamic";
 
@@ -55,15 +56,20 @@ export default async function FanCardPage({ params }: Props) {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            {card.celebrity.name}&apos;s Community
+            <T k="fan.backToCommunity" vars={{ name: card.celebrity.name }} />
           </Link>
-          <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Verified Fan Card</h1>
+          <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+            <T k="fan.verifiedFanCard" />
+          </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            {card.fanNumber} · issued to {card.fan.name} under {card.celebrity.name}&apos;s fan community
+            <T
+              k="fan.issuedTo"
+              vars={{ fan: card.fanNumber, name: card.fan.name, celeb: card.celebrity.name }}
+            />
           </p>
         </div>
         <div className="flex gap-3">
-          <CopyLinkButton url={card.cardUrl ?? `/celebrity/${card.celebrity.slug}/fan/${card.fanNumber}`} label="Copy Card Link" />
+          <CopyLinkButton url={card.cardUrl ?? `/celebrity/${card.celebrity.slug}/fan/${card.fanNumber}`} />
         </div>
       </div>
 
@@ -73,13 +79,18 @@ export default async function FanCardPage({ params }: Props) {
 
       <div className="mx-auto mt-8 max-w-2xl space-y-3 text-sm leading-relaxed text-zinc-500">
         <p>
-          This page is the official, QR-verifiable record of <strong className="text-zinc-300">{card.fanNumber}</strong>.
-          Scanning the QR code on the card opens this exact URL, proving membership in{" "}
-          <strong className="text-zinc-300">{card.celebrity.name}&apos;s</strong> fan community.
+          <T
+            k="fan.officialRecord"
+            vars={{ num: card.fanNumber, celeb: card.celebrity.name }}
+          />
         </p>
         <p>
-          Card status: <strong className="text-zinc-300">{card.status.toLowerCase()}</strong> · Registered on{" "}
-          <strong className="text-zinc-300">{card.registeredAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</strong>
+          <T k="fan.cardStatus" />{" "}
+          <strong className="text-zinc-300">{card.status.toLowerCase()}</strong> ·{" "}
+          <T k="fan.registeredOn" />{" "}
+          <strong className="text-zinc-300">
+            {card.registeredAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+          </strong>
         </p>
       </div>
     </div>

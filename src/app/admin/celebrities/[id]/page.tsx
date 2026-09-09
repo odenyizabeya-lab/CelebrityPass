@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CountUp from "@/components/CountUp";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import CelebrityForm from "@/components/admin/CelebrityForm";
 import MembershipsManager from "@/components/admin/MembershipsManager";
 import DeleteCelebrityButton from "@/components/admin/DeleteCelebrityButton";
@@ -33,7 +34,10 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
       </Link>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">{celebrity.name}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight">
+            {celebrity.name}
+            {celebrity.isVerified && <VerifiedBadge className="h-5 w-5" />}
+          </h1>
           <p className="mt-1 text-sm text-zinc-400">
             /celebrity/{celebrity.slug} · {celebrity.category} · {celebrity.country}
           </p>

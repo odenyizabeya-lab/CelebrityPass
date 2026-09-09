@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/lib/i18n/language-context";
 
-export default function CopyLinkButton({ url, label = "Copy Card Link" }: { url: string; label?: string }) {
+export default function CopyLinkButton({ url, label }: { url: string; label?: string }) {
+  const { t } = useLanguage();
+  const resolvedLabel = label ?? t("fan.copyCardLink");
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -25,7 +28,7 @@ export default function CopyLinkButton({ url, label = "Copy Card Link" }: { url:
           <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          Copied!
+          {t("common.copied")}
         </>
       ) : (
         <>
@@ -36,7 +39,7 @@ export default function CopyLinkButton({ url, label = "Copy Card Link" }: { url:
               d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
             />
           </svg>
-          {label}
+          {resolvedLabel}
         </>
       )}
     </button>

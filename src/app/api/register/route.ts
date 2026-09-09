@@ -93,7 +93,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Free (or default) level -> issue the card instantly.
+  // Fallback (no membership level selected): issue the card instantly. All
+  // standard base tiers are paid, so this path only triggers when the fan
+  // joins without picking a level.
   const origin =
     request.headers.get("origin") ??
     request.headers.get("x-forwarded-proto") + "://" + (request.headers.get("x-forwarded-host") ?? "localhost:3000");

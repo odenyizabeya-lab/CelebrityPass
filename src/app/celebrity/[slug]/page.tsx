@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import CountUp from "@/components/CountUp";
+import T from "@/components/T";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
@@ -199,21 +200,21 @@ export default async function CelebrityPage({ params }: Props) {
             <p className="text-2xl font-black text-white">
               <CountUp value={celebrity.fanCount} />
             </p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500">Registered Fans</p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.registeredFans" /></p>
           </div>
           <div className="glass rounded-2xl px-5 py-4">
             <p className="text-2xl font-black text-white">
               <CountUp value={celebrity.countryCount} />
             </p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500">Countries Represented</p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="countries.title" /></p>
           </div>
           <div className="glass rounded-2xl px-5 py-4">
             <p className="text-2xl font-black text-white">{celebrity.memberships.length}</p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500">Membership Levels</p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.onCommunity" /></p>
           </div>
           <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-2xl font-black text-white">{celebrity.isFeatured ? "★ Featured" : "Open"}</p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500">Community Status</p>
+            <p className="text-2xl font-black text-white">{celebrity.isFeatured ? <><span aria-hidden>*</span> <T k="membership.featured" /></> : <T k="membership.open" />}</p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-zinc-500"><T k="membership.communityStatus" /></p>
           </div>
         </div>
 
@@ -226,7 +227,7 @@ export default async function CelebrityPage({ params }: Props) {
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
             </svg>
-            Get Fan Card
+            <T k="join.getFanCard" />
           </Link>
           <Link
             href={`/celebrity/${celebrity.slug}/join`}
@@ -235,7 +236,7 @@ export default async function CelebrityPage({ params }: Props) {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-6 0M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            Join Fan Community
+            <T k="join.joinCommunity" />
           </Link>
         </div>
 
@@ -252,7 +253,7 @@ export default async function CelebrityPage({ params }: Props) {
           {/* Bio + community info */}
           <div className="space-y-10">
             <section>
-              <h2 className="text-xl font-black tracking-tight">About the Community</h2>
+              <h2 className="text-xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
               <p className="mt-3 max-w-2xl leading-relaxed text-zinc-300">{celebrity.bio || "No biography has been added yet for this community."}</p>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-500">
                 CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
@@ -261,10 +262,10 @@ export default async function CelebrityPage({ params }: Props) {
             </section>
 
 <section>
-  <h2 className="text-xl font-black tracking-tight">Membership Levels</h2>
+  <h2 className="text-xl font-black tracking-tight"><T k="membership.onCommunity" /></h2>
   {!hasMemberships ? (
     <div className="mt-4">
-      <EmptyState message="Membership levels haven't been configured for this community yet." />
+      <EmptyState message={<T k="membership.notConfigured" />} />
     </div>
   ) : (
     <div className="mt-6 space-y-10">
@@ -279,10 +280,10 @@ export default async function CelebrityPage({ params }: Props) {
       )}
       {celebrity.memberships.some((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE) && (
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">Signature Experiences</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300"><T k="membership.signatureExperiences" /></p>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            Private one-on-one meetings, home visits, and live performances — the real experiences stars sell — from{" "}
-            {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}.
+            <T k="membership.signatureSub" /> — <T k="membership.from" /> {formatMoney(PREMIUM_MIN_PRICE, "USD")}{" "}
+            <T k="membership.to" /> {formatMoney(3000000, "USD")}.
           </p>
           <div className="mt-4 space-y-4">
             {celebrity.memberships
@@ -301,13 +302,12 @@ export default async function CelebrityPage({ params }: Props) {
           {/* Fan card preview */}
           <aside>
             <div className="lg:sticky lg:top-24">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Fan Card Preview</h3>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500"><T k="membership.fanCardPreview" /></h3>
               <div className="mt-4">
                 <CardPreview celebrity={celebrity} />
               </div>
               <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                Sample preview showing {celebrity.name}&apos;s card design. Your real card will display your name,
-                unique Fan ID, membership level, country, and issuance date.
+                <T k="membership.fanCardPreviewSub" vars={{ name: celebrity.name }} />
               </p>
             </div>
           </aside>
@@ -321,18 +321,18 @@ function MembershipLevelCard({ level, slug, accent }: { level: MembershipLevelTy
   return (
     <div className="glass card-hover flex flex-col rounded-2xl p-5">
       <span className="inline-flex w-fit text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
-        Level {level.displayOrder + 1}
+        <T k="membership.level" vars={{ n: level.displayOrder + 1 }} />
       </span>
       <h3 className="mt-1 text-lg font-bold text-white">{level.name}</h3>
       <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">{level.benefits ?? level.description}</p>
       <p className="mt-3 text-sm font-black" style={{ color: accent }}>
-        {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : "Free"}
+        {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
       </p>
       <Link
         href={`/celebrity/${slug}/join?level=${level.id}`}
         className="mt-4 rounded-full py-2 text-center text-sm font-semibold ring-1 ring-white/15 text-white transition hover:bg-white/5"
       >
-        Choose this level
+        <T k="membership.chooseLevel" />
       </Link>
     </div>
   );
@@ -353,7 +353,7 @@ function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: s
           {level.description && <p className="mt-1.5 text-sm font-medium text-zinc-300">{level.description}</p>}
         </div>
         <p className="text-lg font-black text-amber-300">
-          {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : "Free"}
+          {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
         </p>
       </div>
       <ul className="relative mt-4 space-y-2">
@@ -369,7 +369,7 @@ function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: s
         className="relative mt-5 inline-flex w-full items-center justify-center rounded-full py-2.5 text-center text-sm font-bold text-ink-900 transition hover:brightness-110"
         style={{ background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" }}
       >
-        Choose this experience
+        <T k="membership.chooseExperience" />
       </Link>
     </div>
   );
@@ -424,17 +424,20 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
             {celebrity.name.slice(0, 1)}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-white">{celebrity.name}</p>
-            <p className="text-[10px] uppercase tracking-widest text-white/60">Official Fan Membership</p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate text-sm font-black text-white">{celebrity.name}</p>
+              {celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
+            </div>
+            <p className="text-[10px] uppercase tracking-widest text-white/60"><T k="membership.officialMembership" /></p>
           </div>
         </div>
         <div className="mt-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-white/50">Card Holder</p>
-            <p className="text-base font-black text-white/80">Your Name Here</p>
+            <p className="text-[10px] uppercase tracking-widest text-white/50"><T k="membership.cardHolder" /></p>
+            <p className="text-base font-black text-white/80"><T k="membership.yourNameHere" /></p>
             <p className="mt-1.5 font-mono text-[11px] text-white/70">
               FC-000000
-              <span className="ml-2 text-white/50">· sample ID</span>
+              <span className="ml-2 text-white/50"><T k="membership.sampleId" /></span>
             </p>
           </div>
           <div className="rounded-md bg-white p-1.5">

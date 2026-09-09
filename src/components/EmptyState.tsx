@@ -1,9 +1,11 @@
+import type { ReactNode } from "react";
+
 export default function EmptyState({
   title = "Nothing here yet",
   message,
 }: {
-  title?: string;
-  message: string;
+  title?: ReactNode;
+  message: ReactNode;
 }) {
   return (
     <div className="glass rounded-2xl border-dashed px-6 py-14 text-center">

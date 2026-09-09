@@ -18,7 +18,13 @@ import {
   friendlyAiError,
   type GeminiCredentials,
 } from "./gemini";
-import type { IdentifiedPerson, ScanEvent, ScanOutcome, ScanProfile } from "./types";
+import type {
+  IdentifiedPerson,
+  PrepMembershipTier,
+  ScanEvent,
+  ScanOutcome,
+  ScanProfile,
+} from "./types";
 
 export const CELEBRITY_CATEGORIES = ["Actor", "Musician", "Athlete", "Creator", "Public Figure", "Artist"] as const;
 
@@ -87,29 +93,48 @@ async function runWithFallback<T>(
   );
 }
 
+/**
+ * Standard base membership tiers for every community. There is no free tier;
+ * every fan card membership is a paid level — LEVEL 1 = Premium ($1,000),
+ * LEVEL 2 = VIP ($1,700). Premium $2,500+ Signature Experiences are added
+ * separately at publish time.
+ */
+const BASE_MEMBERSHIP_TIERS: PrepMembershipTier[] = [
+  {
+    name: "Premium",
+    description: "Premium fan card membership with exclusive community perks.",
+    price: 1000,
+    currency: "USD",
+  },
+  {
+    name: "VIP",
+    description: "VIP fan card membership with top-tier community status.",
+    price: 1700,
+    currency: "USD",
+  },
+];
+
 type RawProfileSchema = Awaited<ReturnType<typeof researchProfile>>;
 type RawEventsSchema = Awaited<ReturnType<typeof researchEvents>>;
 
 /** Maps a raw Gemini profile into the exact ScanProfile type. */
 function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
-  const fandomName = raw.base_memberships?.length ? raw.base_memberships : null;
   const membership =
-    fandomName && fandomName.length === 3
-      ? fandomName
-      : [
-          { name: `${name.split(" ")[0]} Member`, description: "Official verified fan card and community access.", price: null, currency: "USD" },
-          { name: `${name.split(" ")[0]} Gold`, description: "Gold fan card, priority news, and exclusive digital content.", price: 14.99, currency: "USD" },
-          { name: `${name.split(" ")[0]} VIP`, description: "VIP recognition card with premium community status.", price: 44.99, currency: "USD" },
-        ];
+    Array.isArray(raw.base_memberships) && raw.base_memberships.length >= 2
+      ? raw.base_memberships.slice(0, 2)
+      : BASE_MEMBERSHIP_TIERS;
 
   const cleanMembership = membership
-    .map((m) => ({
-      name: asString(m?.name, 60) || "Member",
+    .map((m, i) => ({
+      name: asString(m?.name, 60) || BASE_MEMBERSHIP_TIERS[i]?.name || "Premium",
       description: asString(m?.description, 300) || "Fan membership tier.",
-      price: typeof m?.price === "number" && Number.isFinite(m.price) ? m.price : null,
+      price:
+        typeof m?.price === "number" && Number.isFinite(m.price) && m.price > 0
+          ? m.price
+          : (BASE_MEMBERSHIP_TIERS[i]?.price ?? 1000),
       currency: asString(m?.currency, 4) || "USD",
     }))
-    .slice(0, 4);
+    .slice(0, 2);
 
   return {
     name: asString(raw.name, 120) || name,

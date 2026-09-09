@@ -12,9 +12,9 @@ export default function VerifiedBadge({ className = "h-4 w-4" }: { className?: s
       viewBox="0 0 24 24"
       className={`inline-block shrink-0 ${className}`}
       role="img"
-      aria-label="Verified celebrity"
+      aria-label="Verified profile"
     >
-      <title>Verified</title>
+      <title>Verified profile</title>
       <circle cx="12" cy="12" r="10.5" fill="#1D9BF0" />
       <path
         d="M7.5 12.4l3 3 6-6.6"

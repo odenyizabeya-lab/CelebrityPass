@@ -5,6 +5,7 @@ import { getCurrentFanId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/payments";
 import FanCardView, { type CardViewData } from "@/components/FanCardView";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,10 @@ export default async function DashboardPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-widest text-zinc-500">Your Fan Community</p>
-                      <h3 className="truncate text-xl font-black text-white">{card.celebrity.name}</h3>
+                      <h3 className="flex items-center gap-1.5 truncate text-xl font-black text-white">
+                        {card.celebrity.name}
+                        {card.celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
+                      </h3>
                     </div>
                   </div>
                   <FanCardView card={viewData} />

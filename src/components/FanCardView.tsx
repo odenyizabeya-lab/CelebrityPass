@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { formatDate, tryParseJson, type CardDesign } from "@/lib/utils";
+import T from "./T";
 import VerifiedBadge from "./VerifiedBadge";
 
 export type CardViewData = {
@@ -23,10 +24,10 @@ export type CardViewData = {
   };
 };
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  ACTIVE: { label: "Active", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" },
-  SUSPENDED: { label: "Suspended", cls: "bg-rose-500/15 text-rose-300 ring-rose-400/30" },
-  EXPIRED: { label: "Expired", cls: "bg-zinc-500/15 text-zinc-300 ring-zinc-400/30" },
+const STATUS_BADGE: Record<string, { key: string; cls: string }> = {
+  ACTIVE: { key: "fanCard.statusActive", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" },
+  SUSPENDED: { key: "fanCard.statusSuspended", cls: "bg-rose-500/15 text-rose-300 ring-rose-400/30" },
+  EXPIRED: { key: "fanCard.statusExpired", cls: "bg-zinc-500/15 text-zinc-300 ring-zinc-400/30" },
 };
 
 // Cards at or above this price render in the premium black-gold "ELITE" skin.
@@ -42,7 +43,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
   const accent = premium ? "#f0b429" : design.accent || "#f59e0b";
   const gradientFrom = primary;
   const gradientTo = "#0b0c10";
-  const status = STATUS_BADGE[card.status] ?? { label: card.status, cls: "bg-zinc-500/15 text-zinc-300" };
+  const status = STATUS_BADGE[card.status] ?? { key: null, cls: "bg-zinc-500/15 text-zinc-300" };
   const badgeText = premium ? "ELITE EXPERIENCE" : design.badgeText ?? "FAN CARD";
   const watermark = premium ? "OFFICIAL ELITE MEMBER" : design.watermark ?? "Official Fan Member";
 
@@ -99,16 +100,16 @@ export default function FanCardView({ card }: { card: CardViewData }) {
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                  Official Fan Membership
+                  <T k="fanCard.official" />
                 </p>
                 <p className="flex items-center gap-1 text-lg font-black leading-tight text-white">
                   {card.celebrity.name}
-                  <VerifiedBadge className="h-4 w-4" />
+                  {card.celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
                 </p>
               </div>
             </div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${status.cls}`}>
-              ● {status.label}
+              ● {status.key ? <T k={status.key} /> : card.status}
             </span>
           </div>
 
@@ -131,16 +132,16 @@ export default function FanCardView({ card }: { card: CardViewData }) {
           {/* Middle: member identity + QR */}
           <div className="mt-5 flex items-center justify-between gap-6">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Card Holder</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60"><T k="membership.cardHolder" /></p>
               <p className="truncate text-xl font-black tracking-tight text-white">{card.fanName}</p>
               <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-                <span className="font-medium text-white/70">Fan ID</span>
+                <span className="font-medium text-white/70"><T k="fanCard.fanId" /></span>
                 <span className="font-mono font-bold tracking-wide text-white">{card.fanNumber}</span>
-                <span className="font-medium text-white/70">Membership</span>
+                <span className="font-medium text-white/70"><T k="fanCard.membership" /></span>
                 <span className="font-semibold text-white">{card.membershipName ?? "Standard"}</span>
-                <span className="font-medium text-white/70">Country</span>
+                <span className="font-medium text-white/70"><T k="fanCard.country" /></span>
                 <span className="font-semibold text-white">{card.fanCountry ?? "—"}</span>
-                <span className="font-medium text-white/70">Issued</span>
+                <span className="font-medium text-white/70"><T k="fanCard.issued" /></span>
                 <span className="font-semibold text-white">{formatDate(card.registeredAt)}</span>
               </div>
             </div>
@@ -157,9 +158,9 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                 />
               ) : (
                 <div className="grid h-24 w-24 place-items-center text-center text-[10px] font-semibold text-ink-600">
-                  Verified
+                  <T k="fanCard.statusActive" />
                   <br />
-                  Member
+                  <T k="fanCard.membership" />
                 </div>
               )}
             </div>

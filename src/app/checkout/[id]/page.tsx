@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentFanId } from "@/lib/auth";
 import UniversalCheckout from "@/components/payments/UniversalCheckout";
+import T from "@/components/T";
 import { buildPaymentMethods } from "@/lib/ticketing/universal";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,13 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
       <div className="mb-8 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: payment.celebrity!.accentColor }}>
-          Secure checkout
+          <T k="checkout.secure" />
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Complete your purchase</h1>
+        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+          <T k="checkout.complete" />
+        </h1>
         <p className="mx-auto mt-3 max-w-lg text-zinc-400">
-          You&apos;re one step away from your official {payment.celebrity!.name} fan card. Your card page is issued once
-          your payment is verified.
+          <T k="checkout.sub" vars={{ name: payment.celebrity!.name }} />
         </p>
       </div>
 
@@ -67,12 +69,18 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Order Summary</p>
-            <h2 className="mt-1 text-xl font-black">Your {payment.celebrity!.name} Fan Card</h2>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
+              <T k="checkout.orderSummary" />
+            </p>
+            <h2 className="mt-1 text-xl font-black">
+              <T k="checkout.yourCard" vars={{ name: payment.celebrity!.name }} />
+            </h2>
             <p className="text-sm text-white/70">{plan.title}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-white/60">Total due</p>
+            <p className="text-sm text-white/60">
+              <T k="checkout.totalDue" />
+            </p>
             <p className="text-3xl font-black">{new Intl.NumberFormat("en", { style: "currency", currency: payment.currency || "USD" }).format(payment.amount)}</p>
           </div>
         </div>
@@ -82,18 +90,17 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
         <div className="glass rounded-3xl p-7">
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-500 text-2xl font-black text-emerald-900">✓</div>
-            <h2 className="mt-4 text-xl font-black text-white">Transfer submitted for verification</h2>
+            <h2 className="mt-4 text-xl font-black text-white">
+              <T k="checkout.pendingTitle" />
+            </h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-emerald-200/80">
-              We&apos;ve received your transfer details and proof (reference{" "}
-              <span className="font-mono">{pendingProof.reference ?? "n/a"}</span>). Your purchase stays{" "}
-              <span className="font-semibold text-emerald-200">Pending Verification</span> until we confirm the funds
-              have arrived.
+              <T k="checkout.pendingSub" vars={{ ref: pendingProof.reference ?? "n/a" }} />
             </p>
             <a
               href={`/celebrity/${payment.celebrity!.slug}`}
               className="mt-6 inline-block rounded-full bg-white px-6 py-2.5 text-sm font-bold text-emerald-900 hover:bg-emerald-50"
             >
-              Back to {payment.celebrity!.name}
+              <T k="join.backToProfile" vars={{ name: payment.celebrity!.name }} />
             </a>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { formatMoney } from "@/lib/payments";
+import { useLanguage } from "@/lib/i18n/language-context";
 import BankAccountCard from "./BankAccountCard";
 
 export type MethodOption = {
@@ -84,6 +85,7 @@ function formatExpiry(v: string) {
 }
 
 export default function UniversalCheckout(props: Props) {
+  const { t } = useLanguage();
   const [method, setMethod] = useState<"bank-transfer" | "atm-card" | null>(props.defaultMethod);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -407,17 +409,17 @@ export default function UniversalCheckout(props: Props) {
 
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Cardholder Name</label>
+              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("checkout.nameOnCard")}</label>
               <input
                 required
                 value={cardName}
                 onChange={(e) => setCardName(e.target.value)}
                 className={inputCls}
-                placeholder="Name on card"
+                placeholder={t("checkout.nameOnCard")}
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Card Number</label>
+              <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("checkout.cardNumber")}</label>
               <input
                 required
                 inputMode="numeric"
@@ -429,7 +431,7 @@ export default function UniversalCheckout(props: Props) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Expiry</label>
+                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("checkout.expiry")}</label>
                 <input
                   required
                   inputMode="numeric"
@@ -440,7 +442,7 @@ export default function UniversalCheckout(props: Props) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">CVC</label>
+                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("checkout.cvc")}</label>
                 <input
                   required
                   inputMode="numeric"
@@ -457,14 +459,14 @@ export default function UniversalCheckout(props: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <p className="text-xs text-zinc-500">
-              Secured by Stripe. Your card details are encrypted end-to-end.
+              {t("checkout.secureNote")}
             </p>
             <button
               type="submit"
               disabled={processing}
               className="btn-grad shrink-0 rounded-full px-8 py-3 text-sm font-bold text-white disabled:opacity-60"
             >
-              {processing ? "Processing…" : `Pay ${total}`}
+              {processing ? t("checkout.processing") : `${t("checkout.payNow")} · ${total}`}
             </button>
           </div>
         </form>

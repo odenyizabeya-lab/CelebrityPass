@@ -3,10 +3,16 @@ import CountUp from "@/components/CountUp";
 import CelebrityCard from "@/components/CelebrityCard";
 import HeroSearch from "@/components/HeroSearch";
 import FaqSection from "@/components/FaqSection";
+import T from "@/components/T";
 import { getCelebritySummaries, getPlatformStats } from "@/lib/services";
 import { prisma } from "@/lib/db";
+import { formatMoney } from "@/lib/payments";
 
 export const revalidate = 60;
+
+// Global base membership: LEVEL 1 = Premium $1,000, LEVEL 2 = VIP $1,700 (USD).
+const PREMIUM_PRICE = 1000;
+const VIP_PRICE = 1700;
 
 export default async function HomePage() {
   const [stats, celebrities] = await Promise.all([getPlatformStats(), getCelebritySummaries()]);
@@ -29,37 +35,40 @@ export default async function HomePage() {
         <div className="relative mx-auto max-w-4xl">
           <span className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-zinc-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            Multi-celebrity fan membership platform
+            <T k="hero.badge" />
           </span>
           <h1 className="fade-up mt-6 text-4xl font-black leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
-            {`One account. `}
-            <span className="gradient-text">Cards for every celebrity</span>
-            {` you love.`}
+            <T k="hero.titleA" />
+            <span className="gradient-text">
+              <T k="hero.titleHighlight" />
+            </span>
+            <T k="hero.titleB" />
           </h1>
           <p className="fade-up mx-auto mt-6 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
-            Join the official fan community of your favorite artists, athletes, actors, and creators. Get a verified
-            digital fan card with your own Fan ID, membership level, and a shareable QR card page.
+            <T k="hero.sub" />
           </p>
 
           <HeroSearch />
 
           <div className="fade-up mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Communities", value: stats.celebrities },
-              { label: "Verified Fans", value: stats.fans },
-              { label: "Active Cards", value: stats.activeCards },
-              { label: "Countries", value: stats.countries },
+              { key: "hero.statsCommunities", value: stats.celebrities },
+              { key: "hero.statsVerifiedFans", value: stats.fans },
+              { key: "hero.statsActiveCards", value: stats.activeCards },
+              { key: "hero.statsCountries", value: stats.countries },
             ].map((s) => (
-              <div key={s.label} className="glass rounded-2xl px-4 py-4">
+              <div key={s.key} className="glass rounded-2xl px-4 py-4">
                 <p className="text-2xl font-black text-white">
                   <CountUp value={s.value} />
                 </p>
-                <p className="mt-0.5 text-xs font-medium text-zinc-500">{s.label}</p>
+                <p className="mt-0.5 text-xs font-medium text-zinc-500">
+                  <T k={s.key} />
+                </p>
               </div>
             ))}
           </div>
           <p className="mt-3 text-[11px] uppercase tracking-widest text-zinc-600">
-            Live statistics counted from real registrations only
+            <T k="hero.statsLiveNote" />
           </p>
         </div>
       </section>
@@ -70,18 +79,22 @@ export default async function HomePage() {
           <div className="mx-auto max-w-7xl">
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Featured</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Featured Communities</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                  <T k="home.featured" />
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                  <T k="home.featuredCommunities" />
+                </h2>
               </div>
               <Link
                 href="/celebrities"
                 className="hidden rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white sm:block"
               >
-                Browse all →
+                <T k="home.browseAll" />
               </Link>
             </div>
             {featured.length === 0 ? (
-              <EmptyState message="Featured communities appear here once added." />
+              <EmptyState message={<T k="common.noResults" />} />
             ) : (
               <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {featured.map((c) => (
@@ -98,13 +111,19 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">Trending</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Popular Fan Communities</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">
+                <T k="home.trending" />
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                <T k="home.popularCommunities" />
+              </h2>
             </div>
-            <p className="hidden text-sm text-zinc-500 sm:block">Ranked by real member count</p>
+            <p className="hidden text-sm text-zinc-500 sm:block">
+              <T k="home.rankedBy" />
+            </p>
           </div>
           {popular.length === 0 ? (
-            <EmptyState message="Communities will be ranked here as members join." />
+            <EmptyState message={<T k="common.noResults" />} />
           ) : (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {popular.map((c) => (
@@ -120,13 +139,19 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Browse everything</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">All Celebrity Communities</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                <T k="home.browseEverything" />
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                <T k="home.allCommunities" />
+              </h2>
             </div>
-            <span className="hidden text-sm text-zinc-500 sm:block">Signed, sealed, scrolling</span>
+            <span className="hidden text-sm text-zinc-500 sm:block">
+              <T k="home.sealed" />
+            </span>
           </div>
           {celebrities.length === 0 ? (
-            <EmptyState message="Communities are added by the team — check back soon!" />
+            <EmptyState message={<T k="common.noResults" />} />
           ) : (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {celebrities.map((c) => (
@@ -141,35 +166,23 @@ export default async function HomePage() {
       <section id="how-it-works" className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">How it works</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">From fan to verified member in minutes</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+              <T k="home.howItWorks" />
+            </p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <T k="home.howItWorksTitle" />
+            </h2>
             <p className="mt-4 text-zinc-400">
-              Choose a community, enter your details, and instantly receive an official fan card issued to you.
+              <T k="home.howItWorksSub" />
             </p>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-4">
             {[
-              {
-                n: "01",
-                t: "Pick a community",
-                d: "Browse the directory and open the commit page of any celebrity that matters to you.",
-              },
-              {
-                n: "02",
-                t: "Register as a fan",
-                d: "Enter your name, email, and country. A personal fan account is created for you.",
-              },
-              {
-                n: "03",
-                t: "Get your Fan ID",
-                d: "A unique ID like FC-000001 is assigned to your card in that celebrity's community.",
-              },
-              {
-                n: "04",
-                t: "Share your card",
-                d: "Your card page and QR code prove your membership anywhere, anytime.",
-              },
+              { n: "01", t: "home.step1T", d: "home.step1D" },
+              { n: "02", t: "home.step2T", d: "home.step2D" },
+              { n: "03", t: "home.step3T", d: "home.step3D" },
+              { n: "04", t: "home.step4T", d: "home.step4D" },
             ].map((step, i) => (
               <div
                 key={step.n}
@@ -177,8 +190,12 @@ export default async function HomePage() {
                 style={{ animationDelay: `${i * 80}ms` }}
               >
                 <span className="gradient-text text-4xl font-black">{step.n}</span>
-                <h3 className="mt-3 text-lg font-bold text-white">{step.t}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">{step.d}</p>
+                <h3 className="mt-3 text-lg font-bold text-white">
+                  <T k={step.t} />
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  <T k={step.d} />
+                </p>
               </div>
             ))}
           </div>
@@ -189,54 +206,69 @@ export default async function HomePage() {
       <section id="membership" className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">Membership</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Levels that fit every fan</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">
+              <T k="membership.title" />
+            </p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <T k="membership.titleBig" />
+            </h2>
             <p className="mt-4 text-zinc-400">
-              Every community defines its own tiers. Joining today is free — pricing arrives later and will always be
-              transparent.
+              <T k="membership.sub" />
             </p>
           </div>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
             {[
               {
-                name: "Member",
-                tag: "Free forever",
-                perks: ["Official digital fan card", "Unique verified Fan ID", "Live card link + QR", "Community access"],
+                id: "premium",
+                name: <T k="membership.premiumName" />,
+                level: <T k="membership.level" vars={{ n: 1 }} />,
+                price: formatMoney(PREMIUM_PRICE),
+                perks: [
+                  "membership.premiumPerk1",
+                  "membership.premiumPerk2",
+                  "membership.premiumPerk3",
+                  "membership.premiumPerk4",
+                  "membership.premiumPerk5",
+                ],
                 featured: false,
               },
               {
-                name: "Gold",
-                tag: "Rising soon",
-                perks: ["Everything in Member", "Gold design tier", "Priority community news", "Special recognition badges"],
+                id: "vip",
+                name: <T k="membership.vipName" />,
+                level: <T k="membership.level" vars={{ n: 2 }} />,
+                price: formatMoney(VIP_PRICE),
+                perks: [
+                  "membership.vipPerk1",
+                  "membership.vipPerk2",
+                  "membership.vipPerk3",
+                  "membership.vipPerk4",
+                  "membership.vipPerk5",
+                ],
                 featured: true,
-              },
-              {
-                name: "VIP",
-                tag: "Rising soon",
-                perks: ["Everything in Gold", "Exclusive VIP design", "Premium support", "Top-tier community status"],
-                featured: false,
               },
             ].map((tier) => (
               <div
-                key={tier.name}
-                className={`glass card-hover rounded-3xl p-7 ${
+                key={tier.id}
+                className={`glass card-hover relative rounded-3xl p-8 ${
                   tier.featured ? "ring-2 ring-primary-500/60 shadow-xl shadow-primary-600/10" : ""
                 }`}
               >
                 {tier.featured && (
-                  <span className="rounded-full bg-gradient-to-r from-primary-500 to-accent-500 px-3 py-1 text-[11px] font-bold text-white">
-                    Most popular
+                  <span className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-primary-500 to-accent-500 px-3 py-1 text-[11px] font-bold text-white">
+                    <T k="membership.mostPopular" />
                   </span>
                 )}
-                <h3 className="mt-3 text-2xl font-black text-white">{tier.name}</h3>
-                <p className="text-sm font-medium text-emerald-400">{tier.tag}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-400">{tier.level}</p>
+                <h3 className="mt-1 text-2xl font-black text-white">{tier.name}</h3>
+                <p className="mt-2 text-3xl font-black text-white">{tier.price}</p>
                 <ul className="mt-6 space-y-3">
                   {tier.perks.map((p) => (
                     <li key={p} className="flex items-start gap-2.5 text-sm text-zinc-300">
                       <svg className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      {p}
+                      <T k={p} />
                     </li>
                   ))}
                 </ul>
@@ -246,10 +278,19 @@ export default async function HomePage() {
                     tier.featured ? "btn-grad text-white" : "ring-1 ring-white/15 text-white hover:bg-white/5"
                   }`}
                 >
-                  Find a community
+                  <T k="membership.chooseLevel" />
                 </Link>
               </div>
             ))}
+          </div>
+
+          <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-accent-500/20 bg-accent-500/[0.06] px-6 py-5 text-center">
+            <p className="text-sm font-bold text-white">
+              <T k="membership.signatureExperiences" />
+            </p>
+            <p className="mt-1 text-sm text-zinc-400">
+              <T k="membership.signatureSub" />
+            </p>
           </div>
         </div>
       </section>
@@ -258,16 +299,20 @@ export default async function HomePage() {
       <section className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Worldwide</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Countries Represented</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+              <T k="countries.section" />
+            </p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <T k="countries.title" />
+            </h2>
             <p className="mt-4 text-zinc-400">
-              These countries are represented by real active members in our communities.
+              <T k="countries.sub" />
             </p>
           </div>
 
           {memberCountries.length === 0 ? (
             <div className="mx-auto mt-10 max-w-xl">
-              <EmptyState message="No countries yet. The first registered fan introduces the first country." />
+              <EmptyState message={<T k="countries.empty" />} />
             </div>
           ) : (
             <>
@@ -276,7 +321,9 @@ export default async function HomePage() {
                   <p className="text-4xl font-black text-white">
                     <CountUp value={memberCountries.length} />
                   </p>
-                  <p className="text-xs font-medium text-zinc-500">countries with active members</p>
+                  <p className="text-xs font-medium text-zinc-500">
+                    <T k="countries.count" />
+                  </p>
                 </div>
               </div>
               <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2">
@@ -298,8 +345,12 @@ export default async function HomePage() {
       <section className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto mb-10 max-w-2xl text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">FAQ</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Frequently asked questions</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">
+              <T k="nav.faq" />
+            </p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <T k="faq.title" />
+            </h2>
           </div>
           <FaqSection />
         </div>
@@ -310,25 +361,27 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-6 md:grid-cols-3">
             <div id="terms" className="glass rounded-2xl p-7">
-              <h3 className="text-lg font-bold text-white">Privacy</h3>
+              <h3 className="text-lg font-bold text-white">
+                <T k="privacyBlock.privacy" />
+              </h3>
               <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                We store only what&apos;s needed to run your fan card: name, email, contact country, and your membership
-                details. We never sell personal data, and we never publish your email. Fan card pages show your name and
-                membership info by design.
+                <T k="privacyBlock.privacyBody" />
               </p>
             </div>
             <div className="glass rounded-2xl p-7">
-              <h3 className="text-lg font-bold text-white">Terms</h3>
+              <h3 className="text-lg font-bold text-white">
+                <T k="privacyBlock.terms" />
+              </h3>
               <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                Fan cards identify your membership in a community. Accounts may be suspended if used for spam, fraud, or
-                impersonation. Community administrators manage cards and statuses. Current membership is free; paid
-                tiers, if introduced, will be opt-in.
+                <T k="privacyBlock.termsBody" />
               </p>
             </div>
             <div id="contact" className="glass rounded-2xl p-7">
-              <h3 className="text-lg font-bold text-white">Contact</h3>
+              <h3 className="text-lg font-bold text-white">
+                <T k="privacyBlock.contact" />
+              </h3>
               <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                Questions about a card, your account, or a community? Email us and we&apos;ll respond within 2 business days.
+                <T k="privacyBlock.contactBody" />
               </p>
               <a
                 href="mailto:support@celebritypass.app"
@@ -353,16 +406,16 @@ export default async function HomePage() {
         <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary-600/25 via-ink-800 to-ink-900 p-10 text-center sm:p-16">
           <div className="pointer-events-none absolute -top-20 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-primary-500/25 blur-[100px]" />
           <h2 className="relative text-3xl font-black tracking-tight sm:text-5xl">
-            Your favorite celebrity has a community.
+            <T k="cta.title" />
           </h2>
           <p className="relative mx-auto mt-4 max-w-xl text-zinc-300">
-            It takes under a minute to join. Your official fan card is issued instantly.
+            <T k="cta.sub" />
           </p>
           <Link
             href="/celebrities"
             className="btn-grad relative mt-8 inline-block rounded-full px-8 py-3.5 text-base font-bold text-white"
           >
-            Browse Celebrity Communities
+            <T k="cta.browse" />
           </Link>
         </div>
       </section>
@@ -370,7 +423,7 @@ export default async function HomePage() {
   );
 }
 
-function EmptyState({ message }: { message: string }) {
+function EmptyState({ message }: { message: React.ReactNode }) {
   return (
     <div className="glass mt-8 rounded-2xl border-dashed px-6 py-12 text-center">
       <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/[0.05]">

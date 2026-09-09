@@ -302,6 +302,7 @@ async function main() {
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
       isActive: true,
+      isVerified: true,
       socialLinks: c.socialLinks,
       cardDesign: JSON.stringify({
         primary: c.accentColor,

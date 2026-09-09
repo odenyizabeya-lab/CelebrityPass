@@ -310,7 +310,7 @@ Rules:
 - followers: published follower counts ONLY when the search results show them; otherwise null (the platform fills realistic placeholders).
 - accent_color: suggest a fitting brand hex color (e.g. "#8b5cf6").
 - card_design: badge_text like "OFFICIAL FAN MEMBER", a short watermark, and an accent hex.
-- base_memberships: EXACTLY 3 tiers for the fan community, using this platform's existing structure: a free "Member" tier, a paid "Gold" tier, a paid "VIP" tier. Name them with the person's real fandom name when known (e.g. Beyoncé -> "Beyhive Member / Beyhive Gold / Beyhive VIP", Swift -> "Swiftie Member / ...", Messi -> "Culé / ..."), otherwise "{First name} Member / Gold / VIP". Accessible description per tier. price: null for Member; Gold ≈ 9.99–19.99 USD, VIP ≈ 39.99–59.99 USD (only adjust if real official fan-club pricing was verified).
+- base_memberships: EXACTLY 2 paid tiers, matching this platform's standard membership scheme: LEVEL 1 "Premium" priced $1,000 USD and LEVEL 2 "VIP" priced $1,700 USD. There is NO free tier and no other base tier. Keep the names "Premium" and "VIP" exactly; provide an accessible, factual description per tier. Do NOT invent different prices.
 - source_urls: the real public URLs (authoritative: official site, verified socials, Wikipedia, reputable press) you actually used for evidence. Include at least 1 and at most 8.
 - Return null for anything you could NOT verify. Do not fabricate.`;
 

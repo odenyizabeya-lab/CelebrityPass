@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import type { MembershipLevelType } from "@/lib/utils";
 import { formatMoney } from "@/lib/payments";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 const COUNTRIES = [
   "Afghanistan", "Argentina", "Australia", "Austria", "Bangladesh", "Belgium", "Brazil", "Canada", "Chile", "China",
@@ -37,6 +38,7 @@ export default function JoinForm({
   accent: string;
   memberships: MembershipLevelType[];
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetLevel = searchParams.get("level") ?? "";
@@ -66,7 +68,7 @@ export default function JoinForm({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong. Please try again.");
+        setError(data.error ?? t("common.somethingWrong"));
         setLoading(false);
         return;
       }
@@ -76,7 +78,7 @@ export default function JoinForm({
       }
       router.push(`/celebrity/${slug}/fan/${data.card.fanNumber}`);
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("common.networkError"));
       setLoading(false);
     }
   };
@@ -94,16 +96,16 @@ export default function JoinForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Full Name *</label>
-          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Your name as it will appear on the card" />
+          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.fullName")}</label>
+          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder={t("join.namePlaceholder")} />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Email *</label>
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@example.com" />
+          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.email")}</label>
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder={t("join.emailPlaceholder")} />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">
-            Password <span className="font-normal text-zinc-500">(optional, for dashboard login)</span>
+            {t("join.password")} <span className="font-normal text-zinc-500">{t("common.optional")}</span>
           </label>
           <input
             type="password"
@@ -111,18 +113,18 @@ export default function JoinForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={inputCls}
-            placeholder="At least 6 characters"
+            placeholder={t("join.passwordHint")}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Country *</label>
+          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.country")}</label>
           <input
             required
             list="country-list"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
             className={inputCls}
-            placeholder="Select or type your country"
+            placeholder={t("join.countryPlaceholder")}
           />
           <datalist id="country-list">
             {COUNTRIES.map((c) => (
@@ -134,7 +136,7 @@ export default function JoinForm({
 
       {memberships.length > 0 && (
         <div className="mt-6">
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Membership Level *</label>
+          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.membershipLevel")}</label>
           {standard.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-3">
               {standard.map((m) => (
@@ -158,13 +160,11 @@ export default function JoinForm({
                   <span className="text-sm font-bold" style={{ color: accent }}>
                     {m.name}
                   </span>
-                  {m.price != null && m.price > 0 ? (
-                    <span className="ml-1.5 text-xs font-bold text-emerald-300">{formatMoney(m.price, m.currency)}</span>
-                  ) : (
-                    <span className="ml-1.5 text-xs font-bold text-emerald-300">Free</span>
-                  )}
+                  <span className="ml-1.5 text-xs font-bold text-emerald-300">
+                    {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
+                  </span>
                   <span className="mt-1 block text-xs leading-relaxed text-zinc-400">
-                    {m.description ?? m.benefits ?? `Official ${celebrityName} fan card`}
+                    {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
                   </span>
                 </label>
               ))}
@@ -174,7 +174,7 @@ export default function JoinForm({
           {premium.length > 0 && (
             <div className="mt-5">
               <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
-                Signature Experiences · {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}
+                {t("membership.signatureExperiences")} · {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}
               </p>
               <div className="space-y-3">
                 {premium.map((m) => {
@@ -225,14 +225,14 @@ export default function JoinForm({
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-zinc-500">
-          Free and standard tiers are issued instantly. Signature Experience tiers complete after payment at checkout.
+          {t("join.issuedNote")}
         </p>
         <button
           type="submit"
           disabled={loading}
           className="btn-grad rounded-full px-8 py-3 text-sm font-bold text-white disabled:opacity-60"
         >
-          {loading ? "Issuing your card…" : "Get My Fan Card"}
+          {loading ? t("join.issuing") : t("join.getMyCard")}
         </button>
       </div>
     </form>
