@@ -78,19 +78,19 @@ export default function FanCardView({ card }: { card: CardViewData }) {
           {/* Top row */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-xl ring-2 ring-white/40">
+              <div className="h-12 w-12 overflow-hidden rounded-lg bg-ink-900 p-1 ring-2 ring-white/40">
                 {card.celebrity.profileImage ? (
                   <Image
                     src={card.celebrity.profileImage}
                     alt={card.celebrity.name}
                     width={60}
                     height={75}
-                    className="h-full w-full object-cover object-top"
+                    className="h-full w-full rounded-md object-cover object-top"
                     unoptimized
                   />
                 ) : (
                   <div
-                    className="grid h-full w-full place-items-center text-sm font-black text-white"
+                    className="grid h-full w-full place-items-center rounded-md text-sm font-black text-white"
                     style={{ backgroundColor: primary }}
                   >
                     {card.celebrity.name[0]}

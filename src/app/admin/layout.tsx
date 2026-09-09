@@ -28,8 +28,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AdminLink href="/admin/events/sources" label="Event Sources" />
             <AdminLink href="/admin/notifications" label="Notifications" />
             <AdminLink href="/admin/payments/bank" label="Bank Accounts" />
-            <AdminLink href="/admin/payments/verify" label="Verify Transfers" />
-            <AdminLink href="/admin/security" label="Account & Security" />
+<AdminLink href="/admin/payments/verify" label="Verify Transfers" />
+          <AdminLink href="/admin/ai-settings" label="AI Settings" />
+          <AdminLink href="/admin/security" label="Account & Security" />
             <Link href="/" className="block rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-white">
               View public site →
             </Link>
@@ -51,6 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/marketing/overview" label="Marketing" compact />
           <AdminLink href="/admin/payments/bank" label="Bank Accounts" compact />
           <AdminLink href="/admin/payments/verify" label="Verify Transfers" compact />
+          <AdminLink href="/admin/ai-settings" label="AI Settings" compact />
           <AdminLink href="/admin/notifications" label="Notifications" compact />
           <AdminLink href="/admin/security" label="Account & Security" compact />
         </div>

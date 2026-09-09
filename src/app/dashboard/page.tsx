@@ -81,19 +81,19 @@ export default async function DashboardPage() {
               return (
                 <div key={card.id} className="glass rounded-3xl p-5">
                   <div className="mb-4 flex items-center gap-3">
-                    <div className="h-12 w-12 overflow-hidden rounded-xl">
+                    <div className="h-12 w-12 overflow-hidden rounded-lg bg-ink-900 p-1">
                       {card.celebrity.profileImage ? (
                         <Image
                           src={card.celebrity.profileImage}
                           alt={card.celebrity.name}
                           width={48}
                           height={60}
-                          className="h-full w-full object-cover object-top"
+                          className="h-full w-full rounded-md object-cover object-top"
                           unoptimized
                         />
                       ) : (
                         <div
-                          className="grid h-full w-full place-items-center text-sm font-bold text-white"
+                          className="grid h-full w-full place-items-center rounded-md text-sm font-bold text-white"
                           style={{ backgroundColor: card.celebrity.accentColor }}
                         >
                           {card.celebrity.name[0]}

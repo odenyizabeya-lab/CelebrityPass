@@ -41,19 +41,19 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
 
       <div className="flex items-start justify-between px-5 pt-3">
         <div className="relative -mt-10">
-          <div className="h-16 w-16 overflow-hidden rounded-2xl ring-4 ring-ink-900 shadow-lg">
+          <div className="h-16 w-16 overflow-hidden rounded-2xl bg-ink-900 p-1 shadow-lg ring-4 ring-ink-900">
             {celebrity.profileImage ? (
               <Image
                 src={celebrity.profileImage}
                 alt={celebrity.name}
                 width={80}
                 height={100}
-                className="h-full w-full object-cover object-top"
+                className="h-full w-full rounded-xl object-cover object-top"
                 unoptimized
               />
             ) : (
               <div
-                className="grid h-full w-full place-items-center text-lg font-bold text-white"
+                className="grid h-full w-full place-items-center rounded-xl text-lg font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
               >
                 {celebrity.name

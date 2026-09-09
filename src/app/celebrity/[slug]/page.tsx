@@ -9,7 +9,7 @@ import GooglePanel from "@/components/GooglePanel";
 import { EventsUpcoming, EventsHappeningNow, EventsCompleted, EventsIssueSection } from "@/components/events/EventSections";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
-import { getCelebrityBySlug, type CelebrityDetail } from "@/lib/services";
+import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
 import { getCelebrityEvents } from "@/lib/events/service";
 import { tryParseJson, type SocialLinks } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
@@ -32,6 +32,11 @@ function benefitLines(text?: string | null): string[] {
 }
 
 type Props = { params: Promise<{ slug: string }> };
+
+/** Pre-render every public community so navigation is instant (prefetched, no server roundtrip on click). */
+export async function generateStaticParams() {
+  return listActiveCelebritySlugs();
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -118,24 +123,26 @@ export default async function CelebrityPage({ params }: Props) {
       <div className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
         {/* Profile header */}
         <div className="-mt-20 flex flex-col gap-5 sm:flex-row sm:items-end">
-          <div className="h-36 w-36 shrink-0 overflow-hidden rounded-3xl ring-4 ring-ink-900 shadow-2xl">
-            {celebrity.profileImage ? (
-              <Image
-                src={celebrity.profileImage}
-                alt={celebrity.name}
-                width={180}
-                height={225}
-                className="h-full w-full object-cover object-top"
-                unoptimized
-              />
-            ) : (
-              <div
-                className="grid h-full w-full place-items-center text-4xl font-black text-white"
-                style={{ backgroundColor: celebrity.accentColor }}
-              >
-                {celebrity.name.slice(0, 1)}
-              </div>
-            )}
+          <div className="w-32 shrink-0 sm:w-40">
+            <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-2xl ring-4 ring-ink-900">
+              {celebrity.profileImage ? (
+                <Image
+                  src={celebrity.profileImage}
+                  alt={celebrity.name}
+                  width={180}
+                  height={225}
+                  className="h-full w-full object-cover object-top"
+                  unoptimized
+                />
+              ) : (
+                <div
+                  className="grid h-full w-full place-items-center rounded-xl text-3xl font-black text-white sm:text-4xl"
+                  style={{ backgroundColor: celebrity.accentColor }}
+                >
+                  {celebrity.name.slice(0, 1)}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex-1 pb-1">
             <div className="flex flex-wrap items-center gap-2">

@@ -107,11 +107,11 @@ export default async function AdminCelebritiesPage({
           <ul className="divide-y divide-white/[0.05]">
             {celebrities.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink-900 p-1">
                   {c.profileImage ? (
-                    <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full object-cover object-top" unoptimized />
+                    <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full rounded-md object-cover object-top" unoptimized />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-sm font-bold text-white" style={{ backgroundColor: c.accentColor }}>
+                    <div className="grid h-full w-full place-items-center rounded-md text-sm font-bold text-white" style={{ backgroundColor: c.accentColor }}>
                       {c.name[0]}
                     </div>
                   )}

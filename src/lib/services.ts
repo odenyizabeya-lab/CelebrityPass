@@ -113,6 +113,15 @@ export type CelebrityDetail = CelebritySummary & {
   memberships: MembershipLevelType[];
 };
 
+/** Slugs of all active communities (used for static generation). */
+export async function listActiveCelebritySlugs(): Promise<{ slug: string }[]> {
+  const rows = await prisma.celebrity.findMany({
+    where: { isActive: true },
+    select: { slug: true },
+  });
+  return rows;
+}
+
 /** Full data for a single celebrity community. */
 export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail | null> {
   const celebrity = await prisma.celebrity.findUnique({
