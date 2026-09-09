@@ -75,21 +75,26 @@ async function runWithFallback<T>(
   candidates: GeminiCredentials[],
   fn: (c: GeminiCredentials) => Promise<T>,
 ): Promise<{ value: T; usedLabel: string }> {
-  const errors: string[] = [];
+  const errors: { type: string; label: string; message: string }[] = [];
   for (const c of candidates) {
     try {
       return { value: await fn(c), usedLabel: c.label };
     } catch (e) {
-      if (e instanceof AiCallError && (e.type === "invalid_key" || e.type === "quota" || e.type === "timeout")) {
-        errors.push(`${c.label}: ${e.message}`);
-        continue; // a rejected or rate-limited key won't improve — try the next credential
+      if (
+        e instanceof AiCallError &&
+        (e.type === "invalid_key" || e.type === "quota" || e.type === "timeout" || e.type === "permission" || e.type === "api_disabled")
+      ) {
+        errors.push({ type: e.type, label: c.label, message: e.message });
+        continue; // this key or project is blocked — try the next credential
       }
       throw e;
     }
   }
+  const first = errors[0];
+  const label = first?.message ?? "";
   throw new AiCallError(
-    "invalid_key",
-    `No working Gemini key: ${errors.join(" | ") || "all keys were rejected"}`,
+    first?.type === "permission" || first?.type === "api_disabled" ? "permission" : "invalid_key",
+    `No working Gemini key ${label ? `(${label})` : ""}${errors.length > 1 ? " — also tried the fallback keys" : ""}`,
   );
 }
 

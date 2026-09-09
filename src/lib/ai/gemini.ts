@@ -43,19 +43,31 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
   if (e instanceof AiCallError) {
     switch (e.type) {
       case "invalid_key":
-        return { message: "The Gemini API key was rejected. Check the key in Admin → AI Settings." };
+        return { message: "The Gemini API key was rejected. Check the key in Admin \u2192 AI Settings." };
       case "api_disabled":
-        return { message: "Google rejected the request: the Generative Language (Gemini) API is not enabled for this project." };
+        return {
+          message: "The Generative Language (Gemini) API is not enabled for this key's Google Cloud project.",
+          detail: "Go to console.cloud.google.com \u2192 APIs & Services \u2192 Enable APIs \u2192 search for \"Generative Language API\" \u2192 Enable it. Then test the key again.",
+        };
       case "billing":
-        return { message: "The Gemini key is valid, but this model requires billing on the Google project (or the project plan doesn't include it)." };
+        return {
+          message: "The Gemini key is valid, but this model requires billing on the Google project.",
+          detail: "Go to console.cloud.google.com \u2192 Billing \u2192 link a billing account to the project. Free-tier models (gemini-3.6-flash) may also work.",
+        };
       case "project_restriction":
-        return { message: "The Gemini key is valid but is restricted and blocked this request — check its API/IP/referrer restrictions in Google Cloud." };
+        return {
+          message: "The Gemini key is valid but restricted \u2014 its API/IP/referrer allow-list blocked this request.",
+          detail: "Go to console.cloud.google.com \u2192 Credentials \u2192 edit the key \u2192 under \"API restrictions\" select \"Allow all\" or add \"Generative Language API\".",
+        };
       case "permission":
-        return { message: "Google denied access (403) even though the key is valid. Check the API is enabled and the project allows this model." };
+        return {
+          message: "Google denied access (403). The key works but this project or model blocks the request.",
+          detail: "1) Enable the Generative Language API in Google Cloud Console. 2) Check the key has no restrictive API allow-list. 3) Ensure billing is enabled if using a paid model. Then test again.",
+        };
       case "quota":
         return { message: "The Gemini API has reached its limit (quota/rate limit). An automatic fallback key is used if one is configured." };
       case "model":
-        return { message: `Gemini model unavailable: ${e.message}` };
+        return { message: `Gemini model unavailable: ${e.message}. Try a different model in AI Settings.` };
       case "unsupported_combination":
         return { message: "Web research was rejected by the API and could not fall back." };
       case "timeout":
@@ -112,12 +124,19 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
   }
 
   if (status === 403) {
+    // Google uses 403 for several distinct conditions — check the structured
+    // reason field first (most reliable), then fall back to message keywords.
+    if (body.reason === "SERVICE_DISABLED") return "api_disabled";
+    if (body.reason === "CONSUMER_INVALID") return "project_restriction";
+    if (body.reason === "API_KEY_INVALID") return "invalid_key";
     // FAILED_PRECONDITION is Gemini's signal that the model needs billing/paid access.
     if (body.status === "FAILED_PRECONDITION" || has("billing", "paid", "upgrade", "pricing", "payment", "plan")) return "billing";
     if (has("quota", "rate", "limit", "exhausted")) return "quota";
-    if (has("restricted", "restriction", "ip addresses", "referrer", "android package", "permitted")) return "project_restriction";
-    if (has("not enabled", "disabled", "enable the", "api key that cannot")) return "api_disabled";
-    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "invalid api key")) return "invalid_key";
+    if (has("not enabled", "disabled", "enable the", "enable it", "enable this", "api key that cannot", "api is not")) return "api_disabled";
+    if (has("restricted", "restriction", "ip addresses", "referrer", "android package", "permitted", "allowlisted")) return "project_restriction";
+    if (has("not authorized", "not have permission", "does not have permission", "unauthorized", "access denied")) return "permission";
+    if (has("model") && has("not available", "not found", "not supported", "not exist")) return "model";
+    if (has("api key not valid", "invalid api key")) return "invalid_key";
     return "permission";
   }
 

@@ -63,8 +63,8 @@ function decryptStoredKey(stored: string): string {
   }
 }
 
-export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
-export const AI_MODEL_OPTIONS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"] as const;
+export const DEFAULT_AI_MODEL = "gemini-3.6-flash";
+export const AI_MODEL_OPTIONS = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"] as const;
 
 async function getSetting(key: string): Promise<string> {
   try {
@@ -84,10 +84,21 @@ async function setSetting(key: string, value: string): Promise<void> {
   await prisma.appSetting.upsert({ where: { key }, create: { key, value: v }, update: { value: v } });
 }
 
+const DEPRECATED_MODELS: Record<string, string> = {
+  "gemini-2.5-flash": "gemini-3.6-flash",
+  "gemini-2.0-flash": "gemini-3.6-flash",
+};
+
 /** Gemini model id used for scanning (settings -> GEMINI_MODEL env -> default). */
 export async function getAIModel(): Promise<string> {
   const fromDb = await getSetting(AI_SETTING_MODEL);
-  return fromDb || process.env.GEMINI_MODEL?.trim() || DEFAULT_AI_MODEL;
+  const raw = fromDb || process.env.GEMINI_MODEL?.trim() || DEFAULT_AI_MODEL;
+  const migrated = DEPRECATED_MODELS[raw];
+  if (migrated) {
+    await setAIModel(migrated);
+    return migrated;
+  }
+  return raw;
 }
 
 export async function setAIModel(model: string): Promise<void> {
@@ -149,11 +160,12 @@ export async function setGeminiKey(slot: "primary" | "backup", value: string): P
 
 /**
  * Coarse sanity check that a value looks like a Google AI Studio key. This is a
- * format check only (we do NOT claim the key is invalid here). Gemini keys are
- * 39 characters and start with "AIza".
+ * format check only (we do NOT claim the key is invalid here). Gemini keys
+ * either start with "AIza" (~39 chars) or "AQ." (~60 chars).
  */
 export function isPlausibleGeminiKey(key: string): boolean {
-  return /^AIza[0-9A-Za-z_-]{30,45}$/.test(key.trim());
+  const t = key.trim();
+  return /^AIza[0-9A-Za-z_-]{30,45}$/.test(t) || /^AQ\.[0-9A-Za-z_-]{40,80}$/.test(t);
 }
 
 /** Mask a secret for display: "AB12••••wxyz" / "••••" when short. */

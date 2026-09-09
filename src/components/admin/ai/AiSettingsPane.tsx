@@ -128,7 +128,7 @@ export default function AiSettingsPane() {
         <div className="mt-4">
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Model</label>
           <select value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
-            {(status?.modelOptions ?? ["gemini-2.5-flash"]).map((m) => (
+            {(status?.modelOptions ?? ["gemini-3.6-flash"]).map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

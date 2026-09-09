@@ -67,6 +67,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [saved, setSaved] = useState(false);
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done" | "error" | "low_confidence">("idle");
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanDetail, setScanDetail] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [includeEvents, setIncludeEvents] = useState(true);
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
@@ -184,6 +185,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const scanFromImage = async (dataUri: string) => {
     setScanState("scanning");
     setScanMessage(null);
+    setScanDetail(null);
     setScanResult(null);
     setExtrasWarning(null);
     try {
@@ -202,6 +204,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       if (!res.ok || data?.status === "provider_error") {
         setScanState("error");
         setScanMessage(data?.message ?? "The scan failed. Try again.");
+        setScanDetail(typeof data?.detail === "string" ? data.detail : null);
         return;
       }
       if (data?.result) {
@@ -485,10 +488,13 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         )}
         {scanState === "error" && (
           <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-            {scanMessage}{" "}
-            <a href="/admin/ai-settings" className="underline">
-              Open AI Settings
-            </a>
+            <p>
+              {scanMessage}{" "}
+              <a href="/admin/ai-settings" className="underline">
+                Open AI Settings
+              </a>
+            </p>
+            {scanDetail && <p className="mt-2 text-xs leading-5 text-rose-200/80">{scanDetail}</p>}
           </div>
         )}
 

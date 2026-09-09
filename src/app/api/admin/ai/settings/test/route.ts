@@ -29,13 +29,13 @@ function messageFor(code: TestCode, model: string): string {
     case "invalid_key":
       return "Google rejected the key as invalid (Gemini confirms the key itself is wrong). Double-check the key was copied fully and has no spaces or extra characters.";
     case "api_disabled":
-      return "The key is valid, but Google says the Gemini (Generative Language) API is not enabled for this project. Enable it in Google Cloud Console, then test again.";
+      return "The key is valid, but Google says the Gemini (Generative Language) API is not enabled for this project. Enable it at console.cloud.google.com → APIs & Services → Enable APIs → \"Generative Language API\", then test again.";
     case "billing":
-      return `The key is valid, but model "${model}" requires billing on this Google project. Enable billing in Google Cloud (or pick a supported model), then test again.`;
+      return `The key is valid, but model "${model}" requires billing on this Google project. Enable billing in Google Cloud (or switch to gemini-3.6-flash), then test again.`;
     case "project_restriction":
-      return "The key is valid but restricted — this request was blocked by its restrictions (API/IP/referrer allow-lists). Relax the restrictions or recreate the key in Google Cloud.";
+      return "The key is valid but restricted — this request was blocked by its restrictions (API/IP/referrer allow-lists). In Google Cloud → Credentials → edit the key → change API restrictions to \"Allow all\" (or add the Generative Language API), then test again.";
     case "permission":
-      return `Google denied access (403) even though the key is valid. Check the Gemini API is enabled, the project allows "${model}", and the key isn't restricted.`;
+      return `Google denied access (403). The key itself is valid, but the request was blocked at the project level. Fix these, then test again: (1) Enable the Generative Language API at console.cloud.google.com, (2) make sure the key has no restrictive allow-list, (3) enable billing if "${model}" requires it.`;
     case "model":
       return `Model "${model}" was rejected as not found / not available for this project or key. Pick another model in AI Settings.`;
     case "quota":
@@ -47,7 +47,7 @@ function messageFor(code: TestCode, model: string): string {
     case "timeout":
       return "Gemini did not respond within 25 seconds. Try again.";
     case "format":
-      return 'That doesn\'t look like a Google AI key (they start with "AIza" and are ~39 characters). Check for extra spaces or a truncated paste — the key was NOT sent to Google.';
+      return 'That doesn\'t look like a Google AI key (they start with "AIza" or "AQ."). Check for extra spaces or a truncated paste — the key was NOT sent to Google.';
     case "none":
       return "No Gemini API key is configured. Paste a Google AI Studio key above, or set GEMINI_API_KEY / GEMINI_BACKUP_API_KEY in the server environment.";
     default:
