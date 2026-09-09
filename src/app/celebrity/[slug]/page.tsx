@@ -124,14 +124,14 @@ export default async function CelebrityPage({ params }: Props) {
       <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         {/* Profile header */}
         <div className="-mt-24 flex flex-col gap-6 sm:flex-row sm:items-end">
-          <div className="w-48 shrink-0 sm:w-72 md:w-80">
+          <div className="w-48 shrink-0 sm:w-80 md:w-96">
             <div className="overflow-hidden rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
               {celebrity.profileImage ? (
                 <Image
                   src={celebrity.profileImage}
                   alt={celebrity.name}
-                  width={320}
-                  height={400}
+                  width={384}
+                  height={480}
                   className="h-auto w-full object-contain"
                   unoptimized
                 />

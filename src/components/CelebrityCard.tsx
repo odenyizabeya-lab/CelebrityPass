@@ -38,7 +38,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
       className="card-hover glass group flex cursor-pointer flex-col overflow-hidden rounded-3xl"
     >
       {/* Cover */}
-      <div className="relative h-36 overflow-hidden sm:h-44">
+      <div className="relative h-44 overflow-hidden sm:h-52">
         {celebrity.coverImage ? (
           <Image
             src={celebrity.coverImage}
@@ -58,20 +58,20 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
 
       {/* Avatar row */}
       <div className="flex items-start justify-between px-6 pt-3">
-        <div className="relative -mt-12">
-          <div className="h-24 w-24 overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
+        <div className="relative -mt-14">
+          <div className="h-32 w-32 overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900 sm:h-36 sm:w-36">
             {celebrity.profileImage ? (
               <Image
                 src={celebrity.profileImage}
                 alt={celebrity.name}
-                width={96}
-                height={120}
+                width={144}
+                height={180}
                 className="h-full w-full object-contain object-top"
                 unoptimized
               />
             ) : (
               <div
-                className="grid h-full w-full place-items-center rounded-xl text-2xl font-bold text-white"
+                className="grid h-full w-full place-items-center rounded-2xl text-3xl font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
               >
                 {celebrity.name
