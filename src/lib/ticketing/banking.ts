@@ -212,6 +212,7 @@ export const PROOF_STATUS = {
   PENDING: "PENDING_VERIFICATION",
   APPROVED: "APPROVED",
   REJECTED: "REJECTED",
+  REFUNDED: "REFUNDED",
 } as const;
 export type ProofStatus = (typeof PROOF_STATUS)[keyof typeof PROOF_STATUS];
 

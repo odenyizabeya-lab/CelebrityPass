@@ -172,6 +172,31 @@ function refundProcessedHtml(data: {
   `);
 }
 
+function adminBankTransferPendingHtml(data: {
+  amountCents: number;
+  currency: string;
+  senderName: string | null;
+  reference: string | null;
+  bankAccount: string;
+  purchase: string;
+  verifyUrl: string;
+}): string {
+  return wrap(`
+    <h1 style="font-size:24px;font-weight:900;color:#ffffff;margin:0 0 16px;">New Bank Transfer to Verify</h1>
+    <p style="font-size:15px;color:#a1a1aa;margin:0 0 24px;">A customer submitted a transfer proof for <strong style="color:#ffffff;">${data.purchase}</strong>. Nothing is auto-marked paid — verify the funds before approving.</p>
+    <div style="background:#1c1917;border:1px solid #27272a;border-radius:16px;padding:24px;margin:0 0 24px;">
+      <p style="font-size:13px;color:#71717a;margin:0 0 8px;">Amount claimed</p>
+      <p style="font-size:20px;font-weight:900;color:#8b5cf6;margin:0;">${formatCents(data.amountCents, data.currency)}</p>
+      <p style="font-size:13px;color:#71717a;margin:16px 0 8px;">Sender</p>
+      <p style="font-size:14px;color:#e4e4e7;margin:0;">${data.senderName ? data.senderName : "not provided"}</p>
+      ${data.reference ? `<p style="font-size:13px;color:#71717a;margin:16px 0 8px;">Reference</p><p style="font-size:14px;color:#e4e4e7;margin:0;font-family:monospace;">${data.reference}</p>` : ""}
+      <p style="font-size:13px;color:#71717a;margin:16px 0 8px;">Bank account</p>
+      <p style="font-size:14px;color:#e4e4e7;margin:0;">${data.bankAccount}</p>
+    </div>
+    <a href="${data.verifyUrl}" style="display:inline-block;background:#8b5cf6;color:#ffffff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;">Open Verify Queue</a>
+  `);
+}
+
 function formatCents(cents: number, currency: string): string {
   return new Intl.NumberFormat("en", { style: "currency", currency }).format(cents / 100);
 }
@@ -272,6 +297,24 @@ export async function notifyBankTransferPending(input: {
     [input.to],
     `Transfer received for ${input.orderRef} — pending verification`,
     bankTransferPendingHtml(input),
+  );
+}
+
+/** Send to the admin team when a new bank transfer proof needs verification. */
+export async function notifyAdminBankTransferPending(input: {
+  to: string[];
+  amountCents: number;
+  currency: string;
+  senderName: string | null;
+  reference: string | null;
+  bankAccount: string;
+  purchase: string;
+  verifyUrl: string;
+}) {
+  await send(
+    input.to,
+    `New bank transfer to verify — ${formatCents(input.amountCents, input.currency)} ${input.purchase}`,
+    adminBankTransferPendingHtml(input),
   );
 }
 

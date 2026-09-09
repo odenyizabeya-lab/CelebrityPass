@@ -44,13 +44,18 @@ export async function getCurrentFanId(): Promise<string | null> {
 /**
  * Admin session is authenticated through Supabase Auth. This delegates to the
  * server-side Supabase client so every admin API route shares the same gate.
+ * Fails closed: if Supabase errors, this returns false (never grants access).
  */
 export async function isAdminAuthed(): Promise<boolean> {
-  const { createServerSupabase } = await import("@/lib/supabase/server");
+  const { isAdminAuthedSupabase } = await import("@/lib/supabase/server");
   const cookieStore = await cookies();
   if (cookieStore.get("fc_admin")) {
     // Clear the legacy signed-cookie admin session if it still exists.
     cookieStore.delete("fc_admin");
   }
-  return (await createServerSupabase()).auth.getUser().then(({ data }) => Boolean(data.user));
+  try {
+    return await isAdminAuthedSupabase();
+  } catch {
+    return false;
+  }
 }

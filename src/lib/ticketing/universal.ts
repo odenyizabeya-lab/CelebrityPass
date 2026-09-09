@@ -20,7 +20,7 @@
  * `TicketOrder` row, exposing a common shape so the UI is identical everywhere.
  */
 
-import { listActiveBankAccounts, getActiveBankAccountForCurrency, type PublicBankAccount } from "./banking";
+import { listActiveBankAccounts, type PublicBankAccount } from "./banking";
 import { getGateway } from "./gateways";
 
 // The two customer-facing methods. The ATM gateway brand is never surfaced.
@@ -55,6 +55,9 @@ export type MethodCard = {
   available: boolean;
   unavailableReason?: string;
   // Bank-transfer specifics (available when bank available):
+  // ALL active bank accounts so the customer can pick the currency to pay in,
+  // plus the account matching the order's currency as the default.
+  bankAccounts?: PublicBankAccount[];
   bankAccount?: PublicBankAccount | null;
 };
 
@@ -69,12 +72,9 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
 
   // --- Bank Transfer ------------------------------------------------------
   const bankAccounts = await listActiveBankAccounts();
-  const bankForCurrency = await getActiveBankAccountForCurrency(currency);
-  const bankUnavailable = !bankForCurrency
-    ? !bankAccounts.length
-      ? "Bank Transfer isn't set up yet on this site."
-      : `Bank Transfer isn't available for ${currency} yet.`
-    : undefined;
+  const bankForCurrency =
+    bankAccounts.find((a) => a.currency === currency) ?? bankAccounts.find((a) => a.currency === "USD") ?? bankAccounts[0] ?? null;
+  const bankUnavailable = !bankForCurrency ? "Bank Transfer isn't set up yet on this site." : undefined;
 
   // --- ATM Card -----------------------------------------------------------
   // A live card flow needs a registered processor with credentials. If not
@@ -93,6 +93,7 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
       description: "Pay directly into our bank account, then upload your proof. We verify each transfer before confirming.",
       available: !bankUnavailable,
       unavailableReason: bankUnavailable,
+      bankAccounts,
       bankAccount: bankForCurrency,
     },
     {

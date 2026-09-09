@@ -518,6 +518,10 @@ export async function recordRefund(orderId: string, reference: string, note?: st
   await prisma.ticketTransaction.create({
     data: { orderId, kind: "REFUND", status: "SUCCEEDED", amountCents: order.amountPaidCents ?? order.totalCents, currency: order.currency, providerRef: ref, message: note ?? "Refund processed at the ticket source." },
   });
+  await prisma.bankTransferProof.updateMany({
+    where: { ticketOrderId: orderId, status: "APPROVED" },
+    data: { status: "REFUNDED", adminNote: "Refunded after admin processed the refund." },
+  }).catch(() => undefined);
   return { ok: true, message: "Refund recorded." };
 }
 

@@ -11,6 +11,27 @@ export type MethodOption = {
   description: string;
   available: boolean;
   unavailableReason?: string;
+  bankAccounts?: {
+    id: string;
+    currency: string;
+    countryName: string;
+    countryFlag: string | null;
+    beneficiary: string;
+    bankName: string;
+    accountType: string | null;
+    accountNumber: string | null;
+    iban: string | null;
+    bic: string | null;
+    swift: string | null;
+    routing: string | null;
+    sortCode: string | null;
+    institutionNumber: string | null;
+    transitNumber: string | null;
+    branchCode: string | null;
+    bankCode: string | null;
+    transferType: string;
+    bankAddress: string | null;
+  }[];
   bankAccount?: {
     id: string;
     currency: string;
@@ -69,6 +90,13 @@ export default function UniversalCheckout(props: Props) {
   const [info, setInfo] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const bankAccounts = props.methods.find((m) => m.method === "bank-transfer")?.bankAccounts ?? [];
+  const defaultBankAccount = props.methods.find((m) => m.method === "bank-transfer")?.bankAccount ?? bankAccounts[0] ?? null;
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(defaultBankAccount?.id ?? null);
+  const selectedBankAccount = bankAccounts.find((a) => a.id === selectedBankId) ?? defaultBankAccount ?? bankAccounts[0] ?? null;
+
+  const [amountSent, setAmountSent] = useState<string>((props.amountCents / 100).toFixed(2));
+
   // Bank transfer fields
   const [senderName, setSenderName] = useState("");
   const [reference, setReference] = useState("");
@@ -84,7 +112,7 @@ export default function UniversalCheckout(props: Props) {
 
   const total = useMemo(() => formatMoney(props.amountCents / 100, props.currency), [props.amountCents, props.currency]);
 
-  const bankAccount = props.methods.find((m) => m.method === "bank-transfer")?.bankAccount ?? null;
+  const bankAccount = selectedBankAccount;
   const cardAvailable = props.methods.find((m) => m.method === "atm-card")?.available ?? false;
   const cardUnavailableReason = props.methods.find((m) => m.method === "atm-card")?.unavailableReason;
 
@@ -115,6 +143,15 @@ export default function UniversalCheckout(props: Props) {
       setError("Please upload a payment proof (screenshot of your transfer).");
       return;
     }
+    if (!bankAccount) {
+      setError("Please choose the bank account you transferred to.");
+      return;
+    }
+    const amountCents = Math.round((Number.parseFloat(amountSent) || 0) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      setError("Enter the amount you actually sent (in the currency of the account you paid into).");
+      return;
+    }
     setProcessing(true);
     try {
       const endpoint =
@@ -128,8 +165,9 @@ export default function UniversalCheckout(props: Props) {
           senderName,
           reference,
           transferDate: transferDate || null,
-          amountCents: props.amountCents,
-          currency: props.currency,
+          amountCents,
+          currency: bankAccount.currency,
+          bankAccountId: bankAccount.id,
           fileName: proofName,
           mimeType: "image",
           fileUrl: proofData,
@@ -251,7 +289,36 @@ export default function UniversalCheckout(props: Props) {
       {method === "bank-transfer" && bankAccount && (
         <form onSubmit={submitBank} className="space-y-5">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 2 · Send your {total}</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 2 · Choose your currency</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              Pick the bank account you&apos;ll pay into. Your order amount (<span className="font-semibold text-white">{total}</span>)
+              stays the same in your order currency — the currency you actually send just tells us which account the money lands in.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {bankAccounts.map((a) => {
+                const selected = a.id === bankAccount.id;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setSelectedBankId(a.id)}
+                    className={`rounded-2xl border p-3 text-left transition ${
+                      selected ? "border-emerald-500/60 bg-emerald-500/10" : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                    }`}
+                  >
+                    <span className="text-lg">{a.countryFlag ?? "🏦"}</span>{" "}
+                    <span className="font-bold text-white">{a.currency}</span>
+                    <span className="block text-xs text-zinc-400">{a.countryName} · {a.bankName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+              Step 3 · Send {formatMoney(Number(amountSent) || 0, bankAccount.currency)}
+            </p>
             <p className="mt-1 text-sm text-zinc-400">
               Bank transfer to <span className="font-semibold text-white">{bankAccount.beneficiary}</span>. Use the
               reference shown so we can match your payment.
@@ -269,7 +336,7 @@ export default function UniversalCheckout(props: Props) {
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 3 · Confirm your transfer</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Step 4 · Confirm your transfer</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Sender&apos;s name (on your bank account)</label>
@@ -278,6 +345,20 @@ export default function UniversalCheckout(props: Props) {
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Transfer date</label>
                 <input type="date" required value={transferDate} onChange={(e) => setTransferDate(e.target.value)} className={inputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Amount you sent ({bankAccount.currency})</label>
+                <input
+                  required
+                  inputMode="decimal"
+                  value={amountSent}
+                  onChange={(e) => setAmountSent(e.target.value)}
+                  className={inputCls}
+                  placeholder="0.00"
+                />
+                <p className="mt-1 text-xs text-zinc-500">
+                  Defaults to your order amount. If the amount you sent differs (transfer fees, rounding), enter the exact amount.
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-sm font-semibold text-zinc-300">Reference you used on the transfer</label>
@@ -303,7 +384,8 @@ export default function UniversalCheckout(props: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-zinc-400">
-              Amount: <span className="font-black text-white">{total}</span>
+              Order amount: <span className="font-black text-white">{total}</span>
+              <span className="block text-xs text-zinc-500">Sending {formatMoney(Number(amountSent) || 0, bankAccount.currency)} into {bankAccount.currency} account</span>
             </p>
             <button
               type="submit"

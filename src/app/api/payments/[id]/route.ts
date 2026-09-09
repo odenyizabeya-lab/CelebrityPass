@@ -57,11 +57,17 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     if (payment.status !== "PAID") {
       return NextResponse.json({ error: "Only paid payments can be refunded" }, { status: 400 });
     }
-    const updated = await prisma.payment.update({
-      where: { id },
-      data: { status: "REFUNDED" },
-    });
-    return NextResponse.json({ payment: updated });
+    const [, updatedProofs] = await Promise.all([
+      prisma.payment.update({
+        where: { id },
+        data: { status: "REFUNDED" },
+      }),
+      prisma.bankTransferProof.updateMany({
+        where: { paymentId: id, status: "APPROVED" },
+        data: { status: "REFUNDED", adminNote: "Refunded after admin processed the refund." },
+      }),
+    ]);
+    return NextResponse.json({ payment: { id, status: "REFUNDED" }, updatedProofs: updatedProofs.count });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

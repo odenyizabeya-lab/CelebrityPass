@@ -47,6 +47,42 @@ export async function getAdminEmail(): Promise<string> {
   return v || DEFAULT_ADMIN_EMAIL;
 }
 
+/**
+ * Exact email addresses allowed to authenticate as an administrator.
+ *
+ * Order of precedence:
+ * 1. `ADMIN_EMAILS` env var (comma-separated allowlist), when set.
+ * 2. `ADMIN_EMAIL` env var (single), when set.
+ * 3. The `admin.primary_email` AppSetting row (changeable from the dashboard).
+ * 4. The permanent default `odenyizabeya@gmail.com`.
+ *
+ * This is the single source of truth for who may act as admin — every guard
+ * (Supabase session, API routes, login form) checks against this list.
+ */
+export async function getAdminEmails(): Promise<string[]> {
+  const envList = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (envList.length) return envList;
+
+  const envSingle = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+  if (envSingle) return [envSingle];
+
+  const fromDb = (await getSetting(ADMIN_EMAIL_SETTING)).trim().toLowerCase();
+  if (fromDb) return [fromDb];
+
+  return [DEFAULT_ADMIN_EMAIL];
+}
+
+/** True when `email` is one of the configured administrator addresses. */
+export async function isAdminEmail(email?: string | null): Promise<boolean> {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  const allowed = await getAdminEmails();
+  return allowed.includes(normalized);
+}
+
 /** True once a password hash has been stored (login is configured). */
 export async function hasAdminPassword(): Promise<boolean> {
   const h = await getSetting(ADMIN_PASSWORD_SETTING);

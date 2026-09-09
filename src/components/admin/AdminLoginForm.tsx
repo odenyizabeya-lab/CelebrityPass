@@ -6,8 +6,10 @@ import { useState } from "react";
 
 export default function AdminLoginForm({
   initialEmail = "odenyizabeya@gmail.com",
+  allowedEmails = [initialEmail.trim().toLowerCase()],
 }: {
   initialEmail?: string;
+  allowedEmails?: string[];
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(initialEmail);
@@ -16,14 +18,24 @@ export default function AdminLoginForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const normalizedAllowed = allowedEmails.map((e) => e.trim().toLowerCase());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Fail fast: only attempt a Supabase sign-in for an authorized admin email.
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedAllowed.includes(normalizedEmail)) {
+      setError("This account is not authorized to access the admin console.");
+      return;
+    }
+
     setLoading(true);
+    const supabase = createBrowserSupabase();
     try {
-      const supabase = createBrowserSupabase();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
         password,
       });
       if (signInError) {
@@ -31,6 +43,17 @@ export default function AdminLoginForm({
         setLoading(false);
         return;
       }
+
+      // Belt and suspenders: confirm the signed-in email is on the allowlist.
+      // (Server-side guards enforce this regardless; this is a UX check.)
+      const userEmail = data.user?.email?.trim().toLowerCase();
+      if (!userEmail || !normalizedAllowed.includes(userEmail)) {
+        await supabase.auth.signOut().catch(() => {});
+        setError("This account is not authorized to access the admin console.");
+        setLoading(false);
+        return;
+      }
+
       router.push("/admin/overview");
       router.refresh();
     } catch {

@@ -80,9 +80,13 @@ function SignOutForm() {
     <form
       action={async () => {
         "use server";
-        const { createServerSupabase } = await import("@/lib/supabase/server");
-        const supabase = await createServerSupabase();
-        await supabase.auth.signOut();
+        try {
+          const { createServerSupabase } = await import("@/lib/supabase/server");
+          const supabase = await createServerSupabase();
+          await supabase.auth.signOut();
+        } catch {
+          // Sign out locally regardless of upstream errors.
+        }
         redirect("/admin/login");
       }}
     >

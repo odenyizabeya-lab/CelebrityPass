@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isAdminEmail } from "@/lib/admin/settings";
 
 /**
  * Server-side Supabase client bound to the current request's cookies.
@@ -31,11 +32,19 @@ export async function createServerSupabase() {
   );
 }
 
-/** True when an authenticated Supabase user is present on this request. */
+/**
+ * True only when an authenticated Supabase user is present AND their email is
+ * on the admin allowlist. Any other signed-in user is NOT an admin.
+ * Fails closed: if Supabase throws/unreachable, we deny rather than allow.
+ */
 export async function isAdminAuthedSupabase(): Promise<boolean> {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return Boolean(user);
+  try {
+    const supabase = await createServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return await isAdminEmail(user?.email ?? null);
+  } catch {
+    return false;
+  }
 }

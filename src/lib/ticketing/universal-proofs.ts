@@ -12,7 +12,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { getActiveBankAccountForCurrency, serializeProof, type BankTransferProofPayload } from "./banking";
+import { serializeProof, type BankTransferProofPayload } from "./banking";
 import { getOrderForHolder } from "./service";
 import { settlePayment } from "@/lib/payments";
 import { getCurrentFanId } from "@/lib/auth";
@@ -24,6 +24,7 @@ export type ProofInput = {
   transferDate?: string | null; // ISO date
   amountCents: number;
   currency: string;
+  bankAccountId?: string | null; // the account the customer says they paid into
   fileName?: string | null;
   fileUrl?: string | null;
   mimeType?: string | null;
@@ -34,6 +35,94 @@ export type ProofInput = {
  * paymentStatus value. We always use the dedicated proof status.
  */
 export const PROOF_OK = "PENDING_VERIFICATION";
+
+/**
+ * Resolve the bank account a customer says they paid into. Prefers an
+ * explicitly chosen account id (must exist, be active, and match the
+ * currency they claim); otherwise falls back to the purchase currency /
+ * a default active account. Returns null only when none is usable.
+ */
+async function resolveProofBankAccount(args: {
+  bankAccountId: string | null;
+  currency: string;
+}): Promise<{ id: string; currency: string; countryName: string } | null> {
+  if (args.bankAccountId) {
+    const chosen = await prisma.bankAccount.findUnique({ where: { id: args.bankAccountId } });
+    if (chosen && chosen.isActive && chosen.currency.toUpperCase() === args.currency.toUpperCase()) {
+      return { id: chosen.id, currency: chosen.currency.toUpperCase(), countryName: chosen.countryName };
+    }
+    return null;
+  }
+  const byCurrency = await prisma.bankAccount.findFirst({
+    where: { currency: args.currency.toUpperCase(), isActive: true },
+    orderBy: { displayOrder: "asc" },
+  });
+  if (byCurrency) return { id: byCurrency.id, currency: byCurrency.currency.toUpperCase(), countryName: byCurrency.countryName };
+  const fallback = await prisma.bankAccount.findFirst({
+    where: { isActive: true },
+    orderBy: [{ displayOrder: "asc" }, { currency: "asc" }],
+  });
+  return fallback ? { id: fallback.id, currency: fallback.currency.toUpperCase(), countryName: fallback.countryName } : null;
+}
+
+/**
+ * Fire-and-forget notifications after a proof is saved: (1) the admins get an
+ * immediate email so they can verify at /admin/payments/verify, and (2) for
+ * fan-card purchases the customer gets the "transfer received" email (ticket
+ * orders already get theirs in the TICKET branch below). Never throws.
+ */
+async function notifyProofSubmitted(args: {
+  paymentId: string | null;
+  orderId: string | null;
+  proof: { id: string; amountCents: number; currency: string; senderName: string | null; reference: string | null; bankAccount: { currency: string; countryName: string } };
+}): Promise<void> {
+  try {
+    const [{ notifyBankTransferPending, notifyAdminBankTransferPending }, adminEmails] = await Promise.all([
+      import("../emails"),
+      import("@/lib/admin/settings").then((m) => m.getAdminEmails()),
+    ]);
+
+    if (args.paymentId) {
+      const payment = await prisma.payment.findUnique({
+        where: { id: args.paymentId },
+        include: { fan: { select: { name: true, email: true } } },
+      });
+      if (payment?.fan?.email) {
+        void notifyBankTransferPending({
+          to: payment.fan.email,
+          customerName: payment.fan.name ?? "there",
+          orderRef: payment.description ?? "Fan Card",
+          eventName: payment.description ?? "Fan Card",
+          totalCents: args.proof.amountCents,
+          currency: args.proof.currency,
+          orderUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}`,
+        });
+      }
+    }
+
+    if (adminEmails.length) {
+      void notifyAdminBankTransferPending({
+        to: adminEmails,
+        amountCents: args.proof.amountCents,
+        currency: args.proof.currency,
+        senderName: args.proof.senderName,
+        reference: args.proof.reference,
+        bankAccount: `${args.proof.bankAccount.currency} · ${args.proof.bankAccount.countryName}`,
+        purchase: args.paymentId
+          ? await paymentLabel(args.paymentId).catch(() => "fan card payment")
+          : `ticket order ${args.orderId ?? "unknown"}`,
+        verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/admin/payments/verify`,
+      });
+    }
+  } catch (err) {
+    console.error("[bank-proof] notifications failed", err);
+  }
+}
+
+async function paymentLabel(paymentId: string): Promise<string> {
+  const p = await prisma.payment.findUnique({ where: { id: paymentId }, select: { description: true } });
+  return p?.description ?? `fan card payment ${paymentId.slice(0, 8)}`;
+}
 
 /**
  * Validate the customer-submitted proof shape. Server-side only — the admin
@@ -98,9 +187,12 @@ export async function submitBankTransferProof(args: {
     currency = order.currency || "USD";
   }
 
-  const bankAccount = await getActiveBankAccountForCurrency(currency);
+  const bankAccount = await resolveProofBankAccount({
+    bankAccountId: args.proof.bankAccountId ?? null,
+    currency: args.proof.currency ?? "USD",
+  });
   if (!bankAccount) {
-    return { ok: false, status: 409, event: "BANK_NOT_CONFIGURED", message: `Bank Transfer isn't available for ${currency}.` };
+    return { ok: false, status: 409, event: "BANK_NOT_CONFIGURED", message: `Bank Transfer isn't available for ${(args.proof.currency ?? currency).toUpperCase()}.` };
   }
 
   const proofError = validateProof(args.proof);
@@ -110,7 +202,7 @@ export async function submitBankTransferProof(args: {
     data: {
       bankAccountId: bankAccount.id,
       amountCents: args.proof.amountCents,
-      currency,
+      currency: bankAccount.currency,
       senderName: args.proof.senderName?.trim() || null,
       reference: args.proof.reference?.trim() || null,
       transferDate: args.proof.transferDate ? new Date(args.proof.transferDate) : null,
@@ -122,6 +214,19 @@ export async function submitBankTransferProof(args: {
       ticketOrderId: orderId,
     },
     include: { bankAccount: { select: { currency: true, countryName: true } } },
+  });
+
+  void notifyProofSubmitted({
+    paymentId,
+    orderId,
+    proof: {
+      id: proof.id,
+      amountCents: proof.amountCents,
+      currency: proof.currency,
+      senderName: proof.senderName,
+      reference: proof.reference,
+      bankAccount: proof.bankAccount ?? { currency: bankAccount.currency, countryName: bankAccount.countryName },
+    },
   });
 
   // Keep the purchase in a clearly-not-paid state with an honest note.

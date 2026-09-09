@@ -21,6 +21,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ ref: s
       transferDate: body.transferDate ?? null,
       amountCents: Number(body.amountCents),
       currency: body.currency ?? "USD",
+      bankAccountId: body.bankAccountId ?? null,
       fileName: body.fileName ?? null,
       fileUrl: body.fileUrl ?? null,
       mimeType: body.mimeType ?? null,
