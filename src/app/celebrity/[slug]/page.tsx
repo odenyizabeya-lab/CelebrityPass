@@ -124,20 +124,20 @@ export default async function CelebrityPage({ params }: Props) {
       <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         {/* Profile header */}
         <div className="-mt-24 flex flex-col gap-6 sm:flex-row sm:items-end">
-          <div className="w-44 shrink-0 sm:w-60">
-            <div className="aspect-[4/5] overflow-hidden rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
+          <div className="w-44 shrink-0 sm:w-64 md:w-72">
+            <div className="overflow-hidden rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
               {celebrity.profileImage ? (
                 <Image
                   src={celebrity.profileImage}
                   alt={celebrity.name}
-                  width={240}
-                  height={300}
-                  className="h-full w-full object-cover object-[center_20%]"
+                  width={288}
+                  height={360}
+                  className="h-auto w-full object-contain"
                   unoptimized
                 />
               ) : (
                 <div
-                  className="grid h-full w-full place-items-center rounded-2xl text-4xl font-black text-white sm:text-5xl"
+                  className="grid aspect-[4/5] w-full place-items-center rounded-2xl text-4xl font-black text-white sm:text-5xl"
                   style={{ backgroundColor: celebrity.accentColor }}
                 >
                   {celebrity.name.slice(0, 1)}
