@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServerSupabase, isAdminAuthedSupabase } from "@/lib/supabase/server";
+import { isAdminAuthedSupabase } from "@/lib/supabase/server";
+import AdminBottomNav from "@/components/admin/AdminBottomNav";
 
 export const dynamic = "force-dynamic";
 
@@ -40,24 +41,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       <div className="min-w-0 flex-1">
-        {/* Mobile nav */}
+        {/* Mobile secondary nav (primary tabs live in the bottom app bar) */}
         <div className="flex gap-2 overflow-x-auto border-b border-white/[0.06] px-4 py-3 lg:hidden">
-          <AdminLink href="/admin/overview" label="Overview" compact />
-          <AdminLink href="/admin/celebrities" label="Celebrities" compact />
-          <AdminLink href="/admin/events" label="Events" compact />
-          <AdminLink href="/admin/tickets" label="Tickets" compact />
           <AdminLink href="/admin/fans" label="Fans" compact />
           <AdminLink href="/admin/cards" label="Cards" compact />
-          <AdminLink href="/admin/payments" label="Payments" compact />
           <AdminLink href="/admin/marketing/overview" label="Marketing" compact />
           <AdminLink href="/admin/payments/bank" label="Bank Accounts" compact />
           <AdminLink href="/admin/payments/verify" label="Verify Transfers" compact />
           <AdminLink href="/admin/ai-settings" label="AI Settings" compact />
           <AdminLink href="/admin/notifications" label="Notifications" compact />
           <AdminLink href="/admin/security" label="Account & Security" compact />
+          <AdminLink href="/admin/events/sources" label="Event Sources" compact />
         </div>
-        <main className="p-4 sm:p-8">{children}</main>
+        <main className="p-4 pb-24 sm:p-8 sm:pb-28 lg:pb-8">{children}</main>
       </div>
+      <AdminBottomNav />
     </div>
   );
 }
@@ -66,6 +64,7 @@ function AdminLink({ href, label, compact }: { href: string; label: string; comp
   return (
     <Link
       href={href}
+      prefetch
       className={`block truncate text-sm font-medium transition ${
         compact
           ? "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-zinc-300 ring-1 ring-white/10"

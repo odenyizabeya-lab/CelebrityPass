@@ -70,7 +70,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [design, setDesign] = useState<CardDesign>(initialDesign);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done" | "error" | "low_confidence">("idle");
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanDetail, setScanDetail] = useState<string | null>(null);
@@ -78,7 +77,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [includeEvents, setIncludeEvents] = useState(true);
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
   const [preparedTiers, setPreparedTiers] = useState<PreparedTier[]>([]);
-  const [extrasWarning, setExtrasWarning] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,19 +120,16 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         setLoading(false);
         return;
       }
-      setSaved(true);
       setLoading(false);
       const id = data.celebrity?.id ?? celebrity!.id;
       if (mode === "create") {
-        const warnings = await createExtras(id);
-        if (warnings.length) {
-          setExtrasWarning(`The community was created, but some parts could not be added: ${warnings.join(" · ")}`);
-        }
+        // Memberships and events still get created, but in the background so the
+        // admin is never left waiting on the form.
+        void createExtras(id).catch(() => {});
       }
-      setTimeout(() => {
-        router.push(`/admin/celebrities/${id}`);
-        router.refresh();
-      }, 1500);
+      // App-like handoff: leave the form instantly and land on the celebrities dashboard.
+      router.push("/admin/celebrities");
+      router.refresh();
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -190,7 +185,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
     setScanMessage(null);
     setScanDetail(null);
     setScanResult(null);
-    setExtrasWarning(null);
     try {
       const small = await downscaleImage(dataUri, 1200, 0.85);
       const res = await fetch("/api/admin/ai/scan", {
@@ -317,14 +311,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
 
       {error && (
         <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
-      )}
-      {saved && (
-        <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">
-          ✓ Saved successfully! Taking you to the celebrity&apos;s page…
-        </div>
-      )}
-      {saved && extrasWarning && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{extrasWarning}</div>
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

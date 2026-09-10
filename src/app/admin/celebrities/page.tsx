@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import AdminCelebrityRow from "@/components/admin/AdminCelebrityRow";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export default async function AdminCelebritiesPage({
             {totalCount} {totalCount === 1 ? "community" : "communities"} · showing {celebrities.length}
           </p>
         </div>
-        <Link href="/admin/celebrities/new" className="btn-grad rounded-full px-6 py-3 text-sm font-bold text-white">
+        <Link href="/admin/celebrities/new" prefetch className="btn-grad rounded-full px-6 py-3 text-sm font-bold text-white">
           + New Celebrity
         </Link>
       </div>
@@ -106,7 +107,7 @@ export default async function AdminCelebritiesPage({
         ) : (
           <ul className="divide-y divide-white/[0.05]">
             {celebrities.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
+              <AdminCelebrityRow key={c.id} id={c.id}>
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink-900 p-1">
                   {c.profileImage ? (
                     <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full rounded-md object-cover object-top" unoptimized />
@@ -140,18 +141,21 @@ export default async function AdminCelebritiesPage({
                 <div className="flex gap-2">
                   <Link
                     href={`/admin/celebrities/${c.id}`}
+                    prefetch
+                    onClick={(e) => e.stopPropagation()}
                     className="rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-white/15 transition hover:bg-white/5"
                   >
                     Edit
                   </Link>
                   <Link
                     href={`/celebrity/${c.slug}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="hidden rounded-full px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:text-white sm:inline-flex"
                   >
                     View →
                   </Link>
                 </div>
-              </li>
+              </AdminCelebrityRow>
             ))}
           </ul>
         )}
