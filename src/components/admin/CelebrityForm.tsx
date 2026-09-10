@@ -9,6 +9,8 @@ import type { ScanResult } from "@/lib/ai/types";
 
 type PreparedTier = { name: string; description: string; price: number | null; currency: string };
 
+type DuplicateInfo = { code: string; message: string; existing?: { id: string; slug: string; name: string } };
+
 type CelebrityLike = Partial<
   Pick<
     Celebrity,
@@ -71,6 +73,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [socials, setSocials] = useState<SocialLinks>(initialSocials);
   const [design, setDesign] = useState<CardDesign>(initialDesign);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done" | "error" | "low_confidence">("idle");
   const [scanMessage, setScanMessage] = useState<string | null>(null);
@@ -83,6 +86,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDuplicate(null);
     setLoading(true);
     const payload = {
       name,
@@ -118,7 +122,12 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save. Please try again.");
+        const code = data?.code;
+        if (code === "CELEBRITY_EXISTS" || code === "IMAGE_EXISTS" || code === "SLUG_EXISTS") {
+          setDuplicate(data as DuplicateInfo);
+        } else {
+          setError(data?.error ?? "Failed to save. Please try again.");
+        }
         setLoading(false);
         return;
       }
@@ -341,6 +350,34 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
 
       {error && (
         <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
+      )}
+
+      {duplicate && (
+        <div className="mt-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-5 py-4">
+          <div className="flex items-center gap-2 text-sm font-black text-amber-300">
+            <span aria-hidden>⚠️</span>
+            {duplicate.code === "CELEBRITY_EXISTS"
+              ? "Celebrity Already Added"
+              : duplicate.code === "IMAGE_EXISTS"
+                ? "Image Already Added"
+                : "URL Already Taken"}
+          </div>
+          <p className="mt-1 text-sm leading-5 text-amber-200">
+            {duplicate.message ?? "This record is already in your CelebrityPass database."}{" "}
+            This celebrity was <strong>not saved a second time</strong> — nothing was duplicated or overwritten.
+          </p>
+          {duplicate.existing && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <a
+                href={`/admin/celebrities/${duplicate.existing.id}`}
+                className="rounded-full bg-amber-400 px-4 py-2 text-sm font-bold text-ink-900 transition hover:bg-amber-300"
+              >
+                View Existing Celebrity →
+              </a>
+              <span className="text-xs text-amber-200/70">/celebrity/{duplicate.existing.slug}</span>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

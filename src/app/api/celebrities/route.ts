@@ -7,6 +7,14 @@ import { isAdminAuthed } from "@/lib/auth";
 import { fetchGoogleInfo } from "@/lib/google-info";
 import { assignFanNumber, fameTier, maxFollowers } from "@/lib/fame";
 import { FANS_BIG_MIN } from "@/lib/display";
+import {
+  normalizeNameKey,
+  imageSha256,
+  isUniqueViolation,
+  codeForUniqueTarget,
+  DUP_CODE,
+  type DuplicateCode,
+} from "@/lib/dedupe";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +46,23 @@ export async function POST(request: NextRequest) {
   let slug = slugify(String(body.slug ?? "")) || slugify(name);
   if (!slug) return NextResponse.json({ error: "Invalid name for slug" }, { status: 400 });
 
+  // ── DUPLICATE PREVENTION (1): celebrity name ─────────────────────────────
+  // Case/space/punctuation-insensitive. "Tom Cruise" == "tom cruise" == "TOM".
+  const nameKey = normalizeNameKey(name);
+  if (!nameKey) return NextResponse.json({ error: "Invalid celebrity name" }, { status: 400 });
+  const nameDuplicate = await prisma.celebrity.findFirst({ where: { nameKey } });
+  if (nameDuplicate) {
+    return NextResponse.json(
+      {
+        error: "Celebrity already added",
+        message: `${nameDuplicate.name} is already in your CelebrityPass database.`,
+        code: DUP_CODE.CELEBRITY_EXISTS,
+        existing: { id: nameDuplicate.id, slug: nameDuplicate.slug, name: nameDuplicate.name },
+      },
+      { status: 409 },
+    );
+  }
+
   const existing = await prisma.celebrity.findUnique({ where: { slug } });
   if (existing) {
     slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
@@ -47,8 +72,44 @@ export async function POST(request: NextRequest) {
   const accentColor = String(body.accentColor ?? "#8b5cf6");
 
   // Auto-build everything for a brand-new celebrity: photos, follower counts.
-  const profileImage = body.profileImage ? String(body.profileImage) : avatarDataUri(name, accentColor);
-  const coverImage = body.coverImage ? String(body.coverImage) : coverDataUri(accentColor);
+  const userProfileImage = body.profileImage ? String(body.profileImage) : null;
+  const userCoverImage = body.coverImage ? String(body.coverImage) : null;
+  const profileImage = userProfileImage ?? avatarDataUri(name, accentColor);
+  const coverImage = userCoverImage ?? coverDataUri(accentColor);
+
+  // ── DUPLICATE PREVENTION (3): exact image duplicates ─────────────────────
+  // SHA-256 of the uploaded bytes. Only user-uploaded images are fingerprinted;
+  // auto-generated initials/cover art can be shared freely.
+  const profileImageHash = userProfileImage ? imageSha256(userProfileImage) : null;
+  const coverImageHash = userCoverImage ? imageSha256(userCoverImage) : null;
+  if (profileImageHash) {
+    const dupe = await prisma.celebrity.findFirst({ where: { profileImageHash } });
+    if (dupe) {
+      return NextResponse.json(
+        {
+          error: "Image already added",
+          message: "This image has already been added.",
+          code: DUP_CODE.IMAGE_EXISTS,
+          existing: { id: dupe.id, slug: dupe.slug, name: dupe.name },
+        },
+        { status: 409 },
+      );
+    }
+  }
+  if (coverImageHash) {
+    const dupe = await prisma.celebrity.findFirst({ where: { coverImageHash } });
+    if (dupe) {
+      return NextResponse.json(
+        {
+          error: "Image already added",
+          message: "This image has already been added.",
+          code: DUP_CODE.IMAGE_EXISTS,
+          existing: { id: dupe.id, slug: dupe.slug, name: dupe.name },
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   const numbers = defaultFollowerCounts(category, name);
   const instagramFollowers =
@@ -64,34 +125,73 @@ export async function POST(request: NextRequest) {
       ? Number(body.facebookFollowers)
       : numbers.facebookFollowers;
 
-  const celebrity = await prisma.celebrity.create({
-    data: {
-      slug,
-      name,
-      category,
-      country: String(body.country ?? ""),
-      city: body.city ? String(body.city) : null,
-      profession: String(body.profession ?? ""),
-      profileImage,
-      coverImage,
-      accentColor,
-      isFeatured: Boolean(body.isFeatured ?? false),
-      isActive: Boolean(body.isActive ?? true),
-      isVerified: true,
-      socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
-      // Permanent verified official platform links — stored in dedicated columns.
-      facebookUrl: body.facebookUrl ? String(body.facebookUrl) : null,
-      instagramUrl: body.instagramUrl ? String(body.instagramUrl) : null,
-      tiktokUrl: body.tiktokUrl ? String(body.tiktokUrl) : null,
-      googleUrl: body.googleUrl ? String(body.googleUrl) : null,
-      cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
-      website: body.website ? String(body.website) : null,
-      instagramFollowers: instagramFollowers ?? null,
-      tiktokFollowers: tiktokFollowers ?? null,
-      facebookFollowers: facebookFollowers ?? null,
-      followersUpdatedAt: new Date(),
-    },
-  });
+  // ── DUPLICATE PREVENTION (5): database-enforced atomicity ────────────────
+  // Unique constraints on nameKey/slug/image hashes are the last line of
+  // defense — even two simultaneous requests that both pass the checks above
+  // cannot both insert (P2002), and this try/catch turns that into a clean 409.
+  let celebrity;
+  try {
+    celebrity = await prisma.celebrity.create({
+      data: {
+        slug,
+        nameKey,
+        name,
+        category,
+        country: String(body.country ?? ""),
+        city: body.city ? String(body.city) : null,
+        profession: String(body.profession ?? ""),
+        profileImage,
+        profileImageHash,
+        coverImage,
+        coverImageHash,
+        accentColor,
+        isFeatured: Boolean(body.isFeatured ?? false),
+        isActive: Boolean(body.isActive ?? true),
+        isVerified: true,
+        socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
+        // Permanent verified official platform links — stored in dedicated columns.
+        facebookUrl: body.facebookUrl ? String(body.facebookUrl) : null,
+        instagramUrl: body.instagramUrl ? String(body.instagramUrl) : null,
+        tiktokUrl: body.tiktokUrl ? String(body.tiktokUrl) : null,
+        googleUrl: body.googleUrl ? String(body.googleUrl) : null,
+        cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
+        website: body.website ? String(body.website) : null,
+        instagramFollowers: instagramFollowers ?? null,
+        tiktokFollowers: tiktokFollowers ?? null,
+        facebookFollowers: facebookFollowers ?? null,
+        followersUpdatedAt: new Date(),
+      },
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      const target = (e as { meta?: { target?: unknown } }).meta?.target;
+      const code: DuplicateCode | null = codeForUniqueTarget(target) ?? DUP_CODE.CELEBRITY_EXISTS;
+      const duplicate = await prisma.celebrity.findFirst({
+        where:
+          code === DUP_CODE.SLUG_EXISTS
+            ? { slug }
+            : code === DUP_CODE.IMAGE_EXISTS
+              ? { OR: [{ profileImageHash: profileImageHash ?? undefined }, { coverImageHash: coverImageHash ?? undefined }] }
+              : { nameKey: { equals: nameKey } },
+      });
+      const message =
+        code === DUP_CODE.IMAGE_EXISTS
+          ? "This image has already been added."
+          : code === DUP_CODE.SLUG_EXISTS
+            ? `The URL /${slug} is already taken by another celebrity.`
+            : `${name} is already in your CelebrityPass database.`;
+      return NextResponse.json(
+        {
+          error: code === DUP_CODE.CELEBRITY_EXISTS ? "Celebrity already added" : "Duplicate blocked",
+          message,
+          code,
+          existing: duplicate ? { id: duplicate.id, slug: duplicate.slug, name: duplicate.name } : undefined,
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
 
   // Assign the celebrity's unique Registered Fans figure right away based on
   // what we already know. The Google knowledge panel (fetched in the background

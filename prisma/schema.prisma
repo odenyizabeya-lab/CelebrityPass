@@ -16,6 +16,10 @@ datasource db {
 model Celebrity {
   id             String            @id @default(cuid())
   slug           String            @unique
+  // Canonical, case/space/punctuation-insensitive lookup key for duplicate
+  // prevention. "Tom Cruise", "tom cruise", " TOM   CRUISE! " all normalize to
+  // the same value, so the same celebrity can never be added twice.
+  nameKey        String            @unique
   name           String
   category       String            // Actor | Musician | Athlete | Creator | Public Figure | Artist
   country        String
@@ -23,7 +27,11 @@ model Celebrity {
   profession     String
   googleInfo     String?            // cached JSON from Wikipedia/Wikidata (age, works, overview, images — the Google-style knowledge panel)
   profileImage   String?           // URL or data URI
+  // SHA-256 of the uploaded profile/cover image bytes. Unique so the exact same
+  // image file can never be stored twice (NULL = auto-generated/storage-less).
+  profileImageHash String?          @unique
   coverImage     String?           // URL or data URI
+  coverImageHash String?           @unique
   accentColor    String            @default("#8b5cf6")
   isFeatured     Boolean           @default(false)
   isActive       Boolean           @default(true)
@@ -116,6 +124,10 @@ model FanCard {
   @@index([celebrityId])
   @@index([fanId])
   @@index([status])
+
+  // A fan can hold at most ONE card per celebrity community. Enforced at the
+  // database level so concurrent registrations can never create duplicates.
+  @@unique([fanId, celebrityId])
 }
 
 // A payment for a fan card membership. Free levels can be issued without a
@@ -135,7 +147,7 @@ model Payment {
   currency          String            @default("USD")
   status            String            @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
   provider          String            @default("mock")    // mock | stripe | paypal
-  gatewayRef        String?           // provider charge reference id
+  gatewayRef        String?           @unique // provider charge reference id — a charge can never settle twice
 description       String?           // e.g. "Taylor Swift — Swiftie Gold"
   createdAt         DateTime          @default(now())
   paidAt            DateTime?
@@ -379,7 +391,7 @@ model TicketOrder {
   paidAt            DateTime?
   amountPaidCents   Int?
   paymentProvider   String? // gateway key after a real gateway is connected
-  paymentRef        String? // real gateway charge ref
+  paymentRef        String? @unique // real gateway charge ref — a charge can never back two orders
   officialRef       String? // authorized ticket source's own order/ticket ref (only after success)
   deliveryMethod    String? // DIGITAL | MOBILE | DOWNLOAD | OFFICIAL_ACCOUNT
   deliveryDetail    String?
