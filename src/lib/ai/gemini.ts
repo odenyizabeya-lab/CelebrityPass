@@ -280,9 +280,6 @@ const PROFILE_SCHEMA = {
     profession: STRING,
     country: STRING,
     city: STRING_NULL,
-    bio: STRING,
-    short_bio: STRING,
-    google_overview: STRING,
     website: STRING_NULL,
     accent_color: STRING,
     followers: {
@@ -316,9 +313,6 @@ const PROFILE_SCHEMA = {
     "category",
     "profession",
     "country",
-    "bio",
-    "short_bio",
-    "google_overview",
     "accent_color",
     "followers",
     "socials",
@@ -390,9 +384,6 @@ Rules:
 - category: pick EXACTLY one of: Actor | Musician | Athlete | Creator | Public Figure | Artist.
 - profession: concise factual headline, e.g. "Singer & Songwriter" or "Footballer".
 - country / city: birthplace or primary residence country/city, null only if truly unknown.
-- bio: 2 to 4 factual, neutral paragraphs summarizing their public career (background, notable achievements, current work). Community tone, no hype, no fabricated quotes.
-- short_bio: one or two lines for cards and search results.
-- google_overview: a 2–4 sentence neutral "knowledge panel" summary for THIS exact person.
 - website: the person's verified OFFICIAL website, else null.
 
 SOCIAL LINKS (critical — only these 4 platforms are supported):
@@ -424,9 +415,6 @@ export function researchProfile(c: GeminiCredentials, name: string, useSearch: b
     profession: string;
     country: string;
     city: string | null;
-    bio: string;
-    short_bio: string;
-    google_overview: string;
     website: string | null;
     accent_color: string;
     followers: { instagram: number | null; tiktok: number | null; facebook: number | null };

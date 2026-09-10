@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const url = `${APP_URL}/celebrity/${c.slug}`;
   const description =
-    c.shortBio || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
+    c.tagline || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
   // Only a hosted image is usable by social crawlers (data: URIs are ignored
   // by WhatsApp/Facebook/X). Each celebrity's own photo is used — never a
   // shared generic image when a real profile photo exists.
@@ -173,18 +173,6 @@ export default async function CelebrityPage({ params }: Props) {
             <p className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
               {celebrity.profession}
             </p>
-            {/* Google-style factual overview for this exact celebrity */}
-            {celebrity.googleOverview ? (
-              <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-                {celebrity.googleOverview}
-              </p>
-            ) : (
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
-                {celebrity.bio}
-                {celebrity.city ? ` · ${celebrity.city}` : ""}
-                {celebrity.country ? `, ${celebrity.country}` : ""}
-              </p>
-            )}
             <div className="mt-4 flex flex-wrap gap-2.5">
               <SocialLinksRow links={socials} />
             </div>
@@ -265,7 +253,6 @@ export default async function CelebrityPage({ params }: Props) {
           <div className="space-y-14">
             <section>
               <h2 className="text-2xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
-              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-zinc-300">{celebrity.bio || "No biography has been added yet for this community."}</p>
               <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-500">
                 CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
                 each community and do not represent contracts with, or endorsement by, the celebrity.

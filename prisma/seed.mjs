@@ -1,5 +1,5 @@
 // Seed script for the Multi-Celebrity Fan Card Platform.
-// - Seeds real celebrity communities (names, bios, categories, countries).
+// - Seeds real celebrity communities (names, categories, countries).
 // - Creates membership levels for each community.
 // - Deliberately creates ZERO fake fans: every counter shown on the site is
 //   computed live from the database, so a fresh install shows a truthful
@@ -65,8 +65,6 @@ const celebrities = [
     country: "United States",
     city: "Nashville, Tennessee",
     profession: "Singer-Songwriter",
-    bio: "Taylor Swift is one of the best-selling music artists of all time. Known for narrative songwriting across country, pop, and indie genres, she has released multiple record-breaking albums and has won numerous Grammy Awards. Her Eras Tour became the highest-grossing concert tour in history.",
-    shortBio: "Grammy-winning singer-songwriter and one of the best-selling music artists in history.",
     accentColor: "#ef4444",
     isFeatured: true,
     socialLinks: JSON.stringify({
@@ -89,8 +87,6 @@ const celebrities = [
     country: "Portugal",
     city: "Madeira / Riyadh",
     profession: "Professional Footballer",
-    bio: "Cristiano Ronaldo is one of the greatest footballers in history. The all-time leading goalscorer in men's international football, he has won league titles in England, Spain, and Italy along with five Ballon d'Or awards. Ronaldo is celebrated for his longevity, athleticism, and scoring records.",
-    shortBio: "Five-time Ballon d'Or winner and the all-time top scorer in men's international football.",
     accentColor: "#22c55e",
     isFeatured: true,
     socialLinks: JSON.stringify({
@@ -113,8 +109,6 @@ const celebrities = [
     country: "United States",
     city: "Houston, Texas",
     profession: "Singer, Songwriter & Performer",
-    bio: "Beyoncé is a transformative force in music and culture. From Destiny's Child to a solo career defined by boundary-pushing albums, she has won more Grammy Awards than any other artist in history. Her live performances and visual albums set the standard for modern superstardom.",
-    shortBio: "Most-awarded artist in Grammy history and one of the most influential performers of her generation.",
     accentColor: "#f59e0b",
     isFeatured: true,
     socialLinks: JSON.stringify({
@@ -137,8 +131,6 @@ const celebrities = [
     country: "India",
     city: "Delhi",
     profession: "Cricketer",
-    bio: "Virat Kohli is considered among the greatest batters in cricket history. With over 70 international centuries and more runs than any Indian before him, he has captained India across formats and is a global sports icon known for aggression, fitness, and consistency.",
-    shortBio: "One of cricket's greatest batters and a global sporting icon from India.",
     accentColor: "#3b82f6",
     isFeatured: true,
     socialLinks: JSON.stringify({
@@ -160,8 +152,6 @@ const celebrities = [
     country: "United States",
     city: "Hayward, California",
     profession: "Actor & Producer",
-    bio: "Dwayne 'The Rock' Johnson rose from professional wrestling to become one of Hollywood's highest-paid actors. Known for blockbuster franchises such as 'Jumanji', 'Fast & Furious', and 'Moana', he is also a producer and one of the most followed celebrities in the world.",
-    shortBio: "Global superstar actor and producer, formerly one of the greatest professional wrestlers.",
     accentColor: "#0ea5e9",
     isFeatured: false,
     socialLinks: JSON.stringify({
@@ -184,8 +174,6 @@ const celebrities = [
     country: "United States",
     city: "Grand Prairie, Texas",
     profession: "Singer, Actress & Producer",
-    bio: "Selena Gomez is a singer, actress, and producer who became one of the most influential figures in pop culture. From Disney to chart-topping albums, she has also built Rare Beauty and works as an advocate for mental health, making her one of the most followed women on social media.",
-    shortBio: "Multi-platinum pop star, actress, and entrepreneur with a global platform.",
     accentColor: "#ec4899",
     isFeatured: false,
     socialLinks: JSON.stringify({
@@ -208,8 +196,6 @@ const celebrities = [
     country: "Argentina",
     city: "Rosario / Miami",
     profession: "Professional Footballer",
-    bio: "Lionel Messi is widely regarded as one of the greatest footballers of all time. An eight-time Ballon d'Or winner, he led Argentina to the 2022 FIFA World Cup and has broken scoring records at Barcelona and across all of European club football.",
-    shortBio: "Eight-time Ballon d'Or winner and 2022 World Cup champion.",
     accentColor: "#8b5cf6",
     isFeatured: false,
     socialLinks: JSON.stringify({
@@ -231,8 +217,6 @@ const celebrities = [
     country: "United States",
     city: "Los Angeles, California",
     profession: "Singer-Songwriter",
-    bio: "Billie Eilish is a multi-Grammy-winning singer-songwriter who redefined modern pop. Her debut album 'When We All Fall Asleep, Where Do We Go?' topped charts worldwide, and her music has earned her several Album of the Year honors and an Academy Award for 'What Was I Made For?'.",
-    shortBio: "Multi-award-winning pop innovator and global cultural phenomenon.",
     accentColor: "#10b981",
     isFeatured: false,
     socialLinks: JSON.stringify({
@@ -256,8 +240,6 @@ const celebrities = [
     country: "United States",
     city: "Los Angeles, California",
     profession: "Actor & Producer",
-    bio: "Johnny Depp is an award-winning actor and producer known for his transformative roles across Hollywood. His global fan community spans the USA, Europe, UK, Canada, China, India, Australia, and beyond.",
-    shortBio: "Award-winning actor and producer with a worldwide fan community.",
     accentColor: "#0ea5e9",
     isFeatured: true,
     socialLinks: JSON.stringify({
@@ -295,8 +277,6 @@ async function main() {
       country: c.country,
       city: c.city,
       profession: c.profession,
-      bio: c.bio,
-      shortBio: c.shortBio,
       profileImage: profile,
       coverImage: cover,
       accentColor: c.accentColor,

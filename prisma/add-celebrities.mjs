@@ -62,19 +62,6 @@ function slugify(input) {
     .replace(/^-|-$/g, "");
 }
 
-const bioLines = {
-  Actor:
-    (name) => `${name} is a globally celebrated actor known for unforgettable performances across film and television. A worldwide fan community follows ${name} across the USA, UK, Canada, Europe, Asia and beyond — united here through official fan cards.`,
-  Musician:
-    (name) => `${name} is a chart-topping musician whose artistry resonates with fans around the world. From sold-out stages to devoted online fanbases, ${name} connects with supporters across the USA, UK, Canada, Europe, Asia and everywhere fans gather.`,
-  Athlete:
-    (name) => `${name} is a world-class athlete whose talent inspires millions across the globe. Fans from every continent support ${name} through official memberships and fan cards.`,
-  Creator:
-    (name) => `${name} is a leading digital creator whose content reaches fans in every corner of the world. The global community around ${name} celebrates official fan cards and memberships across the USA, UK, Canada, Europe, Asia and beyond.`,
-  "Public Figure":
-    (name) => `${name} is a public figure whose influence spans the world. Admirers across the USA, UK, Canada, Europe, Asia and many more countries come together in this official fan community.`,
-};
-
 const celebrities = [
   // ===== BTS (all 7 members + the group) =====
   { name: "BTS", category: "Musician", country: "South Korea", city: "Seoul", profession: "K-Pop Group", accent: "#9b5de5" },
@@ -163,8 +150,6 @@ async function main() {
           country: c.country,
           city: c.city ?? null,
           profession: c.profession,
-          bio: bioLines[c.category]?.(c.name) ?? `${c.name} is celebrated worldwide.`,
-          shortBio: `${c.profession} with a devoted global fan community.`,
           profileImage: profile,
           coverImage: cover,
           accentColor: c.accent,

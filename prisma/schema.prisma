@@ -21,10 +21,7 @@ model Celebrity {
   country        String
   city           String?
   profession     String
-bio            String
-  shortBio       String?
-  googleOverview String?            // Google-style factual write-up for this exact celebrity (unique per celebrity)
-  googleInfo     String?            // cached JSON from Wikipedia/Wikidata (born, age, occupations, films, overview)
+  googleInfo     String?            // cached JSON from Wikipedia/Wikidata (age, works, overview, images — the Google-style knowledge panel)
   profileImage   String?           // URL or data URI
   coverImage     String?           // URL or data URI
   accentColor    String            @default("#8b5cf6")

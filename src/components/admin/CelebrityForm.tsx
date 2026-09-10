@@ -19,9 +19,6 @@ type CelebrityLike = Partial<
     | "country"
     | "city"
     | "profession"
-    | "bio"
-    | "shortBio"
-    | "googleOverview"
     | "accentColor"
     | "socialLinks"
     | "cardDesign"
@@ -60,9 +57,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [country, setCountry] = useState(celebrity?.country ?? "");
   const [city, setCity] = useState(celebrity?.city ?? "");
   const [accent, setAccent] = useState(celebrity?.accentColor ?? "#8b5cf6");
-  const [bio, setBio] = useState(celebrity?.bio ?? "");
-  const [shortBio, setShortBio] = useState(celebrity?.shortBio ?? "");
-  const [googleOverview, setGoogleOverview] = useState(celebrity?.googleOverview ?? "");
   const [website, setWebsite] = useState(celebrity?.website ?? "");
   const [isFeatured, setIsFeatured] = useState(celebrity?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(celebrity?.isActive ?? true);
@@ -97,9 +91,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       profession,
       country,
       city,
-      bio,
-      shortBio,
-      googleOverview,
       website,
       isFeatured,
       isActive,
@@ -165,9 +156,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       setProfession(p.profession);
       setCountry(p.country);
       setCity(p.city ?? "");
-      setBio(p.bio);
-      setShortBio(p.shortBio);
-      setGoogleOverview(p.googleOverview);
       setWebsite(p.website ?? "");
       if (/^#[0-9a-fA-F]{6}$/.test(p.accentColor)) setAccent(p.accentColor);
       setSocials((s) => ({
@@ -390,32 +378,6 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
             <input value={accent} onChange={(e) => setAccent(e.target.value)} className={inputCls} placeholder="#8b5cf6" />
           </div>
         </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className={labelCls}>Short Bio</label>
-          <textarea value={shortBio} onChange={(e) => setShortBio(e.target.value)} rows={3} className={inputCls} placeholder="One or two lines for cards and search results." />
-        </div>
-        <div>
-          <label className={labelCls}>Full Bio</label>
-          <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className={inputCls} placeholder="Longer community description." />
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <label className={labelCls}>Google Overview (per celebrity)</label>
-        <textarea
-          value={googleOverview}
-          onChange={(e) => setGoogleOverview(e.target.value)}
-          rows={4}
-          className={inputCls}
-          placeholder="Paste the factual overview for THIS exact celebrity (as it appears in the Google knowledge panel). Every celebrity has their own unique write-up — never a generic or copied text."
-        />
-        <p className="mt-1 text-xs text-zinc-500">
-          Shown right under this celebrity&apos;s name and profession as the Google-style factual overview. Leave blank to
-          fall back to the short bio.
-        </p>
       </div>
 
       {/* Images */}

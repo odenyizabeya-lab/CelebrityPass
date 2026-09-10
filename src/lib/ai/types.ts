@@ -43,12 +43,6 @@ export type ScanProfile = {
   profession: string;
   country: string;
   city: string | null;
-  /** 2–4 paragraph factual community description (community "bio"). */
-  bio: string;
-  /** One or two lines for cards and search results. */
-  shortBio: string;
-  /** Google-style factual overview for THIS exact celebrity. */
-  googleOverview: string;
   website: string | null;
   /** 6-digit hex accent used by the existing theme (e.g. "#8b5cf6"). */
   accentColor: string;

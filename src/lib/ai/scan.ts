@@ -148,9 +148,6 @@ function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
     profession: asString(raw.profession, 120) || "Public Figure",
     country: asString(raw.country, 80) || "",
     city: asString(raw.city, 80) || null,
-    bio: asString(raw.bio) || (asString(raw.google_overview) || `Official community for fans of ${name}.`),
-    shortBio: asString(raw.short_bio, 300) || asString(raw.bio, 300),
-    googleOverview: asString(raw.google_overview, 2000) || "",
     website: asString(raw.website, 500) || null,
     accentColor: /^#[0-9a-fA-F]{6}$/.test(asString(raw.accent_color, 9)) ? asString(raw.accent_color, 9) : "#8b5cf6",
     socials: {

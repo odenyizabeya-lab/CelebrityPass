@@ -8,6 +8,13 @@ import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
 import type { GoogleInfo } from "./google-info";
 
+/** Factual one-liner for cards/search from the stored knowledge panel (Wikipedia description). */
+function panelTagline(json: string | null): string | null {
+  const info = tryParseJson<GoogleInfo | null>(json, null);
+  const desc = info?.description?.trim();
+  return desc && desc.length > 0 ? desc.slice(0, 200) : null;
+}
+
 export type CelebritySummary = {
   id: string;
   slug: string;
@@ -16,8 +23,7 @@ export type CelebritySummary = {
   country: string;
   city: string | null;
   profession: string;
-  bio: string;
-  shortBio: string | null;
+  tagline: string | null; // factual one-liner from the Wikipedia/Wikidata panel (e.g. "American actor (born 1963)")
   profileImage: string | null;
   coverImage: string | null;
   profileImageUrl: string | null;
@@ -102,8 +108,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       country: c.country,
       city: c.city,
       profession: c.profession,
-      bio: c.bio,
-      shortBio: c.shortBio,
+      tagline: panelTagline(c.googleInfo),
       profileImage: c.profileImage,
       coverImage: c.coverImage,
       profileImageUrl: c.profileImage ? profileImageUrl(c.slug, c.profileImage) : null,
@@ -125,7 +130,6 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
 }
 
 export type CelebrityDetail = CelebritySummary & {
-  googleOverview: string | null;
   googleInfo: GoogleInfo | null;
   // Permanent verified official platform links (source of truth).
   facebookUrl: string | null;
@@ -172,9 +176,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     country: celebrity.country,
     city: celebrity.city,
     profession: celebrity.profession,
-    bio: celebrity.bio,
-    shortBio: celebrity.shortBio,
-    googleOverview: celebrity.googleOverview,
+    tagline: panelTagline(celebrity.googleInfo),
     googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
     profileImage: celebrity.profileImage,
     coverImage: celebrity.coverImage,

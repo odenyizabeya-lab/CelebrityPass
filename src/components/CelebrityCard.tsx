@@ -100,9 +100,9 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
         <p className="mt-1 text-base font-medium text-zinc-300">
           {celebrity.profession} · {celebrity.country}
         </p>
-        <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-zinc-500">
-          {celebrity.shortBio ?? celebrity.bio}
-        </p>
+        {celebrity.tagline && (
+          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-zinc-500">{celebrity.tagline}</p>
+        )}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5">
           <div>

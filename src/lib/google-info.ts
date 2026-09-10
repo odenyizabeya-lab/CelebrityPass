@@ -8,6 +8,20 @@
 // The fallback on ANY failure is to return null — callers keep their existing
 // profile data. We never fabricate an overview.
 
+export type PanelImage = {
+  url: string;
+  width?: number | null;
+  height?: number | null;
+  source: string; // attribution, e.g. "Wikipedia" or "Deezer"
+};
+
+export type PanelWork = {
+  title: string;
+  year?: string | null;
+  imageUrl?: string | null;
+  source: string;
+};
+
 export type GoogleInfo = {
   name: string;
   description: string | null; // e.g. "American actor (born 1963)"
@@ -18,6 +32,11 @@ export type GoogleInfo = {
   overview: string | null; // the Google-style encyclopedic overview paragraph
   siteLinks: number | null; // languages the Wikipedia article exists in (global fame proxy)
   wikipediaUrl: string | null;
+  // Category-aware panel extras (all optional, all real, never invented).
+  kind: "actor" | "musician" | "athlete" | "other";
+  image: PanelImage | null; // lead header image with attribution
+  images: PanelImage[]; // media carousel (lead + work images), each with attribution
+  works: PanelWork[]; // category-aware works with thumbnails (movies/albums)
   source: "wikipedia/wikidata";
   fetchedAt: string;
 };
@@ -191,17 +210,37 @@ export async function fetchGoogleInfo(
       overview: null,
       siteLinks: null,
       wikipediaUrl: `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`,
+      kind: "other",
+      image: null,
+      images: [],
+      works: [],
       source: "wikipedia/wikidata",
       fetchedAt: new Date().toISOString(),
     };
 
-    // 1) Overview from Wikipedia REST summary.
+    // 1) Overview from Wikipedia REST summary (+ lead image, attributed).
     try {
       const sum = (await fetchJson(
         `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`
-      )) as { extract?: string; description?: string; type?: string; detail?: string };
+      )) as {
+        extract?: string;
+        description?: string;
+        type?: string;
+        detail?: string;
+        originalimage?: { source?: string; width?: number; height?: number };
+        thumbnail?: { source?: string; width?: number; height?: number };
+      };
       if (sum && typeof sum.extract === "string" && sum.extract) info.overview = sum.extract;
       if (sum && typeof sum.description === "string") info.description = info.description ?? sum.description;
+      const lead = sum?.originalimage?.source ?? sum?.thumbnail?.source;
+      if (lead && /^https?:\/\//.test(lead)) {
+        info.image = {
+          url: lead,
+          width: sum?.originalimage?.width ?? sum?.thumbnail?.width ?? null,
+          height: sum?.originalimage?.height ?? sum?.thumbnail?.height ?? null,
+          source: "Wikipedia",
+        };
+      }
     } catch {
       /* overview is optional */
     }
@@ -243,6 +282,50 @@ export async function fetchGoogleInfo(
       info.films = await fetchFilmTitles(pageTitle);
     } catch {
       info.films = [];
+    }
+
+    // 4) Category-aware works + media — the Google-panel Movies/Albums cards
+    //    and the media carousel. Every element carries its real source label.
+    info.kind = detectKind(opts.category ?? "", info.occupations, info.description);
+    const workImages: PanelImage[] = [];
+    if (info.kind === "athlete" && wikidataId) {
+      try {
+        const teams = await fetchAthleteTeams(wikidataId);
+        if (teams.length > 0) info.works = teams.slice(0, 6).map((t) => ({ title: t, source: "Wikipedia" }));
+      } catch {
+        /* teams are optional */
+      }
+    }
+    if (info.kind === "actor" && info.films.length > 0) {
+      const posters = await fetchPosterImages(info.films.slice(0, 6));
+      const withPoster: PanelWork[] = [];
+      for (let i = 0; i < posters.length; i++) {
+        const img = posters[i];
+        const title = info.films[i];
+        if (!img || !title) continue;
+        withPoster.push({ title, imageUrl: img.url, source: "Wikipedia" });
+        workImages.push(img);
+      }
+      // Fall back to title-only chips when no posters exist yet (never invented).
+      info.works = withPoster.length > 0 ? withPoster : info.films.slice(0, 8).map((title) => ({ title, source: "Wikipedia" }));
+    }
+    if (info.kind === "musician") {
+      try {
+        const { works, artistImage } = await fetchDeezerAlbums(name);
+        if (works.length > 0) info.works = works.slice(0, 8);
+        if (artistImage) workImages.push(artistImage);
+      } catch {
+        /* albums are optional — the panel stays movie-less but intact */
+      }
+    }
+    // Media carousel: lead image + work images, deduped, attributed.
+    const seen = new Set<string>();
+    for (const img of [info.image, ...workImages]) {
+      if (!img || !img.url || !/^https?:\/\//.test(img.url)) continue;
+      if (seen.has(img.url)) continue;
+      seen.add(img.url);
+      info.images.push(img);
+      if (info.images.length >= 8) break;
     }
 
     cache.set(key, { at: Date.now(), data: info });
@@ -295,7 +378,8 @@ function parseWikidataDate(time: string): { iso: string; display: string; age: n
   const mo = Number(m[2]);
   const d = Number(m[3]);
   const iso = `${String(y).padStart(4, "0")}-${m[2]}-${m[3]}`;
-  const display = `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][mo - 1]} ${d}, ${y}`;
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const display = `${d} ${MONTHS[mo - 1] ?? mo} ${y}`;
   let age = 0;
   const now = new Date();
   const b = new Date(y, mo - 1, d);
@@ -329,6 +413,97 @@ async function fetchFilmTitles(pageTitle: string): Promise<string[]> {
     if (titles.length >= 12) break; // show a representative set like Google does
   }
   return titles;
+}
+
+/** Determine the Google-panel card category directly from the celebrity's signals. */
+function detectKind(category: string, occupations: string[], description: string | null): GoogleInfo["kind"] {
+  const cat = category.toLowerCase();
+  if (/actor|actress/.test(cat)) return "actor";
+  if (/music|musician|sing|rapper|rap|artist/.test(cat)) return "musician";
+  if (/athlet|football|cricket|soccer|basket|tennis|sport|player/.test(cat)) return "athlete";
+  const ctx = `${occupations.join(" ")} ${description ?? ""}`.toLowerCase();
+  if (/sing|music|rapper|vocal|songwriter/.test(ctx)) return "musician";
+  if (/actor|actress/.test(ctx)) return "actor";
+  if (/football|cricket|soccer|basket|tennis|athlet|player|sport/.test(ctx)) return "athlete";
+  return "other";
+}
+
+/** Poster/thumbnail URL for a work (film, TV series) from its Wikipedia page. */
+async function fetchPosterImages(titles: string[]): Promise<(PanelImage | null)[]> {
+  const results = await Promise.allSettled(
+    titles.map(async (title) => {
+      try {
+        const sum = (await fetchJson(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+        )) as {
+          type?: string;
+          detail?: string;
+          thumbnail?: { source?: string; width?: number; height?: number };
+          originalimage?: { source?: string; width?: number; height?: number };
+        };
+        if (sum?.type === "disambiguation" || (sum?.detail && !sum.thumbnail?.source)) return null;
+        const url = sum?.thumbnail?.source ?? sum?.originalimage?.source;
+        if (!url || !/^https?:\/\//.test(url)) return null;
+        return {
+          url,
+          width: sum.thumbnail?.width ?? null,
+          height: sum.thumbnail?.height ?? null,
+          source: "Wikipedia",
+        } satisfies PanelImage;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.map((r) => (r.status === "fulfilled" ? r.value : null));
+}
+
+/** Albums with cover art from Deezer's keyless public API (musicians). */
+async function fetchDeezerAlbums(name: string): Promise<{ works: PanelWork[]; artistImage: PanelImage | null }> {
+  const search = (await fetchJson(
+    `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=5`
+  )) as { data?: Array<{ id?: number; name?: string; picture_medium?: string }> };
+  const data = Array.isArray(search?.data) ? search.data : [];
+  if (data.length === 0) return { works: [], artistImage: null };
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const target = norm(name);
+  const artist =
+    data.find((a) => a.name && norm(a.name) === target) ??
+    data.find((a) => a.name && target && (norm(a.name).includes(target) || target.includes(norm(a.name)))) ??
+    data[0];
+  if (!artist?.id || !artist.name) return { works: [], artistImage: null };
+
+  const albums = (await fetchJson(
+    `https://api.deezer.com/artist/${artist.id}/albums?limit=12`
+  )) as { data?: Array<{ title?: string; release_date?: string; cover_medium?: string; cover_small?: string }> };
+  const list = Array.isArray(albums?.data) ? albums.data : [];
+  const works: PanelWork[] = [];
+  for (const a of list) {
+    const title = a.title?.trim();
+    if (!title) continue;
+    works.push({
+      title,
+      year: (a.release_date ?? "").slice(0, 4) || null,
+      imageUrl: a.cover_medium ?? a.cover_small ?? null,
+      source: "Deezer",
+    });
+  }
+  const artistImage = artist.picture_medium?.startsWith("http")
+    ? { url: artist.picture_medium, source: "Deezer" }
+    : null;
+  return { works, artistImage };
+}
+
+/** Former/current sports teams for an athlete, from Wikidata P54 labels. */
+async function fetchAthleteTeams(wikidataId: string): Promise<string[]> {
+  const ent = (await fetchJson(
+    `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidataId}&props=claims&format=json`
+  )) as { entities?: Record<string, { claims?: Record<string, unknown> }> };
+  const claims = ent?.entities?.[wikidataId]?.claims ?? {};
+  const ids = claimEntityIds(claims["P54"]);
+  if (ids.length === 0) return [];
+  const labels = await resolveEntityLabels(ids);
+  return dedupe(ids.map((id) => labels[id]).filter((l): l is string => !!l));
 }
 
 function dedupe<T>(arr: T[]): T[] {
