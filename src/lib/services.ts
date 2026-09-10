@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
+import { dataUriDims, profileImageUrl } from "./images";
 import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
 import type { GoogleInfo } from "./google-info";
@@ -16,6 +17,10 @@ export type CelebritySummary = {
   shortBio: string | null;
   profileImage: string | null;
   coverImage: string | null;
+  profileImageUrl: string | null;
+  profileImageW: number;
+  profileImageH: number;
+  coverImageUrl: string | null;
   accentColor: string;
   isFeatured: boolean;
   isActive: boolean;
@@ -32,6 +37,20 @@ export type CelebritiesFilters = {
   profession?: string;
   includeInactive?: boolean;
 };
+
+/**
+ * Web UI events receive card data WITHOUT the raw base64 data URIs, since
+ * those must never cross the server→client boundary (they would make every
+ * RSC payload megabytes). Only cacheable image URLs are sent to the browser.
+ */
+export type CelebrityCardData = Omit<CelebritySummary, "profileImage" | "coverImage">;
+
+export function toCardCelebrity(c: CelebritySummary): CelebrityCardData {
+  const { profileImage, coverImage, ...rest } = c;
+  void profileImage;
+  void coverImage;
+  return rest;
+}
 
 /** List celebrity communities with LIVE fan/community stats. */
 export async function getCelebritySummaries(filters: CelebritiesFilters = {}): Promise<CelebritySummary[]> {
@@ -79,6 +98,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
     : celebrities;
 
   return filtered.map((c) => {
+    const profileDims = c.profileImage ? dataUriDims(c.profileImage) : null;
     return {
       id: c.id,
       slug: c.slug,
@@ -91,6 +111,10 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       shortBio: c.shortBio,
       profileImage: c.profileImage,
       coverImage: c.coverImage,
+      profileImageUrl: c.profileImage ? profileImageUrl(c.slug, c.profileImage) : null,
+      profileImageW: profileDims?.w ?? 144,
+      profileImageH: profileDims?.h ?? 180,
+      coverImageUrl: c.coverImage ? `/images/${c.slug}/cover` : null,
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
       isActive: c.isActive,
@@ -138,6 +162,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
 
   const activeFans = celebrity.fans;
   const countries = new Set(activeFans.map((f) => f.fan.country).filter(Boolean));
+  const profileDims = celebrity.profileImage ? dataUriDims(celebrity.profileImage) : null;
 
   return {
     id: celebrity.id,
@@ -153,6 +178,10 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
     profileImage: celebrity.profileImage,
     coverImage: celebrity.coverImage,
+    profileImageUrl: celebrity.profileImage ? profileImageUrl(celebrity.slug, celebrity.profileImage) : null,
+    profileImageW: profileDims?.w ?? 500,
+    profileImageH: profileDims?.h ?? 625,
+    coverImageUrl: celebrity.coverImage ? `/images/${celebrity.slug}/cover` : null,
     accentColor: celebrity.accentColor,
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,

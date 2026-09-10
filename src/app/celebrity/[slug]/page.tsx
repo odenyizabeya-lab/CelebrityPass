@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import CountUp from "@/components/CountUp";
 import T from "@/components/T";
+import BackButton from "@/components/BackButton";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Only a hosted image is usable by social crawlers (data: URIs are ignored
   // by WhatsApp/Facebook/X). Each celebrity's own photo is used — never a
   // shared generic image when a real profile photo exists.
-  const image = isHttpUrl(c.profileImage) ? c.profileImage : undefined;
+  const image = c.profileImageUrl ? `${APP_URL}${c.profileImageUrl}` : isHttpUrl(c.profileImage) ? c.profileImage : undefined;
   const ogTitle = c.name;
 
   return {
@@ -110,8 +111,8 @@ export default async function CelebrityPage({ params }: Props) {
       />
       {/* Cover */}
       <div className="relative h-64 w-full overflow-hidden sm:h-80">
-        {celebrity.coverImage ? (
-          <Image src={celebrity.coverImage} alt="" fill priority sizes="100vw" className="object-cover" unoptimized />
+        {celebrity.coverImageUrl ? (
+          <Image src={celebrity.coverImageUrl} alt="" fill priority sizes="100vw" className="object-cover" unoptimized />
         ) : (
           <div
             className="h-full w-full"
@@ -119,6 +120,9 @@ export default async function CelebrityPage({ params }: Props) {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/30 to-transparent" />
+        <div className="absolute left-4 top-4 z-20">
+          <BackButton />
+        </div>
       </div>
 
       <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
@@ -126,15 +130,15 @@ export default async function CelebrityPage({ params }: Props) {
         <div className="relative z-10 -mt-24 flex flex-col gap-6 sm:flex-row sm:items-end">
           <div className="w-[320px] max-w-full shrink-0 sm:w-[450px] lg:w-[560px]">
             <div className="rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
-              {celebrity.profileImage ? (
+              {celebrity.profileImageUrl ? (
                 <Image
-                  src={celebrity.profileImage}
+                  src={celebrity.profileImageUrl}
                   alt={celebrity.name}
-                  width={500}
-                  height={625}
+                  width={celebrity.profileImageW}
+                  height={celebrity.profileImageH}
+                  sizes="(max-width: 639px) 320px, (max-width: 1023px) 450px, 560px"
                   priority
                   className="h-auto w-full object-contain"
-                  unoptimized
                 />
               ) : (
                 <div

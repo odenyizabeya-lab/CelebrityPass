@@ -82,12 +82,12 @@ export default function FanCardView({ card }: { card: CardViewData }) {
               <div className="h-16 w-16 overflow-hidden rounded-xl bg-ink-900 p-1 ring-2 ring-white/40">
                 {card.celebrity.profileImage ? (
                   <Image
-                    src={card.celebrity.profileImage}
+                    src={`/images/${card.celebrity.slug}/profile`}
                     alt={card.celebrity.name}
                     width={64}
                     height={80}
+                    sizes="64px"
                     className="h-full w-full rounded-lg object-contain object-top"
-                    unoptimized
                   />
                 ) : (
                   <div

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import type { CelebritySummary } from "@/lib/services";
+import type { CelebrityCardData } from "@/lib/services";
 import CountUp from "./CountUp";
 import VerifiedBadge from "./VerifiedBadge";
 
@@ -16,12 +16,13 @@ const CATEGORY_STYLES: Record<string, string> = {
   "Public Figure": "bg-rose-500/15 text-rose-300 ring-rose-400/30",
 };
 
-export default function CelebrityCard({ celebrity }: { celebrity: CelebritySummary }) {
+export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardData }) {
   const router = useRouter();
   const catStyle = CATEGORY_STYLES[celebrity.category] ?? CATEGORY_STYLES["Public Figure"];
   const profileUrl = `/celebrity/${celebrity.slug}`;
 
   const openProfile = () => router.push(profileUrl);
+  const prefetchProfile = () => router.prefetch(profileUrl);
 
   return (
     <div
@@ -29,6 +30,8 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
       tabIndex={0}
       aria-label={`Open ${celebrity.name} profile`}
       onClick={openProfile}
+      onPointerEnter={prefetchProfile}
+      onFocus={prefetchProfile}
       onKeyDown={(e) => {
         if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
@@ -39,9 +42,9 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
     >
       {/* Cover */}
       <div className="relative h-44 overflow-hidden sm:h-52">
-        {celebrity.coverImage ? (
+        {celebrity.coverImageUrl ? (
           <Image
-            src={celebrity.coverImage}
+            src={celebrity.coverImageUrl}
             alt=""
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -60,14 +63,14 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
       <div className="flex items-start justify-between px-6 pt-3">
         <div className="relative z-10 -mt-14 w-44 sm:w-56">
           <div className="overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
-            {celebrity.profileImage ? (
+            {celebrity.profileImageUrl ? (
               <Image
-                src={celebrity.profileImage}
+                src={celebrity.profileImageUrl}
                 alt={celebrity.name}
-                width={144}
-                height={180}
+                width={celebrity.profileImageW}
+                height={celebrity.profileImageH}
+                sizes="(max-width: 639px) 176px, 224px"
                 className="h-auto w-full object-contain"
-                unoptimized
               />
             ) : (
               <div

@@ -3,7 +3,7 @@ import Link from "next/link";
 import DirectoryFilters from "@/components/DirectoryFilters";
 import CelebrityCard from "@/components/CelebrityCard";
 import EmptyState from "@/components/EmptyState";
-import { getCelebritySummaries, getSearchOptions } from "@/lib/services";
+import { getCelebritySummaries, getSearchOptions, toCardCelebrity } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +79,7 @@ export default async function CelebritiesPage({
         ) : (
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {celebrities.map((c) => (
-              <CelebrityCard key={c.id} celebrity={c} />
+              <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
             ))}
           </div>
         )}

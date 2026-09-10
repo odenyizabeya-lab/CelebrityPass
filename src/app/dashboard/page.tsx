@@ -85,12 +85,12 @@ export default async function DashboardPage() {
                     <div className="h-20 w-20 overflow-hidden rounded-2xl bg-ink-900 p-1.5">
                       {card.celebrity.profileImage ? (
                         <Image
-                          src={card.celebrity.profileImage}
+                          src={`/images/${card.celebrity.slug}/profile`}
                           alt={card.celebrity.name}
                           width={80}
                           height={100}
+                          sizes="80px"
                           className="h-full w-full rounded-xl object-contain object-top"
-                          unoptimized
                         />
                       ) : (
                         <div

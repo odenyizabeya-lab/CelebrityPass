@@ -4,7 +4,7 @@ import CelebrityCard from "@/components/CelebrityCard";
 import HeroSearch from "@/components/HeroSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
-import { getCelebritySummaries, getPlatformStats } from "@/lib/services";
+import { getCelebritySummaries, getPlatformStats, toCardCelebrity } from "@/lib/services";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/payments";
 
@@ -98,7 +98,7 @@ export default async function HomePage() {
             ) : (
               <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {featured.map((c) => (
-                  <CelebrityCard key={c.id} celebrity={c} />
+                  <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
                 ))}
               </div>
             )}
@@ -127,7 +127,7 @@ export default async function HomePage() {
           ) : (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {popular.map((c) => (
-                <CelebrityCard key={c.id} celebrity={c} />
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
               ))}
             </div>
           )}
@@ -155,7 +155,7 @@ export default async function HomePage() {
           ) : (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {celebrities.map((c) => (
-                <CelebrityCard key={c.id} celebrity={c} />
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
               ))}
             </div>
           )}
