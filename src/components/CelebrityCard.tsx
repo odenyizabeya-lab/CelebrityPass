@@ -58,7 +58,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
 
       {/* Avatar row */}
       <div className="flex items-start justify-between px-6 pt-3">
-        <div className="relative z-10 -mt-14 w-40 sm:w-48">
+        <div className="relative z-10 -mt-14 w-44 sm:w-56">
           <div className="overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
             {celebrity.profileImage ? (
               <Image
