@@ -58,20 +58,20 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebritySumma
 
       {/* Avatar row */}
       <div className="flex items-start justify-between px-6 pt-3">
-        <div className="relative -mt-14">
-          <div className="h-32 w-32 overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900 sm:h-36 sm:w-36">
+        <div className="relative -mt-14 w-32 sm:w-36">
+          <div className="overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
             {celebrity.profileImage ? (
               <Image
                 src={celebrity.profileImage}
                 alt={celebrity.name}
                 width={144}
                 height={180}
-                className="h-full w-full object-contain object-top"
+                className="h-auto w-full object-contain"
                 unoptimized
               />
             ) : (
               <div
-                className="grid h-full w-full place-items-center rounded-2xl text-3xl font-bold text-white"
+                className="grid aspect-[4/5] w-full place-items-center rounded-2xl text-3xl font-bold text-white"
                 style={{ backgroundColor: celebrity.accentColor }}
               >
                 {celebrity.name
