@@ -36,6 +36,7 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
         celebrityName={celebrity.name}
         accent={celebrity.accentColor}
         memberships={celebrity.memberships}
+        imageUrl={celebrity.profileImageUrl}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } fr
 import { getCelebrityEvents } from "@/lib/events/service";
 import { tryParseJson, type SocialLinks } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
+import QRCode from "qrcode";
 
 export const revalidate = 60;
 
@@ -33,6 +34,106 @@ function benefitLines(text?: string | null): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+// ---------------------------------------------------------------------------
+// Membership fan-card graphics (realistic card visuals, not text boxes).
+// ---------------------------------------------------------------------------
+
+const CARD_TAGLINES = {
+  standard: ["Be Closer Than Ever"],
+  vip: ["EXCLUSIVE ACCESS", "PRIORITY EXPERIENCES", "A HIGHER LEVEL OF FANDOM"],
+} as const;
+
+const CARD_ICON_LABELS = {
+  standard: ["Exclusive Content", "Priority Community", "Verified Fan ID", "Fan-Only Updates"],
+  vip: ["VIP Card Design", "Premium Support", "Recognition Badge", "Early Access"],
+} as const;
+
+const CARD_DEFAULT_FEATURES = {
+  standard: ["Unique verified Fan ID", "Live card link + QR code", "Priority community news", "Exclusive digital content", "Access to fan-only updates"],
+  vip: ["Everything in Premium", "Exclusive VIP card design", "Premium support", "Special recognition badge", "Top-tier community status", "Early access to events & new features"],
+} as const;
+
+const cardIconCls = "h-4 w-4 shrink-0";
+function IconDoc() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.6a2 2 0 011.4.6l3.4 3.4a2 2 0 01.6 1.4V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
+function IconPeople() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-6 0M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+function IconStar() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.5a.6.6 0 011.04 0l2.13 3.9 4.36.8a.6.6 0 01.33 1.02l-3.24 3.14.82 4.47a.6.6 0 01-.87.63L12 15.75l-4.05 2.11a.6.6 0 01-.87-.63l.82-4.47-3.24-3.14a.6.6 0 01.33-1.02l4.36-.8 2.13-3.9z" />
+    </svg>
+  );
+}
+function IconLock() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path strokeLinecap="round" d="M8 11V8a4 4 0 118 0v3" />
+    </svg>
+  );
+}
+function IconDiamond() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 3h12l4 6-10 12L2 9l4-6zm0 0l4 6m12-6l-4 6M2 9h20" />
+    </svg>
+  );
+}
+function IconHeadset() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 14v-2a8 8 0 0116 0v2M4 14a2 2 0 01-2-2v-1a2 2 0 012-2h1v5H4zm16 0a2 2 0 012-2v-1a2 2 0 00-2-2h-1v5h1zm-12 7h8M6 14v3a2 2 0 002 2h2M18 14v3a2 2 0 01-2 2h-2" />
+    </svg>
+  );
+}
+function IconBadge() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.6 12.6L7 22l5-3 5 3-1.6-9.4" />
+    </svg>
+  );
+}
+function IconCalendar() {
+  return (
+    <svg className={cardIconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="16" rx="2" />
+      <path strokeLinecap="round" d="M8 3.5V7m8-3.5V7M3.5 10.5h17" />
+    </svg>
+  );
+}
+
+const CARD_ICONS = {
+  standard: [IconDoc, IconPeople, IconStar, IconLock],
+  vip: [IconDiamond, IconHeadset, IconBadge, IconCalendar],
+} as const;
+
+/** Scannable QR code (SVG) pointing at the join flow for a level. */
+async function cardQrSvg(text: string): Promise<string> {
+  try {
+    const svg = await QRCode.toString(text, {
+      type: "svg",
+      margin: 1,
+      width: 160,
+      color: { dark: "#0b0c10", light: "#ffffff" },
+    });
+    return svg.replace("<svg ", '<svg style="width:100%;height:100%;display:block" ');
+  } catch {
+    return "";
+  }
 }
 
 type Props = { params: Promise<{ slug: string }> };
@@ -117,6 +218,9 @@ export default async function CelebrityPage({ params }: Props) {
     google: celebrity.googleUrl ?? undefined,
   };
   const hasMemberships = celebrity.memberships.length > 0;
+  const standardTiers = celebrity.memberships.filter((l) => (l.price ?? 0) < PREMIUM_MIN_PRICE);
+  const premiumTiers = celebrity.memberships.filter((l) => (l.price ?? 0) >= PREMIUM_MIN_PRICE);
+  const firstName = (celebrity.name.trim().split(/\s+/)[0] ?? celebrity.name).trim();
   const events = await getCelebrityEvents(celebrity.id);
   const lastSyncedAt = events.completed.concat(events.upcoming, events.happening, events.postponed, events.cancelled)
     .map((e) => e.lastSyncedAt)
@@ -287,35 +391,53 @@ export default async function CelebrityPage({ params }: Props) {
             </section>
 
 <section>
-  <h2 className="text-2xl font-black tracking-tight"><T k="membership.onCommunity" /></h2>
+  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">Join The Exclusive Community</p>
+  <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+    Membership <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-transparent">Levels</span>
+  </h2>
+  <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
+    Get your official CelebrityPass fan card and unlock a world of exclusive experiences, content and more.
+  </p>
   {!hasMemberships ? (
-    <div className="mt-4">
+    <div className="mt-6">
       <EmptyState message={<T k="membership.notConfigured" />} />
     </div>
   ) : (
-    <div className="mt-8 space-y-12">
-      {celebrity.memberships.some((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE) && (
-        <div className="grid gap-6 sm:grid-cols-3">
-          {celebrity.memberships
-            .filter((level) => (level.price ?? 0) < PREMIUM_MIN_PRICE)
-            .map((level) => (
-              <MembershipLevelCard key={level.id} level={level} slug={celebrity.slug} accent={celebrity.accentColor} />
-            ))}
+    <div className="mt-10 space-y-14">
+      {standardTiers.length > 0 && (
+        <div className="space-y-8">
+          {standardTiers.map((level, i) => (
+            <MembershipLevelCard
+              key={level.id}
+              level={level}
+              slug={celebrity.slug}
+              celebrityName={celebrity.name}
+              imageUrl={celebrity.profileImageUrl}
+              firstName={firstName}
+              variant={i === standardTiers.length - 1 ? "vip" : "standard"}
+              levelNumber={i + 1}
+            />
+          ))}
         </div>
       )}
-      {celebrity.memberships.some((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE) && (
+      {premiumTiers.length > 0 && (
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300"><T k="membership.signatureExperiences" /></p>
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-zinc-400">
             <T k="membership.signatureSub" /> — <T k="membership.from" /> {formatMoney(PREMIUM_MIN_PRICE, "USD")}{" "}
             <T k="membership.to" /> {formatMoney(3000000, "USD")}.
           </p>
-          <div className="mt-6 space-y-5">
-            {celebrity.memberships
-              .filter((level) => (level.price ?? 0) >= PREMIUM_MIN_PRICE)
-              .map((level) => (
-                <PremiumLevelCard key={level.id} level={level} slug={celebrity.slug} />
-              ))}
+          <div className="mt-6 space-y-8">
+            {premiumTiers.map((level) => (
+              <SignatureExperienceCard
+                key={level.id}
+                level={level}
+                slug={celebrity.slug}
+                celebrityName={celebrity.name}
+                imageUrl={celebrity.profileImageUrl}
+                firstName={firstName}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -342,60 +464,340 @@ export default async function CelebrityPage({ params }: Props) {
   );
 }
 
-function MembershipLevelCard({ level, slug, accent }: { level: MembershipLevelType; slug: string; accent: string }) {
+/** Realistic credit-card-style graphic shown beside each level's details. */
+async function LevelCardGraphic({
+  variant,
+  name,
+  tierName,
+  levelNumber,
+  popular,
+  experience,
+  imageUrl,
+  firstName,
+  qrValue,
+}: {
+  variant: "standard" | "vip" | "elite";
+  name: string;
+  tierName: string;
+  levelNumber: number;
+  popular: boolean;
+  experience: boolean;
+  imageUrl: string | null;
+  firstName: string;
+  qrValue: string;
+}) {
+  const qr = await cardQrSvg(qrValue);
+  const taglines = variant === "vip" || variant === "elite" ? CARD_TAGLINES.vip : CARD_TAGLINES.standard;
+  const neon = variant === "standard" ? "#7dd3fc" : "#fcd34d";
+  const gold = "#fcd34d";
+  const bg =
+    variant === "elite"
+      ? "linear-gradient(125deg,#1b1510 0%,#3a2b16 46%,#0b0c10 100%)"
+      : variant === "vip"
+        ? "linear-gradient(120deg,#2b1045 0%,#6d28d9 42%,#1f1236 100%)"
+        : "linear-gradient(120deg,#0b1330 0%,#1e3a8a 48%,#0b1026 100%)";
+
   return (
-    <div className="glass card-hover flex flex-col rounded-3xl p-6">
-      <span className="inline-flex w-fit text-xs font-black uppercase tracking-widest" style={{ color: accent }}>
-        <T k="membership.level" vars={{ n: level.displayOrder + 1 }} />
-      </span>
-      <h3 className="mt-2 text-xl font-bold text-white">{level.name}</h3>
-      <p className="mt-2 flex-1 text-base leading-relaxed text-zinc-400">{level.benefits ?? level.description}</p>
-      <p className="mt-4 text-xl font-black" style={{ color: accent }}>
-        {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
-      </p>
-      <Link
-        href={`/celebrity/${slug}/join?level=${level.id}`}
-        className="mt-5 rounded-2xl py-3 text-center text-sm font-bold ring-1 ring-white/15 text-white transition hover:bg-white/5"
-      >
-        <T k="membership.chooseLevel" />
-      </Link>
+    <div
+      className="relative w-full overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15"
+      style={{ background: bg, aspectRatio: "1.62 / 1" }}
+    >
+      <div className="pointer-events-none absolute -inset-x-8 -top-16 h-40 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      {(variant === "vip" || variant === "elite") && (
+        <div className="pointer-events-none absolute -left-8 top-1/3 h-32 w-24 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/15 to-transparent" />
+      )}
+      <div className="pointer-events-none absolute inset-0 grid place-items-center opacity-[0.06]" aria-hidden>
+        <span className="text-7xl font-black tracking-widest text-white">
+          {name.split(" ").slice(0, 2).map((w) => w[0]).join("")}
+        </span>
+      </div>
+
+      {/* Vertical tagline strip (right edge) */}
+      <div className="absolute inset-y-4 right-1.5 z-10 hidden flex-col items-center justify-center gap-1.5 sm:flex">
+        {taglines.map((t) => (
+          <span
+            key={t}
+            className="text-[8px] font-black uppercase tracking-[0.3em]"
+            style={{ color: neon, writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      <div className="relative flex h-full flex-col justify-between p-4 sm:p-5">
+        {/* Top: brand + CP badge */}
+        <div className="flex items-start justify-between">
+          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white">
+            Celebrity<span style={{ color: neon }}>Pass</span>
+          </span>
+          <div className="flex items-center gap-1.5">
+            {experience && (
+              <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
+                Experience
+              </span>
+            )}
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-[10px] font-black text-ink-900 shadow">CP</span>
+          </div>
+        </div>
+
+        {/* Middle: tier */}
+        <div>
+          <p className="text-xl font-black uppercase tracking-[0.12em] text-white sm:text-2xl">{tierName}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.34em] text-white/70">Official Fan Card</p>
+        </div>
+
+        {/* Bottom: photo + identity left, signature + QR right */}
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-2 ring-white/30">
+              {imageUrl ? (
+                <Image src={imageUrl} alt={name} width={48} height={60} className="h-full w-full object-cover" unoptimized />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-base font-black text-white" style={{ backgroundColor: neon }}>
+                  {name[0]}
+                </div>
+              )}
+            </div>
+            <div>
+              {levelNumber > 0 && (
+                <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: neon }}>
+                  Level {levelNumber}
+                </p>
+              )}
+              <p className="text-sm font-black uppercase tracking-[0.08em] text-white sm:text-base">{name}</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/55">
+                {popular && <span style={{ color: gold }}>★ </span>}Member
+              </p>
+            </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <span
+              className="text-base leading-none text-white/80 sm:text-lg"
+              style={{ fontFamily: '"Brush Script MT","Segoe Script","Apple Chancery",cursive' }}
+            >
+              {firstName}
+            </span>
+            {qr ? (
+              <div className="h-14 w-14 overflow-hidden rounded-lg bg-white p-1 shadow-lg ring-1 ring-white/30">
+                <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: qr }} />
+              </div>
+            ) : (
+              <div className="grid h-14 w-14 place-items-center rounded-lg bg-white/90 text-[8px] font-black uppercase tracking-widest text-ink-900 shadow">
+                CP
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: string }) {
+function MembershipLevelCard({
+  level,
+  slug,
+  celebrityName,
+  imageUrl,
+  firstName,
+  variant,
+  levelNumber,
+}: {
+  level: MembershipLevelType;
+  slug: string;
+  celebrityName: string;
+  imageUrl: string | null;
+  firstName: string;
+  variant: "standard" | "vip";
+  levelNumber: number;
+}) {
+  const popular = variant === "vip";
+  const features = benefitLines(level.benefits ?? level.description);
+  const featureList = features.length > 0 ? features : [...CARD_DEFAULT_FEATURES[variant]];
+  const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
+
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.08] via-white/[0.02] to-rose-500/[0.04] p-6 sm:p-7">
-      <div className="pointer-events-none absolute -inset-x-10 -top-16 h-28 rotate-6 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent" />
-      <div className="relative flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="inline-flex w-fit rounded-full bg-amber-400/15 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
-              Experience
+    <div
+      className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 ${
+        popular
+          ? "bg-gradient-to-br from-fuchsia-950/40 via-ink-900 to-ink-900 shadow-[0_24px_80px_-24px_rgba(168,85,247,0.45)] ring-2 ring-amber-400/40"
+          : "bg-gradient-to-br from-sky-950/40 via-ink-900 to-ink-900 shadow-[0_24px_80px_-24px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/25"
+      }`}
+    >
+      <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.15fr]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1 ${
+                popular ? "bg-amber-400/10 text-amber-300 ring-amber-400/40" : "bg-sky-400/10 text-sky-300 ring-sky-400/40"
+              }`}
+            >
+              Level {levelNumber}
             </span>
-            <h3 className="text-xl font-black text-white">{level.name}</h3>
+            {popular && (
+              <>
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-orange-500 text-ink-900">
+                  <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z" />
+                  </svg>
+                </span>
+                <span className="inline-flex rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow">
+                  Most Popular
+                </span>
+              </>
+            )}
           </div>
-          {level.description && <p className="mt-2 text-base font-medium text-zinc-300">{level.description}</p>}
+
+          <h3
+            className={`mt-3 text-3xl font-black tracking-tight sm:text-4xl ${
+              popular ? "bg-gradient-to-r from-amber-200 via-amber-300 to-fuchsia-300 bg-clip-text text-transparent" : "text-white"
+            }`}
+          >
+            {level.name}
+          </h3>
+          <p className="mt-2 text-base leading-relaxed text-zinc-400">
+            {popular ? "Everything in Premium, plus so much more." : `Official digital fan card for ${celebrityName}`}
+          </p>
+          <p className={`mt-3 text-2xl font-black ${popular ? "text-fuchsia-300" : "text-sky-300"}`}>
+            {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
+          </p>
+
+          <ul className="mt-4 space-y-2">
+            {featureList.map((f) => (
+              <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                {f}
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            href={qrValue}
+            className={`mt-6 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition hover:brightness-110 active:scale-[0.98] ${
+              popular
+                ? "bg-gradient-to-r from-pink-500 via-orange-500 to-amber-400 shadow-[0_10px_30px_-6px_rgba(244,114,182,0.55)]"
+                : "bg-sky-500 shadow-[0_10px_30px_-6px_rgba(56,189,248,0.5)]"
+            }`}
+          >
+            <T k="membership.chooseLevel" />
+            <span aria-hidden>›</span>
+          </Link>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:grid-cols-4">
+            {CARD_ICONS[variant].map((Icon, i) => (
+              <div key={CARD_ICON_LABELS[variant][i]} className="flex items-center gap-2 text-xs text-zinc-400">
+                <Icon />
+                <span>{CARD_ICON_LABELS[variant][i]}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <p className="text-xl font-black text-amber-300">
-          {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
-        </p>
+
+        <div className="mx-auto w-full max-w-md lg:max-w-none">
+          <LevelCardGraphic
+            variant={variant}
+            name={celebrityName}
+            tierName={level.name}
+            levelNumber={levelNumber}
+            popular={popular}
+            experience={false}
+            imageUrl={imageUrl}
+            firstName={firstName}
+            qrValue={qrValue}
+          />
+        </div>
       </div>
-      <ul className="relative mt-5 space-y-3">
-        {benefitLines(level.benefits ?? level.description).map((line) => (
-          <li key={line} className="flex items-start gap-3 text-base leading-relaxed text-zinc-300">
-            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-amber-400/90" />
-            {line}
-          </li>
-        ))}
-      </ul>
-      <Link
-        href={`/celebrity/${slug}/join?level=${level.id}`}
-        className="relative mt-6 inline-flex w-full items-center justify-center rounded-2xl py-3.5 text-center text-base font-bold text-ink-900 transition hover:brightness-110 active:scale-[0.99]"
-        style={{ background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" }}
-      >
-        <T k="membership.chooseExperience" />
-      </Link>
+    </div>
+  );
+}
+
+function SignatureExperienceCard({
+  level,
+  slug,
+  celebrityName,
+  imageUrl,
+  firstName,
+}: {
+  level: MembershipLevelType;
+  slug: string;
+  celebrityName: string;
+  imageUrl: string | null;
+  firstName: string;
+}) {
+  const features = benefitLines(level.benefits ?? level.description);
+  const featureList = features.length > 0 ? features : [];
+  const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950/40 via-ink-900 to-ink-900 p-6 shadow-[0_24px_80px_-24px_rgba(245,158,11,0.4)] ring-2 ring-amber-400/40 sm:p-8">
+      <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.15fr]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-full bg-amber-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/40">
+              Signature Experience
+            </span>
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-orange-500 text-ink-900">
+              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z" />
+              </svg>
+            </span>
+          </div>
+
+          <h3 className="mt-3 bg-gradient-to-r from-amber-200 via-amber-300 to-rose-300 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
+            {level.name}
+          </h3>
+          {level.description && <p className="mt-2 text-base font-medium text-zinc-300">{level.description}</p>}
+          <p className="mt-3 text-2xl font-black text-amber-300">
+            {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
+          </p>
+
+          {featureList.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {featureList.map((f) => (
+                <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Link
+            href={qrValue}
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-pink-500 via-orange-500 to-amber-400 px-7 py-3 text-sm font-bold text-white shadow-[0_10px_30px_-6px_rgba(245,158,11,0.55)] transition hover:brightness-110 active:scale-[0.98]"
+          >
+            <T k="membership.chooseLevel" />
+            <span className="ml-2" aria-hidden>›</span>
+          </Link>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:grid-cols-4">
+            {CARD_ICONS.vip.map((Icon, i) => (
+              <div key={CARD_ICON_LABELS.vip[i]} className="flex items-center gap-2 text-xs text-zinc-400">
+                <Icon />
+                <span>{CARD_ICON_LABELS.vip[i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-md lg:max-w-none">
+          <LevelCardGraphic
+            variant="elite"
+            name={celebrityName}
+            tierName={level.name}
+            levelNumber={0}
+            popular
+            experience
+            imageUrl={imageUrl}
+            firstName={firstName}
+            qrValue={qrValue}
+          />
+        </div>
+      </div>
     </div>
   );
 }

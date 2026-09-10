@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import type { MembershipLevelType } from "@/lib/utils";
@@ -27,16 +28,81 @@ function benefitLines(text?: string | null): string[] {
     .filter(Boolean);
 }
 
+/** Compact realistic fan-card thumbnail shown inside a selectable level option. */
+function LevelOptionThumb({
+  tone,
+  tierName,
+  celebrityName,
+  imageUrl,
+  accent,
+}: {
+  tone: "standard" | "vip";
+  tierName: string;
+  celebrityName: string;
+  imageUrl: string | null;
+  accent: string;
+}) {
+  const gold = "#fcd34d";
+  const neon = tone === "vip" ? gold : "#7dd3fc";
+  const bg =
+    tone === "vip"
+      ? "linear-gradient(120deg,#2b1045 0%,#6d28d9 42%,#1f1236 100%)"
+      : "linear-gradient(120deg,#0b1330 0%,#1e3a8a 48%,#0b1026 100%)";
+  const first = celebrityName.trim().split(/\s+/)[0] ?? "";
+  return (
+    <div className="relative w-full overflow-hidden rounded-xl shadow-lg ring-1 ring-white/15" style={{ background: bg, aspectRatio: "1.62 / 1" }}>
+      <div className="pointer-events-none absolute -inset-x-6 -top-10 h-20 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      {tone === "vip" && (
+        <div className="pointer-events-none absolute -left-6 top-1/3 h-24 w-16 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/15 to-transparent" />
+      )}
+      <div className="relative flex h-full flex-col justify-between p-2.5">
+        <div className="flex items-start justify-between">
+          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white">
+            Celebrity<span style={{ color: neon }}>Pass</span>
+          </span>
+          <span className="grid h-5 w-5 place-items-center rounded-md bg-white text-[8px] font-black text-ink-900 shadow">CP</span>
+        </div>
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.1em] text-white">{tierName}</p>
+          <p className="text-[7px] font-bold uppercase tracking-[0.32em] text-white/70">Official Fan Card</p>
+        </div>
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="h-7 w-7 shrink-0 overflow-hidden rounded-md ring-1 ring-white/40">
+              {imageUrl ? (
+                <Image src={imageUrl} alt="" width={28} height={36} className="h-full w-full object-cover" unoptimized />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-[10px] font-black text-white" style={{ backgroundColor: accent }}>
+                  {first[0] ?? "C"}
+                </div>
+              )}
+            </div>
+            <div>
+              {first && <p className="text-[8px] font-black uppercase tracking-[0.08em] text-white">{first.toUpperCase()}</p>}
+              <p className="text-[7px] font-bold uppercase tracking-[0.18em] text-white/55">Member</p>
+            </div>
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: neon }}>
+            {tone === "vip" ? "VIP" : "PREMIUM"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function JoinForm({
   slug,
   celebrityName,
   accent,
   memberships,
+  imageUrl,
 }: {
   slug: string;
   celebrityName: string;
   accent: string;
   memberships: MembershipLevelType[];
+  imageUrl: string | null;
 }) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -138,7 +204,7 @@ export default function JoinForm({
         <div className="mt-6">
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.membershipLevel")}</label>
           {standard.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               {standard.map((m) => (
                 <label
                   key={m.id}
@@ -161,15 +227,22 @@ export default function JoinForm({
                     onChange={() => setLevel(m.id)}
                     className="sr-only"
                   />
-                  <span className={`text-sm font-bold ${level === m.id ? "text-white" : ""}`} style={level === m.id ? undefined : { color: accent }}>
-                    {m.name}
-                  </span>
-                  <span className={`ml-1.5 text-xs font-bold ${level === m.id ? "text-white/95" : "text-emerald-300"}`}>
-                    {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
-                  </span>
-                  <span className={`mt-1 block text-xs leading-relaxed ${level === m.id ? "text-white/85" : "text-zinc-400"}`}>
-                    {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
-                  </span>
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <span className={`text-sm font-bold ${level === m.id ? "text-white" : ""}`} style={level === m.id ? undefined : { color: accent }}>
+                        {m.name}
+                      </span>
+                      <span className={`ml-1.5 text-xs font-bold ${level === m.id ? "text-white/95" : "text-emerald-300"}`}>
+                        {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
+                      </span>
+                      <span className={`mt-1 block text-xs leading-relaxed ${level === m.id ? "text-white/85" : "text-zinc-400"}`}>
+                        {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
+                      </span>
+                    </div>
+                    <div className="mt-auto">
+                      <LevelOptionThumb tone="standard" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} />
+                    </div>
+                  </div>
                 </label>
               ))}
             </div>
@@ -186,7 +259,7 @@ export default function JoinForm({
                   return (
                     <label
                       key={m.id}
-                      className={`relative block cursor-pointer rounded-2xl border p-5 transition ${
+                      className={`relative block cursor-pointer rounded-2xl border p-4 transition sm:p-5 ${
                         selected
                           ? "border-transparent text-ink-900 shadow-[0_14px_44px_rgba(251,191,36,0.35)]"
                           : "border-white/10 bg-white/[0.03] hover:border-amber-400/40"
@@ -201,30 +274,37 @@ export default function JoinForm({
                         onChange={() => setLevel(m.id)}
                         className="sr-only"
                       />
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className={`flex items-center gap-2 text-base font-black ${selected ? "text-ink-900" : "text-white"}`}>
-                          {m.name}
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ring-1 ${
-                              selected ? "bg-ink-900/15 text-ink-900 ring-ink-900/30" : "bg-amber-400/15 text-amber-300 ring-amber-400/30"
-                            }`}
-                          >
-                            Experience
-                          </span>
-                        </span>
-                        <span className={`text-base font-black ${selected ? "text-ink-900" : "text-amber-300"}`}>
-                          {formatMoney(m.price ?? 0, m.currency)}
-                        </span>
+                      <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className={`flex items-center gap-2 text-base font-black ${selected ? "text-ink-900" : "text-white"}`}>
+                              {m.name}
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ring-1 ${
+                                  selected ? "bg-ink-900/15 text-ink-900 ring-ink-900/30" : "bg-amber-400/15 text-amber-300 ring-amber-400/30"
+                                }`}
+                              >
+                                Experience
+                              </span>
+                            </span>
+                            <span className={`text-base font-black ${selected ? "text-ink-900" : "text-amber-300"}`}>
+                              {formatMoney(m.price ?? 0, m.currency)}
+                            </span>
+                          </div>
+                          <p className={`mt-1.5 text-sm font-medium ${selected ? "text-ink-900/80" : "text-zinc-300"}`}>{m.description}</p>
+                          <ul className="mt-3 space-y-1.5">
+                            {benefitLines(m.benefits ?? m.description).map((line) => (
+                              <li key={line} className={`flex items-start gap-2 text-sm leading-relaxed ${selected ? "text-ink-900/75" : "text-zinc-400"}`}>
+                                <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-ink-900/80" : "bg-amber-400/80"}`} />
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="w-full max-w-[220px] sm:w-44">
+                          <LevelOptionThumb tone="vip" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} />
+                        </div>
                       </div>
-                      <p className={`mt-1.5 text-sm font-medium ${selected ? "text-ink-900/80" : "text-zinc-300"}`}>{m.description}</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {benefitLines(m.benefits ?? m.description).map((line) => (
-                          <li key={line} className={`flex items-start gap-2 text-sm leading-relaxed ${selected ? "text-ink-900/75" : "text-zinc-400"}`}>
-                            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-ink-900/80" : "bg-amber-400/80"}`} />
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
                     </label>
                   );
                 })}
