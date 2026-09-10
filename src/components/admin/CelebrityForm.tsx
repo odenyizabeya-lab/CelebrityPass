@@ -128,6 +128,10 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         // Memberships and events still get created, but in the background so the
         // admin is never left waiting on the form.
         void createExtras(id).catch(() => {});
+      } else {
+        // Edit mode: honors the selected scan events too, creating only ones
+        // the celebrity does not already have.
+        void createScanEvents(id).catch(() => {});
       }
       // App-like handoff: leave the form instantly and land on the celebrities dashboard.
       router.push("/admin/celebrities");
@@ -192,7 +196,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       const res = await fetch("/api/admin/ai/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageDataUri: small, includeEvents: includeEvents && !edit }),
+        body: JSON.stringify({ imageDataUri: small, includeEvents }),
       });
       const data = await res.json().catch(() => null);
       if (data?.status === "low_confidence") {
@@ -223,6 +227,62 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const buildStartAt = (ev: ScanResult["events"][number]) => {
     const parsed = new Date(`${ev.startDate}T${ev.startTime ?? "12:00:00"}`);
     return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  };
+
+  /** Create the scan events the admin selected, skipping ones that already exist for the celebrity. */
+  const createScanEvents = async (cid: string) => {
+    const warnings: string[] = [];
+    if (!scanResult) return warnings;
+    const existing = new Set<string>();
+    try {
+      const r = await fetch(`/api/events?celebrityId=${encodeURIComponent(cid)}`, {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (r.ok) {
+        const d = await r.json().catch(() => null);
+        for (const e of d?.events ?? []) {
+          const day = e.startAt ? e.startAt.slice(0, 10) : "";
+          existing.add(`${day}__${String(e.name ?? "").trim().toLowerCase()}`);
+        }
+      }
+    } catch {
+      // If the existing-events lookup fails, still attempt creation.
+    }
+    for (const idx of selectedEvents) {
+      const ev = scanResult.events[idx];
+      if (!ev) continue;
+      const nm = ev.name?.trim();
+      if (!nm) continue;
+      if (existing.has(`${ev.startDate ?? ""}__${nm.toLowerCase()}`)) continue;
+      try {
+        const r = await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            celebrityId: cid,
+            name: ev.name,
+            type: eventTypeValid(ev.type),
+            description: ev.description ?? undefined,
+            venue: ev.venue ?? undefined,
+            city: ev.city ?? undefined,
+            country: ev.country ?? undefined,
+            startAt: buildStartAt(ev),
+            allDay: !ev.startTime,
+            timezone: ev.timezone ?? undefined,
+            officialUrl: ev.officialUrl ?? undefined,
+            sourceUrl: ev.sourceUrl ?? undefined,
+            verification: "UNVERIFIED",
+          }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          warnings.push(`Event "${nm}": ${d?.error ?? "not created"}`);
+        }
+      } catch {
+        warnings.push(`Event "${nm}": network error`);
+      }
+    }
+    return warnings;
   };
 
   /** After the celebrity row is created: base tiers, premium ladder, chosen events. */
@@ -264,39 +324,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         warnings.push("Premium tiers: network error");
       }
     }
-    if (scanResult) {
-      for (const idx of selectedEvents) {
-        const ev = scanResult.events[idx];
-        if (!ev) continue;
-        try {
-          const r = await fetch("/api/events", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              celebrityId: cid,
-              name: ev.name,
-              type: eventTypeValid(ev.type),
-              description: ev.description ?? undefined,
-              venue: ev.venue ?? undefined,
-              city: ev.city ?? undefined,
-              country: ev.country ?? undefined,
-              startAt: buildStartAt(ev),
-              allDay: !ev.startTime,
-              timezone: ev.timezone ?? undefined,
-              officialUrl: ev.officialUrl ?? undefined,
-              sourceUrl: ev.sourceUrl ?? undefined,
-              verification: "UNVERIFIED",
-            }),
-          });
-          if (!r.ok) {
-            const d = await r.json().catch(() => null);
-            warnings.push(`Event "${ev.name}": ${d?.error ?? "not created"}`);
-          }
-        } catch {
-          warnings.push(`Event "${ev.name}": network error`);
-        }
-      }
-    }
+    warnings.push(...(await createScanEvents(cid)));
     return warnings;
   };
 
