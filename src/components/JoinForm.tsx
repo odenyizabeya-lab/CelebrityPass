@@ -144,10 +144,14 @@ export default function JoinForm({
                   key={m.id}
                   className={`relative cursor-pointer rounded-2xl border p-4 transition ${
                     level === m.id
-                      ? "border-primary-500 bg-primary-600/15"
+                      ? "border-transparent text-white"
                       : "border-white/10 bg-white/[0.03] hover:border-white/25"
                   }`}
-                  style={level === m.id ? { boxShadow: `0 0 0 1px ${accent}` } : undefined}
+                  style={
+                    level === m.id
+                      ? { backgroundImage: `linear-gradient(135deg, ${accent}, ${accent}B3)`, boxShadow: `0 12px 36px ${accent}59` }
+                      : undefined
+                  }
                 >
                   <input
                     type="radio"
@@ -157,13 +161,13 @@ export default function JoinForm({
                     onChange={() => setLevel(m.id)}
                     className="sr-only"
                   />
-                  <span className="text-sm font-bold" style={{ color: accent }}>
+                  <span className={`text-sm font-bold ${level === m.id ? "text-white" : ""}`} style={level === m.id ? undefined : { color: accent }}>
                     {m.name}
                   </span>
-                  <span className="ml-1.5 text-xs font-bold text-emerald-300">
+                  <span className={`ml-1.5 text-xs font-bold ${level === m.id ? "text-white/95" : "text-emerald-300"}`}>
                     {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
                   </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-zinc-400">
+                  <span className={`mt-1 block text-xs leading-relaxed ${level === m.id ? "text-white/85" : "text-zinc-400"}`}>
                     {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
                   </span>
                 </label>
@@ -184,9 +188,10 @@ export default function JoinForm({
                       key={m.id}
                       className={`relative block cursor-pointer rounded-2xl border p-5 transition ${
                         selected
-                          ? "border-amber-400/60 bg-gradient-to-br from-amber-400/10 via-white/[0.03] to-rose-500/5 shadow-[0_0_40px_rgba(251,191,36,0.12)]"
+                          ? "border-transparent text-ink-900 shadow-[0_14px_44px_rgba(251,191,36,0.35)]"
                           : "border-white/10 bg-white/[0.03] hover:border-amber-400/40"
                       }`}
+                      style={selected ? { background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" } : undefined}
                     >
                       <input
                         type="radio"
@@ -197,19 +202,25 @@ export default function JoinForm({
                         className="sr-only"
                       />
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="flex items-center gap-2 text-base font-black text-white">
+                        <span className={`flex items-center gap-2 text-base font-black ${selected ? "text-ink-900" : "text-white"}`}>
                           {m.name}
-                          <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/30">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ring-1 ${
+                              selected ? "bg-ink-900/15 text-ink-900 ring-ink-900/30" : "bg-amber-400/15 text-amber-300 ring-amber-400/30"
+                            }`}
+                          >
                             Experience
                           </span>
                         </span>
-                        <span className="text-base font-black text-amber-300">{formatMoney(m.price ?? 0, m.currency)}</span>
+                        <span className={`text-base font-black ${selected ? "text-ink-900" : "text-amber-300"}`}>
+                          {formatMoney(m.price ?? 0, m.currency)}
+                        </span>
                       </div>
-                      {m.description && <p className="mt-1.5 text-sm font-medium text-zinc-300">{m.description}</p>}
+                      <p className={`mt-1.5 text-sm font-medium ${selected ? "text-ink-900/80" : "text-zinc-300"}`}>{m.description}</p>
                       <ul className="mt-3 space-y-1.5">
                         {benefitLines(m.benefits ?? m.description).map((line) => (
-                          <li key={line} className="flex items-start gap-2 text-sm leading-relaxed text-zinc-400">
-                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" />
+                          <li key={line} className={`flex items-start gap-2 text-sm leading-relaxed ${selected ? "text-ink-900/75" : "text-zinc-400"}`}>
+                            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-ink-900/80" : "bg-amber-400/80"}`} />
                             {line}
                           </li>
                         ))}
