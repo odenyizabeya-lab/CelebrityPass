@@ -1,7 +1,7 @@
 /**
  * Language & location catalog for CelebrityPass.
  *
- * 22 supported languages. Country detection (via the Vercel/Cloudflare
+ * 20 supported languages. Country detection (via the Vercel/Cloudflare
  * per-request country header) maps each country to its main language; the
  * visitor's browser language is used for multi-language countries and as the
  * universal fallback. Everything is free and local — no translation APIs, no
@@ -30,8 +30,6 @@ export const LOCALES = [
   { code: "pl", native: "Polski", flag: "🇵🇱", dir: "ltr" },
   { code: "uk", native: "Українська", flag: "🇺🇦", dir: "ltr" },
   { code: "sw", native: "Kiswahili", flag: "🇰🇪", dir: "ltr" },
-  { code: "yo", native: "Yorùbá", flag: "🇳🇬", dir: "ltr" },
-  { code: "ig", native: "Igbo", flag: "🇳🇬", dir: "ltr" },
 ] as const;
 
 export type LocaleCode = (typeof LOCALES)[number]["code"];
@@ -133,8 +131,6 @@ const LANG_ALIASES: Record<string, string> = {
   pl: "pl", "pl-pl": "pl",
   uk: "uk", "uk-ua": "uk",
   sw: "sw", "sw-ke": "sw", "sw-tz": "sw", "sw-ug": "sw",
-  yo: "yo", "yo-ng": "yo",
-  ig: "ig", "ig-ng": "ig",
 };
 
 /** Normalize any BCP-47 tag to a supported locale code (or null). */

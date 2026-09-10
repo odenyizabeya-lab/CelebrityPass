@@ -2,7 +2,7 @@ import type { DeepPartial } from "../types";
 import type { Dict } from "./en";
 
 /**
- * Core dictionaries for the remaining 16 supported languages. Every language
+ * Core dictionaries for the remaining 14 supported languages. Every language
  * is selectable by any visitor; any key not present here automatically falls
  * back to English (see language-context lookup). These cover the most visible
  * strings; full dictionaries can be added later without changing any code.
@@ -217,35 +217,5 @@ export const coreDictionaries: Record<string, DeepPartial<Dict>> = {
     join: { community: "Jiunge na jamii ya mashabiki", getFanCard: "Pata kadi ya shabiki", joinCommunity: "Jiunge na jamii", getMyCard: "Pata kadi yangu ya shabiki" },
     auth: { loginTitle: "Ingia shabiki", signIn: "Ingia", signingIn: "Inaingia…", createAccount: "Unda akaunti", hasAccount: "Una akaunti tayari?" },
     checkout: { secure: "Malipo salama", complete: "Maliza ununuzi", totalDue: "Jumla ya kulipa", payNow: "Lipa sasa", processing: "Inachakatwa…" },
-  },
-  yo: {
-    brand: { name: "CelebrityPass", tagline: "Awọn kaadi fan, ọmọ ẹgbẹ ati awọn iriri" },
-    nav: { celebrities: "Awọn olokiki", events: "Awọn iṣẹlẹ", howItWorks: "Bí ó ṣe ń ṣiṣẹ́", membership: "Ọmọ ẹgbẹ", faq: "Awọn ibeere", myCards: "Awọn kaadi mi", findFanCard: "Wa kaadi fan rẹ", home: "Ile", about: "Nipa CelebrityPass", directory: "Iwe ìtọ́kasí àwọn olokiki", eventDiscovery: "Ṣàwárí iṣẹlẹ", membershipLevels: "Awọn ipele ọmọ ẹgbẹ" },
-    hero: { badge: "Sẹ́fà ìgbàlódé fún àwọn ìjọ fan ọlọ́pọ̀ olokiki", titleA: "Àkọọ́lẹ̀ kan. ", titleHighlight: "Awọn kaadi fún gbogbo olokiki", titleB: " tí o fẹ́ràn.", sub: "Darapọ̀ mọ́ àwùjọ fan osẹ̀wẹ́sẹ̀ ti àwọn oṣere, elere-ìdárayá, òṣèré àti àwọn ẹlẹ́dàá rẹ. Gba kaadi fan oní nọ́mbà ti a fọwọ́ sí pẹ̀lú ID fan tirẹ, ipele ọmọ ẹgbẹ àti ojúewé kaadi QR tí a lè pín.", statsCommunities: "Awọn àwùjọ", statsVerifiedFans: "Awọn fan tí a fọwọ́ sí", statsActiveCards: "Awọn kaadi tó ń ṣiṣẹ́", statsCountries: "Awọn orílẹ̀-èdè", statsLiveNote: "Awọn iṣiro lọ́wọ́lọ́wọ́ láti ojúlówó ìforúkọsílẹ̀ péré" },
-    home: { howItWorks: "Bí ó ṣe ń ṣiṣẹ́", howItWorksTitle: "Láti fan sí ọmọ ẹgbẹ́ tí a fọwọ́ sí nínú ìṣẹ́jú díẹ̀" },
-    membership: { title: "Ọmọ ẹgbẹ", titleBig: "Awọn ipele tó bá gbogbo fan mu", sub: "Gbogbo àwùjọ ń ṣe àwọn ipele ìsánwó méjì kan náà: Premium àti VIP. Àwọn oṣuwọn ma ń hàn nígbà gbogbo.", mostPopular: "Tó gbajúmọ̀ jù", chooseLevel: "Yan ipele yìí", chooseExperience: "Yan iriri yìí", signatureExperiences: "Awọn iriri Signature", from: "Láti", to: "sí", level: "Ipele {n}" },
-    countries: { section: "Kárí ayé", title: "Awọn orílẹ̀-èdè tó ń ṣe aṣojú", count: "orílẹ̀-èdè tí ó ní àwọn ọmọ ẹgbẹ́ tó ń ṣiṣẹ́" },
-    cta: { title: "Olokiki rẹ tí o fẹ́ràn ní àwùjọ kan.", sub: "Dídarapọ̀mọ́ kò lọ ju ìṣẹ́jú kan lọ.", browse: "Ṣàwárí àwọn àwùjọ" },
-    footer: { tagline: "CelebrityPass jẹ́ sẹ́fà ìgbàlódé fún àwọn kaadi fan olokiki, tikẹti, eré orin, iriri VIP àti ìpàdé.", explore: "Ṣàwárí", account: "Àkọọ́lẹ̀", legal: "Òfin àti ìrànlọ́wọ́", fanDashboard: "Pátákò fan", accountSettings: "Àwọn ètò àkọọ́lẹ̀", login: "Wọlé", register: "Forúkọ sílẹ̀", appDownload: "Gba app sílẹ̀", privacyPolicy: "Ètò àṣírí", termsOfService: "Àwọn òfin iṣẹ́", helpCenter: "Ilé ìrànwọ́", contactSupport: "Ìkànìyàn àti ìrànlọ́wọ́", rightsReserved: "Gbogbo ẹ̀tọ́ wa ní ìpamọ́." },
-    lang: { select: "Èdè", label: "Èdè: {name}", auto: "Wọ́n ṣàwárí lọ́nà àdánidá" },
-    common: { loading: "Ń gbé sílẹ̀…", continue: "Ìtẹ̀síwájú", copied: "A ti ṣẹ̀dà!", networkError: "Àṣìṣe nẹ́tíwọọ̀kì. Ẹ gbìyànjú lẹ́ẹ̀kan sí i.", somethingWrong: "Ohun kan kò tọ̀nà.", close: "Pàdé", save: "Fi pamọ́" },
-    join: { community: "Darapọ̀ mọ́ àwùjọ fan", getFanCard: "Gba kaadi fan", joinCommunity: "Darapọ̀ mọ́ àwùjọ", getMyCard: "Gba kaadi fan mi" },
-    auth: { loginTitle: "Wọlé fan", signIn: "Wọlé", signingIn: "Ń wọlé…", createAccount: "Ṣàdá àkọọ́lẹ̀", hasAccount: "O ti ní àkọọ́lẹ̀ tẹ́lẹ̀?" },
-    checkout: { secure: "Sànánwó tó dáàbò", complete: "Parí rírà", totalDue: "Lápapọ̀ tó yẹ", payNow: "Sanwó nísinsìnyí", processing: "Ń ṣe…" },
-  },
-  ig: {
-    brand: { name: "CelebrityPass", tagline: "Kadị fan, ọmọ otu na ahụmịhe" },
-    nav: { celebrities: "Ndị ama ama", events: "Ihe omume", howItWorks: "Otu ọ si arụ ọrụ", membership: "Ọmọ otu", faq: "Ajụjụ ndị a na-ajụkarị", myCards: "Kadị m", findFanCard: "Chọta kadị fan gị", home: "Ụlọ", about: "Banyere CelebrityPass", directory: "Akwụkwọ ndị ama ama", eventDiscovery: "Chọpụta ihe omume", membershipLevels: "Ọkwa ọmụ otu" },
-    hero: { badge: "Ikpo ọrụ ọmụ otu fan nke ọtụtụ ndị ama ama", titleA: "Otu akaụntụ. ", titleHighlight: "Kadị maka onye ọ bụla a na-ahụ n'anya", titleB: " ị hụrụ n'anya.", sub: "Banye n'ime obodo fan ndị ọrụ nka, ndị egwuregwu, ndị omee na ndị okike kacha amasị gị. Nweta kadị fan dijitalụ ekwenyere na ID fan nke gị, ọkwa ọmụ otu na peeji QR a na-ekerịta.", statsCommunities: "Obodo", statsVerifiedFans: "Fan ndị ekwenyere", statsActiveCards: "Kadị na-arụ ọrụ", statsCountries: "Mba", statsLiveNote: "Ọnụ ọgụgụ dị ndụ na-agụta site na ndebanye aha adị adị naanị" },
-    home: { howItWorks: "Otu ọ si arụ ọrụ", howItWorksTitle: "Site na fan gaa onye otu akwadoro n'ime nkeji" },
-    membership: { title: "Ọmụ otu", titleBig: "Ọkwa kwesịrị fan ọ bụla", sub: "Obodo ọ bụla na-enye otu ọkwa akwụ ụgwọ abụọ: Premium na VIP. Ọnụ ego na-apụta ìhè mgbe niile.", mostPopular: "Kacha ewu ewu", chooseLevel: "Họrọ ọkwa a", chooseExperience: "Họrọ ahụmịhe a", signatureExperiences: "Ahụmịhe Signature", from: "Site", to: "ruo", level: "Ọkwa {n}" },
-    countries: { section: "Uwa niile", title: "Mba ndị nnọchiteanya", count: "mba nwere ndị otu na-arụ ọrụ" },
-    cta: { title: "Onye ama ama ị hụrụ n'anya nwere obodo.", sub: "Ịbanye anaghị ewe nkeji ọ bụla.", browse: "Chọgharịa obodo" },
-    footer: { tagline: "CelebrityPass bụ ikpo ntụrụndụ maka kadị fan ndị ama ama, tiketi, egwu egwu, ahụmịhe VIP na nzute.", explore: "Chọpụta", account: "Akaụntụ", legal: "Iwu na nkwado", fanDashboard: "Pụọ fan", accountSettings: "Ntọala akaụntụ", login: "Banye", register: "Debanye aha", appDownload: "Budata ngwa", privacyPolicy: "Amụma nzuzo", termsOfService: "Ọnọdụ ọrụ", helpCenter: "Ebe enyemaka", contactSupport: "Kpọtụrụ na nkwado", rightsReserved: "Echebarala ikike niile." },
-    lang: { select: "Asụsụ", label: "Asụsụ: {name}", auto: "Achọpụtara na akpaghị aka" },
-    common: { loading: "Na-ebunye…", continue: "Gaa n'ihu", copied: "E depụtaghala!", networkError: "Njehie netwọk. Biko gbalịa ọzọ.", somethingWrong: "Ihe ọjọọ mere.", close: "Mechie", save: "Chekwaa" },
-    join: { community: "Banye n'obodo fan", getFanCard: "Nweta kadị fan", joinCommunity: "Banye n'obodo", getMyCard: "Nweta kadị fan m" },
-    auth: { loginTitle: "Nbanye fan", signIn: "Banye", signingIn: "Na-abanye…", createAccount: "Mepụta akaụntụ", hasAccount: "Ị nwere akaụntụ?" },
-    checkout: { secure: "Nkwụnye ego dị nchebe", complete: "Mechie ịzụrụ ihe", totalDue: "Ngụkọta ụgwọ", payNow: "Kwụọ ugbu a", processing: "Na-ahazi…" },
   },
 };

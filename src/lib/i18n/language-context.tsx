@@ -47,8 +47,6 @@ const DICTIONARIES: Record<string, unknown> = {
   pl: coreDictionaries.pl,
   uk: coreDictionaries.uk,
   sw: coreDictionaries.sw,
-  yo: coreDictionaries.yo,
-  ig: coreDictionaries.ig,
 };
 
 export type TranslateVars = Record<string, string | number>;
