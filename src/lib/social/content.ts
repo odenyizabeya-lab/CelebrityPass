@@ -31,7 +31,7 @@ export async function generateNewContent(
     case "celebrity":
       return celebrityPosts(since);
     case "membership":
-      return membershipPosts(since);
+      return membershipPosts();
     case "event":
       return eventPosts(since);
     case "article":
@@ -64,10 +64,10 @@ async function celebrityPosts(since: Date | null): Promise<GeneratedPost[]> {
   }));
 }
 
-async function membershipPosts(since: Date | null): Promise<GeneratedPost[]> {
+async function membershipPosts(): Promise<GeneratedPost[]> {
   const rows = await prisma.membershipLevel.findMany({
-    where: { socialAutoPost: true, isActive: true, ...(since ? { createdAt: { gt: since } } : {}) },
-    orderBy: { createdAt: "desc" },
+    where: { socialAutoPost: true, isActive: true },
+    orderBy: { displayOrder: "asc" },
     include: { celebrity: { select: { name: true, slug: true, profileImage: true } } },
     take: 50,
   });

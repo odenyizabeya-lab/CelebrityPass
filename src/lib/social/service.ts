@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { PLATFORM_META } from "./registry";
+import type { PlatformKey } from "./types";
 import { maskSecret, decryptToken } from "./crypto";
 import { ensureSocialSeed } from "./db";
 import { getNextRunInfo } from "./scheduler";
@@ -99,7 +100,7 @@ export async function getPublicPlatforms(): Promise<PublicPlatform[]> {
   });
 
   return rows.map((row) => {
-    const meta = PLATFORM_META[row.key as never] ?? null;
+    const meta = PLATFORM_META[row.key as PlatformKey] ?? null;
     const accountRows = accounts.filter((a) => a.platformKey === row.key);
     return {
       key: row.key,

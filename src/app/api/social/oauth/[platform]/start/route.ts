@@ -3,6 +3,7 @@ import { isAdminAuthed } from "@/lib/auth";
 import { PLATFORM_META } from "@/lib/social/registry";
 import { createOAuthState } from "@/lib/social/oauth";
 import { getAdapter } from "@/lib/social/adapter";
+import type { PlatformKey } from "@/lib/social/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, { params }: { params: Promise<{ platform: string }> }) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { platform } = await params;
-  const meta = PLATFORM_META[platform as never];
+  const meta = PLATFORM_META[platform as PlatformKey];
   if (!meta) return NextResponse.json({ error: "Unknown platform" }, { status: 400 });
   if (!meta.oauth) {
     return NextResponse.json({ error: "This platform uses token entry, not OAuth. Connect it from the accounts page." }, { status: 400 });
@@ -24,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ platfor
 
   const state = await createOAuthState(platform);
   try {
-    const adapter = getAdapter(platform as never);
+    const adapter = getAdapter(platform as PlatformKey);
     const authorizeUrl = adapter.buildAuthUrl({
       clientId: process.env[meta.credentialEnvKeys[0]] ?? "",
       redirectUri: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/api/social/oauth/${platform}/callback`,

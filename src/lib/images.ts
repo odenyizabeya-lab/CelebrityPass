@@ -71,12 +71,12 @@ function svgDims(svg: string): { w: number; h: number } | null {
 export function dataUriBuffer(uri: string | null): { mime: string; buffer: Buffer } | null {
   if (!uri) return null;
 
-  const b64 = /^data:image\/([a-z+.-]+);base64,(.*)$/is.exec(uri);
+  const b64 = /^data:image\/([a-z+.-]+);base64,([\s\S]*)$/i.exec(uri);
   if (b64 && b64[2]) {
     return { mime: `image/${b64[1]}`, buffer: base64ToBuffer(b64[2]) };
   }
 
-  const encoded = /^data:image\/([a-z+.-]+)(?:;[a-z0-9-]+=[a-z0-9-]+)?,(.*)$/is.exec(uri);
+  const encoded = /^data:image\/([a-z+.-]+)(?:;[a-z0-9-]+=[a-z0-9-]+)?,([\s\S]*)$/i.exec(uri);
   if (encoded && encoded[2]) {
     try {
       const text = decodeURIComponent(encoded[2]);

@@ -92,8 +92,8 @@ const linkedin: SocialAdapter = {
     });
     return {
       ok: true,
-      externalUserId: me?.sub ?? null,
-      externalUsername: me?.name ? `${me.given_name ?? ""} ${me.family_name ?? ""}`.trim() : me?.preferred_username ?? null,
+      externalUserId: me?.sub ?? undefined,
+      externalUsername: me?.name ? `${me.given_name ?? ""} ${me.family_name ?? ""}`.trim() : me?.preferred_username ?? undefined,
       externalUrl: me?.sub ? `https://www.linkedin.com/in/${me.sub}` : undefined,
       accountType: "person",
       profile: me,

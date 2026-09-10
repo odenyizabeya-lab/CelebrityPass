@@ -118,7 +118,7 @@ function guessMime(base64: string, fileName?: string): string | null {
  * upload (e.g. TikTok storage upload). Respects any platform URL ref too.
  */
 export async function fetchMediaBytes(ref: SocialMediaRef): Promise<{
-  bytes: Uint8Array;
+  bytes: Uint8Array<ArrayBuffer>;
   mimeType: string | null;
   name: string | null;
 } | null> {
@@ -135,7 +135,7 @@ export async function fetchMediaBytes(ref: SocialMediaRef): Promise<{
   try {
     const res = await fetch(url, { headers: { "User-Agent": "KCO/1.0" } });
     if (!res.ok) return null;
-    const buf = new Uint8Array(await res.arrayBuffer());
+    const buf = Uint8Array.from(new Uint8Array(await res.arrayBuffer()));
     return { bytes: buf, mimeType: res.headers.get("content-type") ?? mimeType, name: ref.name ?? null };
   } catch {
     return null;

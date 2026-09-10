@@ -13,7 +13,7 @@ import { resolveMediaRefs } from "./media";
 import { getSocialConfig } from "./db";
 import { PLATFORM_META } from "./registry";
 import { encryptToken } from "./crypto";
-import type { PublishPayload } from "./types";
+import type { PlatformKey, PublishPayload } from "./types";
 
 export interface PublishOutcome {
   state: "PUBLISHED" | "FAILED";
@@ -65,7 +65,7 @@ export async function publishQueueItem(queueItemId: string): Promise<PublishOutc
 
   let result;
   try {
-    const adapter = getAdapter(item.platformKey as never);
+    const adapter = getAdapter(item.platformKey as PlatformKey);
     result = await adapter.publish(creds, payload);
   } catch (e) {
     result = { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -155,10 +155,10 @@ export async function publishQueueItem(queueItemId: string): Promise<PublishOutc
 export async function refreshAccountToken(accountId: string): Promise<boolean> {
   const account = await prisma.socialAccount.findUnique({ where: { id: accountId } });
   if (!account) return false;
-  const adapter = getAdapter(account.platformKey as never);
+  const adapter = getAdapter(account.platformKey as PlatformKey);
   const creds = await getAccountCredentials(accountId);
   if (!creds?.refreshToken) return false;
-  const meta = PLATFORM_META[account.platformKey as never];
+  const meta = PLATFORM_META[account.platformKey as PlatformKey];
   const clientId = process.env[meta.credentialEnvKeys[0]] ?? "";
   const clientSecret = process.env[meta.credentialEnvKeys[1]] ?? "";
   try {

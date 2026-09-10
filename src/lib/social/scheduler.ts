@@ -146,8 +146,10 @@ async function processDueItems(
   const due = await prisma.socialQueueItem.findMany({
     where: {
       status: { in: ["QUEUED", "SCHEDULED"] },
-      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-      OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }],
+      AND: [
+        { OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
+        { OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }] },
+      ],
     },
     orderBy: { scheduledFor: "asc" },
     take: 200,
@@ -246,7 +248,7 @@ export function computeNextRun(
         const dow = candidate.getUTCDay();
         const dayMatches =
           frequency === "weekly"
-            ? parseArray(weekdaysJson ?? "[]").includes(dow)
+            ? parseArray<number>(weekdaysJson ?? "[]").includes(dow)
             : true;
         const timeMatches = timeNumbers.some((t) => t.h === h && t.m === m);
         if (dayMatches && timeMatches) return candidate;

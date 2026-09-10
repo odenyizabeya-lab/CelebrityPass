@@ -4,6 +4,7 @@ import { isAdminAuthed } from "@/lib/auth";
 import { getPublicPlatforms } from "@/lib/social/service";
 import { saveAccountTokens, buildAuthorizeUrl, createOAuthState } from "@/lib/social/oauth";
 import { PLATFORM_META } from "@/lib/social/registry";
+import type { PlatformKey } from "@/lib/social/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
   if (action === "connect-oauth") {
     const platformKey = String(body?.platformKey ?? "");
-    const meta = PLATFORM_META[platformKey as never];
+    const meta = PLATFORM_META[platformKey as PlatformKey];
     if (!meta || !meta.oauth) return NextResponse.json({ error: "Platform does not use OAuth." }, { status: 400 });
     if (!meta.credentialEnvKeys.every((k) => process.env[k])) {
       return NextResponse.json({ error: `Missing credentials. Set ${meta.credentialEnvKeys.join(", ")} in server env vars first.` }, { status: 400 });
@@ -45,8 +46,14 @@ export async function POST(request: Request) {
     if (!token) return NextResponse.json({ error: "Token is required." }, { status: 400 });
 
     // Telegram: validate the bot token with the official API before storing.
-    const adapter = (await import("@/lib/social/adapter")).getAdapter(platformKey as never);
-    const check = await adapter
+    const adapter = (await import("@/lib/social/adapter")).getAdapter(platformKey as PlatformKey);
+    const check: {
+      ok: boolean;
+      externalUsername?: string;
+      externalUrl?: string;
+      profile?: object;
+      error?: string;
+    } = await adapter
       .verifyConnection({ accessToken: token, externalUsername: channel || undefined })
       .catch(() => ({ ok: false, error: "The token was rejected by the platform." }));
     if (check.ok === false) {

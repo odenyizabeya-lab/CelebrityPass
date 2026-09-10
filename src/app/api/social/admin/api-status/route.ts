@@ -4,6 +4,7 @@ import { getPublicPlatforms } from "@/lib/social/service";
 import { getAdapter } from "@/lib/social/adapter";
 import { getAccountCredentials } from "@/lib/social/oauth";
 import { PLATFORM_META } from "@/lib/social/registry";
+import type { PlatformKey } from "@/lib/social/types";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function GET() {
   }> = [];
 
   for (const platform of platforms) {
-    const meta = PLATFORM_META[platform.key as never];
+    const meta = PLATFORM_META[platform.key as PlatformKey];
     const entries: typeof results[number]["accounts"] = [];
     const accounts = await prisma.socialAccount.findMany({
       where: { platformKey: platform.key, isConnected: true },
@@ -35,7 +36,7 @@ export async function GET() {
         continue;
       }
       try {
-        const adapter = getAdapter(platform.key as never);
+        const adapter = getAdapter(platform.key as PlatformKey);
         const check = await adapter.verifyConnection(creds);
         entries.push({
           id: account.id,

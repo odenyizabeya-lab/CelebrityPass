@@ -69,7 +69,9 @@ const instagram: SocialAdapter = {
   async refreshToken({ clientId, clientSecret, refreshToken }): Promise<OAuthTokenResponse> {
     const url = `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&fb_exchange_token=${encodeURIComponent(refreshToken)}`;
     const json = await graphFetch(url);
-    return { accessToken: json.access_token, expiresInSeconds: json.expires_in, raw: json };
+    const accessToken = json.access_token;
+    if (!accessToken) throw new Error("Meta did not return an access token.");
+    return { accessToken, expiresInSeconds: json.expires_in, raw: json };
   },
 
   async verifyConnection(creds: AccountCredentials) {
@@ -123,17 +125,18 @@ const instagram: SocialAdapter = {
           caption: payload.caption || undefined,
           share_to_feed: true,
         };
-      } else if (media[0]?.url) {
-        const m = media[0];
-        containerPayload = {
-          image_url: m.url.startsWith("http") ? m.url : undefined,
-          caption: payload.caption || undefined,
-        };
-        if (!containerPayload.image_url) {
+      } else {
+        const image = media.find((m) => m.url) ?? media[0];
+        if (!image?.url) {
+          return { ok: false, error: "Instagram posts require an image or video." };
+        }
+        if (!image.url.startsWith("http") && !image.url.startsWith("https")) {
           return { ok: false, error: "Instagram image posts require a public image URL (data-URIs are not accepted by the Content Publishing API)." };
         }
-      } else {
-        return { ok: false, error: "Instagram posts require an image or video." };
+        containerPayload = {
+          image_url: image.url,
+          caption: payload.caption || undefined,
+        };
       }
 
       const container = await graphFetch(`${GRAPH}/${igId}/media`, {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
 import { getPublicPlatforms } from "@/lib/social/service";
 import { PLATFORM_META } from "@/lib/social/registry";
+import type { PlatformKey } from "@/lib/social/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function PUT(request: Request) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   const key = String(body?.key ?? "");
-  const meta = PLATFORM_META[key as never];
+  const meta = PLATFORM_META[key as PlatformKey];
   if (!meta) return NextResponse.json({ error: "Unknown platform" }, { status: 400 });
 
   const data: Record<string, unknown> = {};

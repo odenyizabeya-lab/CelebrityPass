@@ -86,7 +86,15 @@ export async function completeOAuthCode(
   };
 
   // Verify + fetch profile identity with the fresh token.
-  const verified = await adapter
+  const verified: {
+    ok: boolean;
+    externalUserId?: string;
+    externalUsername?: string;
+    externalUrl?: string;
+    accountType?: string;
+    profile?: object;
+    error?: string;
+  } = await adapter
     .verifyConnection(creds)
     .catch((e) => ({ ok: false, error: e instanceof Error ? e.message : String(e) }));
 

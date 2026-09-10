@@ -88,8 +88,8 @@ const pinterest: SocialAdapter = {
     const me = await pinterestFetch(`${BASE}/user_account`, { headers: { Authorization: `Bearer ${creds.accessToken}` } });
     return {
       ok: true,
-      externalUserId: me?.username ?? null,
-      externalUsername: me?.username ?? null,
+      externalUserId: me?.username ?? undefined,
+      externalUsername: me?.username ?? undefined,
       externalUrl: me?.username ? `https://www.pinterest.com/${me.username}/` : undefined,
       accountType: "influencer",
       profile: me,
@@ -125,7 +125,7 @@ const pinterest: SocialAdapter = {
         headers: { Authorization: `Bearer ${creds.accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      return { ok: true, externalPostId: pin?.id ?? null, externalUrl: pin?.link ?? undefined };
+      return { ok: true, externalPostId: pin?.id ?? undefined, externalUrl: pin?.link ?? undefined };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (/approval|not approved|partner program|permission|sandbox/i.test(msg)) {

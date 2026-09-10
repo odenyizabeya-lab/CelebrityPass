@@ -83,15 +83,21 @@ const facebook: SocialAdapter = {
     // the owner keeps the app active).
     const url = `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&fb_exchange_token=${encodeURIComponent(refreshToken)}`;
     const json = await graphFetch(url);
-    return { accessToken: json.access_token, expiresInSeconds: json.expires_in, raw: json };
+    const accessToken = json.access_token;
+    if (!accessToken) throw new Error("Facebook did not return an access token.");
+    return { accessToken, expiresInSeconds: json.expires_in, raw: json };
   },
 
   async verifyConnection(creds: AccountCredentials) {
-    const accounts = await graphFetch(`${GRAPH}/me/accounts?fields=id,name,link,access_token,is_published`, {
-      headers: { Authorization: `Bearer ${creds.accessToken}` },
-    }).catch((e) => ({ ok: false, error: e.message }));
+    let accounts: GraphResponse;
+    try {
+      accounts = await graphFetch(`${GRAPH}/me/accounts?fields=id,name,link,access_token,is_published`, {
+        headers: { Authorization: `Bearer ${creds.accessToken}` },
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
 
-    if ("ok" in accounts && !accounts.ok) return accounts;
     const pages = accounts?.data ?? [];
     // Prefer a stored page id (externalUserId) else the first published page.
     const page = pages.find((p) => p.id === creds.externalUserId) ?? pages.find((p) => p.is_published) ?? pages[0];

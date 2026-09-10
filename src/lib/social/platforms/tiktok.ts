@@ -59,7 +59,7 @@ async function tiktokFetch(url: string, init: RequestInit): Promise<TikTokRespon
   try {
     return JSON.parse(text) as TikTokResponse;
   } catch {
-    return { data: null, error: { code: "bad_response", message: "Non-JSON response from TikTok" } };
+    return { error: { code: "bad_response", message: "Non-JSON response from TikTok" } };
   }
 }
 
@@ -93,6 +93,7 @@ const tiktok: SocialAdapter = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
+    if (!json.access_token) throw new Error("TikTok did not return an access token.");
     return {
       accessToken: json.access_token,
       refreshToken: json.refresh_token,
@@ -114,6 +115,7 @@ const tiktok: SocialAdapter = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
+    if (!json.access_token) throw new Error("TikTok did not return an access token.");
     return {
       accessToken: json.access_token,
       refreshToken: json.refresh_token,
@@ -229,7 +231,7 @@ const tiktok: SocialAdapter = {
       body: JSON.stringify(statusPayload),
     });
 
-    const failReason = verified?.data?.fail_reason || verified?.data?.fail_reason_list?.[0];
+    const failReason = verified?.data?.fail_reason || verified?.data?.fail_reason_list?.[0]?.fail_reason;
     const state = verified?.data?.status;
     if (state && state !== "PUBLISH_COMPLETE") {
       return {
