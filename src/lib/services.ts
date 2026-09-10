@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
 import { dataUriDims, profileImageUrl } from "./images";
-import { platformTotal } from "./display";
+import { platformTotal, displayCountryCount } from "./display";
 import { displayFanCountFor } from "./fame";
 import { representedCountryList } from "./countries";
 import type { FollowerCounts } from "./followers";
@@ -13,6 +13,31 @@ function panelTagline(json: string | null): string | null {
   const info = tryParseJson<GoogleInfo | null>(json, null);
   const desc = info?.description?.trim();
   return desc && desc.length > 0 ? desc.slice(0, 200) : null;
+}
+
+/**
+ * The platform's highest represented-country total: the curated base list plus
+ * every country found on our active celebrities and fans. This single figure
+ * powers the "Countries Represented" counter on EVERY celebrity profile/card,
+ * so a community starts at the 58-country floor and automatically grows with
+ * the platform whenever a new country appears — no per-celebrity setup needed.
+ */
+async function platformCountryTotal(): Promise<number> {
+  const [fanCountryRows, celebrityCountryRows] = await Promise.all([
+    prisma.fan.groupBy({
+      by: ["country"],
+      where: { isActive: true, country: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.celebrity.findMany({
+      where: { isActive: true },
+      select: { country: true },
+    }),
+  ]);
+  return representedCountryList([
+    ...celebrityCountryRows.map((r) => r.country),
+    ...fanCountryRows.map((r) => r.country),
+  ]).length;
 }
 
 export type CelebritySummary = {
@@ -75,20 +100,6 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
     orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
   });
 
-  const countryRows = await prisma.fanCard.findMany({
-    where: { status: "ACTIVE" },
-    select: { celebrityId: true, fan: { select: { country: true } } },
-  });
-
-  const countriesByCeleb = new Map<string, Set<string>>();
-  for (const row of countryRows) {
-    const cc = row.fan.country;
-    if (!cc) continue;
-    const set = countriesByCeleb.get(row.celebrityId) ?? new Set<string>();
-    set.add(cc);
-    countriesByCeleb.set(row.celebrityId, set);
-  }
-
   const q = filters.search?.trim().toLowerCase();
   const filtered = q
     ? celebrities.filter((c) =>
@@ -97,6 +108,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
           .some((field) => String(field).toLowerCase().includes(q)),
       )
     : celebrities;
+
+  const totalCountries = await platformCountryTotal();
 
   return filtered.map((c) => {
     const profileDims = c.profileImage ? dataUriDims(c.profileImage) : null;
@@ -120,7 +133,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       isActive: c.isActive,
       isVerified: c.isVerified,
       fanCount: displayFanCountFor(c),
-      countryCount: countriesByCeleb.get(c.id)?.size ?? 0,
+      countryCount: displayCountryCount(totalCountries),
       createdAt: c.createdAt,
       instagramFollowers: c.instagramFollowers,
       tiktokFollowers: c.tiktokFollowers,
@@ -155,17 +168,12 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
   const celebrity = await prisma.celebrity.findUnique({
     where: { slug },
     include: {
-      fans: {
-        where: { status: "ACTIVE" },
-        select: { id: true, fan: { select: { country: true } } },
-      },
       memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
     },
   });
   if (!celebrity) return null;
 
-  const activeFans = celebrity.fans;
-  const countries = new Set(activeFans.map((f) => f.fan.country).filter(Boolean));
+  const totalCountries = await platformCountryTotal();
   const profileDims = celebrity.profileImage ? dataUriDims(celebrity.profileImage) : null;
 
   return {
@@ -189,7 +197,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     isActive: celebrity.isActive,
     isVerified: celebrity.isVerified,
     fanCount: displayFanCountFor(celebrity),
-    countryCount: countries.size,
+    countryCount: displayCountryCount(totalCountries),
     createdAt: celebrity.createdAt,
     instagramFollowers: celebrity.instagramFollowers,
     tiktokFollowers: celebrity.tiktokFollowers,

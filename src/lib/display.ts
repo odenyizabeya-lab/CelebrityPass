@@ -15,6 +15,23 @@ export const FANS_MIN = REGISTERED_FANS_BASE;
 /** Hard ceiling the counters animate toward. */
 export const FANS_CEILING = 5_000_000;
 
+/**
+ * Every community's displayed "Countries Represented" figure. The platform's
+ * represented-country total (starting from a curated base list and growing the
+ * moment any celebrity or fan from a new country is added) is what's shown on
+ * EVERY celebrity profile and card — so a community can never show fewer than
+ * this floor and always grows toward the highest country total on the platform.
+ */
+export const COUNTRIES_REPRESENTED_BASE = 58;
+
+/**
+ * A community's "Countries Represented" total: at least the 58-country floor,
+ * and at most the platform's highest represented-country total.
+ */
+export function displayCountryCount(platformTotalCountries: number): number {
+  return Math.max(COUNTRIES_REPRESENTED_BASE, Math.max(0, Math.round(platformTotalCountries)));
+}
+
 /** Small celebrities get a figure in [FANS_MIN, FANS_LOW_MAX]. */
 export const FANS_LOW_MAX = 999_999;
 

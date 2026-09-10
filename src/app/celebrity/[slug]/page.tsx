@@ -8,6 +8,8 @@ import BackButton from "@/components/BackButton";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
+import { prisma } from "@/lib/db";
+import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
 import { EventsUpcoming, EventsHappeningNow, EventsCompleted, EventsIssueSection } from "@/components/events/EventSections";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
@@ -81,6 +83,31 @@ export default async function CelebrityPage({ params }: Props) {
   const { slug } = await params;
   const celebrity = await getCelebrityBySlug(slug);
   if (!celebrity) notFound();
+
+  // Guarantee the Google-style knowledge panel for EVERY celebrity, forever.
+  // New/AI-created celebrities get theirs during creation (background fetch),
+  // and the profile page self-heals any that ever come up missing — it fetches
+  // once, stores the panel, then renders the same rich knowledge panel as the
+  // other communities. Failures never break the page; they just leave the (rare)
+  // no-data case blank until a later visit succeeds.
+  let panel: GoogleInfo | null = celebrity.googleInfo;
+  if (!panel) {
+    try {
+      const info = await fetchGoogleInfo(celebrity.name, {
+        profession: celebrity.profession,
+        category: celebrity.category,
+      });
+      if (info) {
+        await prisma.celebrity.update({
+          where: { id: celebrity.id },
+          data: { googleInfo: JSON.stringify(info) },
+        });
+        panel = info;
+      }
+    } catch {
+      /* the rest of the profile still renders */
+    }
+  }
 
   // The four permanent, verified platform links (source of truth).
   const socials: SocialLinks = {
@@ -180,8 +207,8 @@ export default async function CelebrityPage({ params }: Props) {
         </div>
 
         {/* Google-style knowledge panel for this exact celebrity */}
-        {celebrity.googleInfo && (
-          <GooglePanel info={celebrity.googleInfo} category={celebrity.category} />
+        {panel && (
+          <GooglePanel info={panel} category={celebrity.category} />
         )}
 
         {/* Verified follower counts */}
