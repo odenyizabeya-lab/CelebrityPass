@@ -184,23 +184,31 @@ function normalizeEvents(raw: RawEventsSchema): ScanEvent[] {
  * research. Whenever the grounded call fails for a non-terminal reason the
  * scanner retries strictly from knowledge — the system prompt still demands
  * verified facts (no inventing).
+ *
+ * Once a scan observes a quota error it stops attempting grounded calls for
+ * the rest of that scan (they only burn more quota on a key that is already
+ * squeezed) and goes straight to the ungrounded path.
  */
-async function researchProfileSmart(c: GeminiCredential, name: string): Promise<RawProfileSchema> {
+type ScanQuotaWatch = { quotaSeen: boolean };
+
+async function researchProfileSmart(c: GeminiCredential, name: string, w: ScanQuotaWatch): Promise<RawProfileSchema> {
   try {
-    return await researchProfile(c, name, true);
+    return await researchProfile(c, name, !w.quotaSeen);
   } catch (e) {
     if (e instanceof AiCallError && ["unsupported_combination", "quota", "billing", "model"].includes(e.type)) {
+      if (e.type === "quota") w.quotaSeen = true;
       return await researchProfile(c, name, false);
     }
     throw e;
   }
 }
 
-async function researchEventsSmart(c: GeminiCredential, name: string): Promise<RawEventsSchema> {
+async function researchEventsSmart(c: GeminiCredential, name: string, w: ScanQuotaWatch): Promise<RawEventsSchema> {
   try {
-    return await researchEvents(c, name, true);
+    return await researchEvents(c, name, !w.quotaSeen);
   } catch (e) {
     if (e instanceof AiCallError && ["unsupported_combination", "quota", "billing", "model"].includes(e.type)) {
+      if (e.type === "quota") w.quotaSeen = true;
       return await researchEvents(c, name, false);
     }
     throw e;
@@ -264,8 +272,9 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
 
   // 3) Research the profile (facts + fan card + base membership tiers).
   let profile: ScanProfile;
+  const quotaWatch: ScanQuotaWatch = { quotaSeen: false };
   try {
-    const result = await callAcrossCredentials(pairs, (c) => researchProfileSmart(c, name));
+    const result = await callAcrossCredentials(pairs, (c) => researchProfileSmart(c, name, quotaWatch));
     profile = normalizeProfile(name, result.value);
   } catch (e) {
     const { message, detail } = friendlyAiError(e);
@@ -276,7 +285,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   let events: ScanEvent[] = [];
   if (opts.includeEvents) {
     try {
-      const result = await callAcrossCredentials(pairs, (c) => researchEventsSmart(c, name));
+      const result = await callAcrossCredentials(pairs, (c) => researchEventsSmart(c, name, quotaWatch));
       events = normalizeEvents(result.value);
     } catch {
       events = []; // research is optional — never fail the whole scan for events

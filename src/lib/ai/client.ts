@@ -64,7 +64,11 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
           detail: "Remove the key's application/IP restrictions in Google AI Studio or Cloud.",
         };
       case "quota":
-        return { message: "The Gemini API has reached its limit (quota/rate limit). Try again shortly." };
+        return {
+          message: "The Gemini API has reached its quota/rate limit right now.",
+          detail:
+            "Wait a minute and retry. If this keeps happening every scan, the key's monthly search/billing quota is used up — enable billing in Google Cloud for this key's project, or add a fresh key in Admin → AI Settings (the current backup key is suspended).",
+        };
       case "model":
         return { message: "The configured Gemini model is unavailable. The scanner is retrying a current model automatically." };
       case "permission":
@@ -512,10 +516,10 @@ export async function callAcrossCredentials<T>(
   fn: (c: GeminiCredential) => Promise<T>,
 ): Promise<{ value: T; used: GeminiCredential }> {
   const transientAttempts = 3;
-  const quotaAttempts = 3;
   const errors: { type: string; label: string; message: string }[] = [];
+  let quotaRefillTried = false;
   for (const pair of pairs) {
-    for (let attempt = 1; attempt <= Math.max(transientAttempts, quotaAttempts); attempt++) {
+    for (let attempt = 1; attempt <= transientAttempts; attempt++) {
       try {
         const value = await fn(pair);
         return { value, used: pair };
@@ -534,11 +538,29 @@ export async function callAcrossCredentials<T>(
           await sleep(750 * attempt); // 0.75s / 1.5s backoff
           continue;
         }
-        if (e.type === "quota" && attempt < quotaAttempts) {
-          await sleep(10_000 * attempt); // 10s / 20s — free-tier windows refill per-minute
-          continue;
+        if (e.type === "quota") {
+          // Free-tier per-minute windows refill in a few seconds. Give the run
+          // ONE short refill wait instead of walking every credential with the
+          // old 10s/20s sleeps (which made a scan hang for minutes and then get
+          // killed by the route timeout).
+          if (!quotaRefillTried) {
+            quotaRefillTried = true;
+            await sleep(3_000);
+            try {
+              const value = await fn(pair);
+              return { value, used: pair };
+            } catch (e2) {
+              if (e2 instanceof AiCallError && (e2.type === "quota" || e2.type === "timeout")) {
+                errors.push({ type: e2.type, label: pair.label, message: e2.message });
+                break; // quota is scan-wide — do not keep hammering the chain
+              }
+              throw e2;
+            }
+          }
+          errors.push({ type: e.type, label: pair.label, message: e.message });
+          break;
         }
-        if (keyBlock || e.type === "quota") {
+        if (keyBlock) {
           errors.push({ type: e.type, label: pair.label, message: e.message });
           break; // this key/model is blocked — try the next pair
         }
@@ -548,8 +570,13 @@ export async function callAcrossCredentials<T>(
   }
   const first = errors[0];
   const label = first?.message ?? "";
+  // Preserve the real first cause (quota/billing/permission/...) instead of
+  // misreporting every failure as a rejected key.
+  const type = (first?.type as AiErrorType) ?? "invalid_key";
+  const friendly =
+    type === "permission" || type === "api_disabled" ? "permission" : type === "quota" ? "quota" : type;
   throw new AiCallError(
-    first?.type === "permission" || first?.type === "api_disabled" ? "permission" : "invalid_key",
+    friendly,
     `No working Gemini credential ${label ? `(${label})` : ""}${errors.length > 1 ? " — also tried the fallback credentials" : ""}`,
   );
 }
