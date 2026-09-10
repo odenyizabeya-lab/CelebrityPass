@@ -167,13 +167,16 @@ export function tryParseJson<T>(value: string | null | undefined, fallback: T): 
   }
 }
 
+/**
+ * The four permanent, verified social platforms for every celebrity profile.
+ * Values must be the celebrity's REAL official profile URLs — never fan pages,
+ * impersonators, unofficial pages, or guessed URLs. Empty/unset = unverified.
+ */
 export type SocialLinks = {
-  instagram?: string;
-  x?: string;
-  youtube?: string;
-  tiktok?: string;
   facebook?: string;
-  official?: string;
+  instagram?: string;
+  tiktok?: string;
+  google?: string;
 };
 
 export type CardDesign = {

@@ -13,12 +13,12 @@ export type IdentifiedPerson = {
 };
 
 export type SocialHandles = {
-  instagram: string | null;
-  x: string | null;
-  youtube: string | null;
-  tiktok: string | null;
+  /** Verified official page only — never a fan page or impersonator. */
   facebook: string | null;
-  official: string | null;
+  instagram: string | null;
+  tiktok: string | null;
+  /** Verified Google presence / Knowledge Panel result for this exact celebrity. */
+  google: string | null;
 };
 
 export type CardinalFollowers = {

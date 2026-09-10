@@ -292,12 +292,10 @@ const PROFILE_SCHEMA = {
     socials: {
       type: "OBJECT",
       properties: {
-        instagram: STRING_NULL,
-        x: STRING_NULL,
-        youtube: STRING_NULL,
-        tiktok: STRING_NULL,
         facebook: STRING_NULL,
-        official: STRING_NULL,
+        instagram: STRING_NULL,
+        tiktok: STRING_NULL,
+        google: STRING_NULL,
       },
     },
     card_design: {
@@ -395,7 +393,17 @@ Rules:
 - bio: 2 to 4 factual, neutral paragraphs summarizing their public career (background, notable achievements, current work). Community tone, no hype, no fabricated quotes.
 - short_bio: one or two lines for cards and search results.
 - google_overview: a 2–4 sentence neutral "knowledge panel" summary for THIS exact person.
-- website: the person's verified OFFICIAL website, else null. socials: verified official profiles only (by handle match with search results), else null. URLs must come from the search results.
+- website: the person's verified OFFICIAL website, else null.
+
+SOCIAL LINKS (critical — only these 4 platforms are supported):
+socials supports EXACTLY four keys: facebook, instagram, tiktok, google.
+- Each URL MUST be the verified OFFICIAL account of THIS exact person, confirmed by the web search results.
+- Verification evidence: the account is linked from the person's official website, an official press release, a verified badge on the platform itself, Wikipedia/Wikidata, or consistent listings across authoritative sources (official site, reputable press, the platform's own verified profile). A username or profile name that merely matches the celebrity's name is NOT sufficient proof.
+- NEVER use fan accounts, impersonators, tribute pages, unofficial pages, or guessed URLs.
+- For google: prefer the person's verified Google presence — an official Google Business/profile or their Google Knowledge Panel — or if none is confirmed, an official-result Google search page for the person (e.g. https://www.google.com/search?q=<person's exact name>). Only provide something when you confirmed it; otherwise null.
+- If you could NOT reliably verify an official account on a platform, return null for that platform. Do NOT guess, never fabricate a handle or URL.
+- URLs must come from the search results you actually saw.
+
 - followers: published follower counts ONLY when the search results show them; otherwise null (the platform fills realistic placeholders).
 - accent_color: suggest a fitting brand hex color (e.g. "#8b5cf6").
 - card_design: badge_text like "OFFICIAL FAN MEMBER", a short watermark, and an accent hex.
@@ -423,12 +431,10 @@ export function researchProfile(c: GeminiCredentials, name: string, useSearch: b
     accent_color: string;
     followers: { instagram: number | null; tiktok: number | null; facebook: number | null };
     socials: {
-      instagram: string | null;
-      x: string | null;
-      youtube: string | null;
-      tiktok: string | null;
       facebook: string | null;
-      official: string | null;
+      instagram: string | null;
+      tiktok: string | null;
+      google: string | null;
     };
     card_design: { badge_text: string | null; watermark: string | null; accent: string | null };
     base_memberships: Array<{ name: string; description: string; price: number | null; currency: string }>;

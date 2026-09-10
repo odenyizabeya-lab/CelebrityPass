@@ -26,6 +26,10 @@ type CelebrityLike = Partial<
     | "socialLinks"
     | "cardDesign"
     | "website"
+    | "facebookUrl"
+    | "instagramUrl"
+    | "tiktokUrl"
+    | "googleUrl"
     | "isFeatured"
     | "isActive"
     | "isVerified"
@@ -38,7 +42,15 @@ type CelebrityLike = Partial<
 export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "edit"; celebrity?: CelebrityLike }) {
   const router = useRouter();
   const edit = mode === "edit";
-  const initialSocials = tryParseJson<SocialLinks>(celebrity?.socialLinks ?? null, {});
+  const legacySocials = tryParseJson<SocialLinks>(celebrity?.socialLinks ?? null, {});
+  // Source of truth is now the four permanent columns; legacy socials JSON is
+  // only a fallback so older records still show their already-saved links.
+  const initialSocials: SocialLinks = {
+    facebook: celebrity?.facebookUrl || legacySocials.facebook || "",
+    instagram: celebrity?.instagramUrl || legacySocials.instagram || "",
+    tiktok: celebrity?.tiktokUrl || legacySocials.tiktok || "",
+    google: celebrity?.googleUrl || legacySocials.google || "",
+  };
   const initialDesign = tryParseJson<CardDesign>(celebrity?.cardDesign ?? null, {});
 
   const [name, setName] = useState(celebrity?.name ?? "");
@@ -99,6 +111,11 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       tiktokFollowers: ttFollowers === "" ? null : Number(ttFollowers),
       facebookFollowers: fbFollowers === "" ? null : Number(fbFollowers),
       socialLinks: socials,
+      // Permanent verified platform columns (source of truth).
+      facebookUrl: socials.facebook?.trim() || null,
+      instagramUrl: socials.instagram?.trim() || null,
+      tiktokUrl: socials.tiktok?.trim() || null,
+      googleUrl: socials.google?.trim() || null,
       cardDesign: design,
     };
     try {
@@ -155,12 +172,10 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       if (/^#[0-9a-fA-F]{6}$/.test(p.accentColor)) setAccent(p.accentColor);
       setSocials((s) => ({
         ...s,
-        instagram: p.socials.instagram ?? s.instagram,
-        x: p.socials.x ?? s.x,
-        youtube: p.socials.youtube ?? s.youtube,
-        tiktok: p.socials.tiktok ?? s.tiktok,
         facebook: p.socials.facebook ?? s.facebook,
-        official: p.socials.official ?? s.official,
+        instagram: p.socials.instagram ?? s.instagram,
+        tiktok: p.socials.tiktok ?? s.tiktok,
+        google: p.socials.google ?? s.google,
       }));
       setDesign((d) => ({
         ...d,
@@ -617,28 +632,38 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         </div>
       </div>
 
-      {/* Social links */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {(
-          [
-            ["instagram", "Instagram"],
-            ["x", "X / Twitter"],
-            ["youtube", "YouTube"],
-            ["tiktok", "TikTok"],
-            ["facebook", "Facebook"],
-            ["official", "Official Site"],
-          ] as const
-        ).map(([key, label]) => (
-          <div key={key}>
-            <label className={labelCls}>{label}</label>
-            <input
-              value={socials[key] ?? ""}
-              onChange={(e) => setSocials((s) => ({ ...s, [key]: e.target.value }))}
-              className={inputCls}
-              placeholder="https://…"
-            />
-          </div>
-        ))}
+      {/* Social links — the four permanent, verified platforms only */}
+      <div className="mt-6">
+        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400">Social Links</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Only Facebook, Instagram, TikTok, and Google are supported. Links must be the celebrity&apos;s real verified
+          official profiles — never fan pages, impersonators, or guessed URLs. Leave a platform empty when it cannot be
+          verified.
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          {(
+            [
+              ["facebook", "Facebook"],
+              ["instagram", "Instagram"],
+              ["tiktok", "TikTok"],
+              ["google", "Google"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              <label className={labelCls}>{label}</label>
+              <input
+                value={socials[key] ?? ""}
+                onChange={(e) => setSocials((s) => ({ ...s, [key]: e.target.value }))}
+                className={inputCls}
+                placeholder={
+                  key === "google"
+                    ? "https://www.google.com/search?q=…"
+                    : `https://www.${key === "facebook" ? "facebook.com" : key === "instagram" ? "instagram.com" : "tiktok.com"}/…`
+                }
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Card design */}

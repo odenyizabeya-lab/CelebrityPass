@@ -82,6 +82,11 @@ export async function POST(request: NextRequest) {
       isActive: Boolean(body.isActive ?? true),
       isVerified: true,
       socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
+      // Permanent verified official platform links — stored in dedicated columns.
+      facebookUrl: body.facebookUrl ? String(body.facebookUrl) : null,
+      instagramUrl: body.instagramUrl ? String(body.instagramUrl) : null,
+      tiktokUrl: body.tiktokUrl ? String(body.tiktokUrl) : null,
+      googleUrl: body.googleUrl ? String(body.googleUrl) : null,
       cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
       website: body.website ? String(body.website) : null,
       instagramFollowers: instagramFollowers ?? null,

@@ -31,7 +31,14 @@ bio            String
   isFeatured     Boolean           @default(false)
   isActive       Boolean           @default(true)
   isVerified     Boolean           @default(false) // auto-verified for every published celebrity (social-style blue badge on the name line)
-  socialLinks    String?           // JSON string: { "instagram": "...", "x": "...", "youtube": "..." }
+  socialLinks    String?           // legacy JSON string; new canonical links live in the 4 columns below
+  // Permanent verified official platform links (source of truth). Never
+  // guessed, never fan pages. Leave null when unverified — the AI scan fills
+  // these for every new celebrity via identify -> research -> verify -> save.
+  facebookUrl    String?
+  instagramUrl   String?
+  tiktokUrl      String?
+  googleUrl      String?           // verified Google presence / Knowledge Panel result
   cardDesign     String?           // JSON string for this celebrity's fan-card design
   website        String?
   instagramFollowers Int?          // public follower counts, admin-editable

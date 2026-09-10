@@ -154,12 +154,10 @@ function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
     website: asString(raw.website, 500) || null,
     accentColor: /^#[0-9a-fA-F]{6}$/.test(asString(raw.accent_color, 9)) ? asString(raw.accent_color, 9) : "#8b5cf6",
     socials: {
-      instagram: asString(raw.socials?.instagram, 500) || null,
-      x: asString(raw.socials?.x, 500) || null,
-      youtube: asString(raw.socials?.youtube, 500) || null,
-      tiktok: asString(raw.socials?.tiktok, 500) || null,
       facebook: asString(raw.socials?.facebook, 500) || null,
-      official: asString(raw.socials?.official, 500) || null,
+      instagram: asString(raw.socials?.instagram, 500) || null,
+      tiktok: asString(raw.socials?.tiktok, 500) || null,
+      google: asString(raw.socials?.google, 500) || null,
     },
     followers: {
       instagram: typeof raw.followers?.instagram === "number" && raw.followers.instagram > 0 ? raw.followers.instagram : null,

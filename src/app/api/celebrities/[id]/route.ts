@@ -44,11 +44,19 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     "profileImage",
     "coverImage",
     "accentColor",
-    "website",
   ] as const;
   for (const field of stringFields) {
     if (body[field] !== undefined) data[field] = body[field] === null ? null : String(body[field]);
   }
+  // The four permanent verified platform URLs. Only fields the client explicitly
+  // sent are updated — a stale/empty payload can never wipe verified links.
+  const socialUrlFields = ["facebookUrl", "instagramUrl", "tiktokUrl", "googleUrl"] as const;
+  for (const field of socialUrlFields) {
+    if (body[field] === undefined) continue;
+    const v = body[field];
+    data[field] = v === null || v === "" ? null : String(v).trim() || null;
+  }
+  if (body.website !== undefined) data.website = body.website === null ? null : String(body.website);
   if (body.socialLinks !== undefined) data.socialLinks = JSON.stringify(body.socialLinks);
   if (body.cardDesign !== undefined) data.cardDesign = JSON.stringify(body.cardDesign);
   if (body.isFeatured !== undefined) data.isFeatured = Boolean(body.isFeatured);

@@ -127,6 +127,11 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
 export type CelebrityDetail = CelebritySummary & {
   googleOverview: string | null;
   googleInfo: GoogleInfo | null;
+  // Permanent verified official platform links (source of truth).
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  tiktokUrl: string | null;
+  googleUrl: string | null;
   socialLinks: SocialLinks;
   cardDesign: CardDesign;
   memberships: MembershipLevelType[];
@@ -187,6 +192,10 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     instagramFollowers: celebrity.instagramFollowers,
     tiktokFollowers: celebrity.tiktokFollowers,
     facebookFollowers: celebrity.facebookFollowers,
+    facebookUrl: celebrity.facebookUrl,
+    instagramUrl: celebrity.instagramUrl,
+    tiktokUrl: celebrity.tiktokUrl,
+    googleUrl: celebrity.googleUrl,
     socialLinks: tryParseJson<SocialLinks>(celebrity.socialLinks, {}),
     cardDesign: tryParseJson<CardDesign>(celebrity.cardDesign, { primary: celebrity.accentColor }),
     memberships: celebrity.memberships.map((m) => ({

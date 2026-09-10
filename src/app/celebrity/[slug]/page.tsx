@@ -82,7 +82,13 @@ export default async function CelebrityPage({ params }: Props) {
   const celebrity = await getCelebrityBySlug(slug);
   if (!celebrity) notFound();
 
-  const socials = celebrity.socialLinks;
+  // The four permanent, verified platform links (source of truth).
+  const socials: SocialLinks = {
+    facebook: celebrity.facebookUrl ?? undefined,
+    instagram: celebrity.instagramUrl ?? undefined,
+    tiktok: celebrity.tiktokUrl ?? undefined,
+    google: celebrity.googleUrl ?? undefined,
+  };
   const hasMemberships = celebrity.memberships.length > 0;
   const events = await getCelebrityEvents(celebrity.id);
   const lastSyncedAt = events.completed.concat(events.upcoming, events.happening, events.postponed, events.cancelled)
@@ -382,33 +388,35 @@ function PremiumLevelCard({ level, slug }: { level: MembershipLevelType; slug: s
 
 function SocialLinksRow({ links }: { links: SocialLinks }) {
   const items = [
-    { key: "instagram", label: "Instagram" },
-    { key: "x", label: "X" },
-    { key: "youtube", label: "YouTube" },
-    { key: "tiktok", label: "TikTok" },
     { key: "facebook", label: "Facebook" },
-    { key: "official", label: "Official Site" },
+    { key: "instagram", label: "Instagram" },
+    { key: "tiktok", label: "TikTok" },
+    { key: "google", label: "Google" },
   ] as const;
+  const available = items.filter((i) => {
+    const url = links?.[i.key];
+    return typeof url === "string" && url.trim().length > 0;
+  });
+  if (available.length === 0) return null;
   return (
-    <>
-      {(Object.entries(links ?? {}) as [string, string][])
-        .filter(([, url]) => url)
-        .map(([key, url]) => {
-          const item = items.find((i) => i.key === key);
-          if (!item) return null;
-          return (
-            <a
-              key={key}
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-white/[0.06] px-3.5 py-1.5 text-xs font-semibold text-zinc-300 ring-1 ring-white/10 transition hover:text-white hover:ring-white/25"
-            >
-              {item.label}
-            </a>
-          );
-        })}
-    </>
+    <div className="flex flex-wrap items-center gap-2.5">
+      {available.map((i) => {
+        const url = (links[i.key] ?? "").trim();
+        return (
+          <a
+            key={i.key}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`${i.label} — ${links[i.key]}`}
+            className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-xs font-bold text-zinc-200 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white hover:ring-white/25"
+          >
+            <PlatformIcon icon={i.key} className="h-4 w-4" />
+            {i.label}
+          </a>
+        );
+      })}
+    </div>
   );
 }
 
@@ -491,23 +499,46 @@ function FollowerTile({
   );
 }
 
-function PlatformIcon({ icon }: { icon: "instagram" | "tiktok" | "facebook" }) {
+function PlatformIcon({ icon, className }: { icon: "instagram" | "tiktok" | "facebook" | "google"; className?: string }) {
+  const cls = className ?? "h-5 w-5";
   if (icon === "instagram") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 text-fuchsia-400" fill="currentColor" aria-hidden>
-        <path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 3.6a6.2 6.2 0 100 12.4 6.2 6.2 0 000-12.4zm0 2.2a4 4 0 110 8 8 8 8 0 010-8zm6.4-3.8a1.4 1.4 0 11-2.8 0 1.4 1.4 0 012.8 0z" />
+      <svg viewBox="0 0 24 24" className={cls} fill="currentColor" aria-hidden>
+        <path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 3.6a6.2 6.2 0 100 12.4 6.2 6.2 0 000-12.4zm0 2.2a4 4 0 110 8 4 4 0 010-8zm6.4-3.8a1.4 1.4 0 11-2.8 0 1.4 1.4 0 012.8 0z" />
       </svg>
     );
   }
   if (icon === "tiktok") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 text-cyan-300" fill="currentColor" aria-hidden>
+      <svg viewBox="0 0 24 24" className={cls} fill="currentColor" aria-hidden>
         <path d="M16.6 5.82A4.28 4.28 0 0115.55 3h-3.09v12.4a2.59 2.59 0 01-2.6 2.65 2.59 2.59 0 01-2.6-2.59 2.59 2.59 0 012.6-2.6c.26 0 .52.05.75.12V9.83a5.7 5.7 0 00-.75-.05 5.66 5.66 0 00-5.66 5.65 5.66 5.66 0 005.66 5.66 5.66 5.66 0 005.66-5.66V8.99a7.3 7.3 0 004.27 1.37V7.27a4.3 4.3 0 01-1.83.73 4.35 4.35 0 01-2.45-2.18z" />
       </svg>
     );
   }
+  if (icon === "google") {
+    return (
+      <svg viewBox="0 0 48 48" className={cls} aria-hidden>
+        <path
+          fill="#FFC107"
+          d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"
+        />
+        <path
+          fill="#FF3D00"
+          d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.3 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"
+        />
+        <path
+          fill="#4CAF50"
+          d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.1 26.7 36 24 36c-5.2 0-9.7-3.3-11.3-8l-6.5 5C9.6 39.7 16.3 44 24 44z"
+        />
+        <path
+          fill="#1976D2"
+          d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4 5.7l6.3 5.3C36.9 40.8 44 36 44 24c0-1.3-.1-2.6-.4-3.9z"
+        />
+      </svg>
+    );
+  }
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 text-blue-400" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 24 24" className={cls} fill="currentColor" aria-hidden>
       <path d="M24 12.07C24 5.44 18.63 0 12 0S0 5.44 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07z" />
     </svg>
   );
