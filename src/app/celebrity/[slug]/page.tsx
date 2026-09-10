@@ -10,11 +10,9 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
 import { prisma } from "@/lib/db";
 import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
-import { EventsUpcoming, EventsHappeningNow, EventsCompleted, EventsIssueSection } from "@/components/events/EventSections";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
 import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
-import { getCelebrityEvents } from "@/lib/events/service";
 import { tryParseJson, type SocialLinks } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import QRCode from "qrcode";
@@ -221,11 +219,6 @@ export default async function CelebrityPage({ params }: Props) {
   const standardTiers = celebrity.memberships.filter((l) => (l.price ?? 0) < PREMIUM_MIN_PRICE);
   const premiumTiers = celebrity.memberships.filter((l) => (l.price ?? 0) >= PREMIUM_MIN_PRICE);
   const firstName = (celebrity.name.trim().split(/\s+/)[0] ?? celebrity.name).trim();
-  const events = await getCelebrityEvents(celebrity.id);
-  const lastSyncedAt = events.completed.concat(events.upcoming, events.happening, events.postponed, events.cancelled)
-    .map((e) => e.lastSyncedAt)
-    .filter(Boolean)
-    .sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0] ?? null;
 
   return (
     <div>
@@ -368,14 +361,6 @@ export default async function CelebrityPage({ params }: Props) {
             </svg>
             <T k="join.joinCommunity" />
           </Link>
-        </div>
-
-        {/* Public events */}
-        <div className="mt-16 space-y-14">
-          <EventsHappeningNow events={events.happening} />
-          <EventsUpcoming events={events.upcoming} accent={celebrity.accentColor} lastSyncedAt={lastSyncedAt} />
-          <EventsIssueSection events={[...events.postponed, ...events.cancelled]} />
-          <EventsCompleted events={events.completed} accent={celebrity.accentColor} />
         </div>
 
         {/* Body grid */}
