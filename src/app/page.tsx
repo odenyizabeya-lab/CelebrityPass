@@ -1,10 +1,10 @@
 import Link from "next/link";
 import CountUp from "@/components/CountUp";
 import CelebrityCard from "@/components/CelebrityCard";
-import HeroSearch from "@/components/HeroSearch";
+import AppSearch from "@/components/AppSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
-import { getCelebritySummaries, getPlatformStats, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
+import { getCelebritySummaries, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
 import { formatMoney } from "@/lib/payments";
 
 export const revalidate = 60;
@@ -14,7 +14,7 @@ const PREMIUM_PRICE = 1000;
 const VIP_PRICE = 1700;
 
 export default async function HomePage() {
-  const [stats, representedCountries, celebrities] = await Promise.all([getPlatformStats(), getRepresentedCountries(), getCelebritySummaries()]);
+  const [representedCountries, celebrities] = await Promise.all([getRepresentedCountries(), getCelebritySummaries()]);
 
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
   const featuredIds = new Set(featured.map((c) => c.id));
@@ -46,28 +46,7 @@ export default async function HomePage() {
             <T k="hero.sub" />
           </p>
 
-          <HeroSearch />
-
-          <div className="fade-up mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { key: "hero.statsCommunities", value: stats.celebrities },
-              { key: "hero.statsVerifiedFans", value: stats.fans },
-              { key: "hero.statsActiveCards", value: stats.activeCards },
-              { key: "hero.statsCountries", value: stats.countries },
-            ].map((s) => (
-              <div key={s.key} className="glass rounded-2xl px-4 py-4">
-                <p className="text-2xl font-black text-white">
-                  <CountUp value={s.value} />
-                </p>
-                <p className="mt-0.5 text-xs font-medium text-zinc-500">
-                  <T k={s.key} />
-                </p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-[11px] uppercase tracking-widest text-zinc-600">
-            <T k="hero.statsLiveNote" />
-          </p>
+          <AppSearch />
         </div>
       </section>
 

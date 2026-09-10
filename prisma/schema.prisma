@@ -55,6 +55,7 @@ model Celebrity {
 @@index([category])
   @@index([country])
   @@index([isActive])
+  @@index([name])
 }
 
 // Membership tiers offered by a celebrity's community.

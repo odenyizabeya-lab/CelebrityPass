@@ -293,3 +293,48 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
     },
   };
 }
+
+export type CommunityByImageOutcome =
+  | { status: "found"; community: { id: string; slug: string; name: string } }
+  | { status: "not_identified"; reason: string | null; bestName: string | null }
+  | { status: "not_found"; name: string | null }
+  | { status: "provider_error"; message: string; detail?: string };
+
+/**
+ * Public visual search: identify the person in a photo (real Gemini vision),
+ * then look up whether they already have a CelebrityPass community. Never
+ * fabricates — an unrecognized/uncertain face or a missing community returns a
+ * clear "not found" outcome the UI can explain honestly.
+ */
+export async function searchCommunityByImage(imageDataUri: string): Promise<CommunityByImageOutcome> {
+  const pairs = await credentialChain();
+  if (pairs.length === 0) {
+    return {
+      status: "provider_error",
+      message: "No Gemini API key is configured yet. Open Admin → AI Settings to add your key, or set GEMINI_API_KEY.",
+    };
+  }
+
+  let identity: IdentifiedPerson;
+  try {
+    const identified = await callAcrossCredentials(pairs, (c) => identifyPerson(c, imageDataUri));
+    identity = {
+      identified: typeof identified.value.identified === "boolean" ? identified.value.identified : false,
+      bestName: asString(identified.value.best_name, 120) || null,
+      names: asArray(identified.value.names).slice(0, 6),
+      confidence: identified.value.confidence === "high" ? "high" : "low",
+      reason: asString(identified.value.reason, 400) || null,
+    };
+  } catch (e) {
+    const { message, detail } = friendlyAiError(e);
+    return { status: "provider_error", message, detail };
+  }
+
+  if (!identity.identified || identity.confidence !== "high" || !identity.bestName) {
+    return { status: "not_identified", reason: identity.reason, bestName: identity.bestName };
+  }
+
+  const community = await findExistingCommunity(identity.bestName);
+  if (community) return { status: "found", community };
+  return { status: "not_found", name: identity.bestName };
+}
