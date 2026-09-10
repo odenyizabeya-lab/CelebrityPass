@@ -4,9 +4,7 @@ import CelebrityCard from "@/components/CelebrityCard";
 import HeroSearch from "@/components/HeroSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
-import { getCelebritySummaries, getPlatformStats, toCardCelebrity } from "@/lib/services";
-import { representedCountryList } from "@/lib/countries";
-import { prisma } from "@/lib/db";
+import { getCelebritySummaries, getPlatformStats, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
 import { formatMoney } from "@/lib/payments";
 
 export const revalidate = 60;
@@ -16,20 +14,16 @@ const PREMIUM_PRICE = 1000;
 const VIP_PRICE = 1700;
 
 export default async function HomePage() {
-  const [stats, celebrities] = await Promise.all([getPlatformStats(), getCelebritySummaries()]);
+  const [stats, representedCountries, celebrities] = await Promise.all([getPlatformStats(), getRepresentedCountries(), getCelebritySummaries()]);
 
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
-  const popular = [...celebrities].sort((a, b) => b.fanCount - a.fanCount).slice(0, 4);
-
-  const memberCountryGroups = await prisma.fan.groupBy({
-    where: { isActive: true, country: { not: null } },
-    by: ["country"],
-    _count: { _all: true },
-  });
-  const representedCountries = representedCountryList([
-    ...celebrities.map((c) => c.country),
-    ...memberCountryGroups.map((g) => g.country),
-  ]);
+  const featuredIds = new Set(featured.map((c) => c.id));
+  const popular = [...celebrities]
+    .filter((c) => !featuredIds.has(c.id))
+    .sort((a, b) => b.fanCount - a.fanCount)
+    .slice(0, 4);
+  const popularIds = new Set(popular.map((c) => c.id));
+  const browseAll = celebrities.filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id));
 
   return (
     <div className="overflow-hidden">
@@ -154,11 +148,11 @@ export default async function HomePage() {
               <T k="home.sealed" />
             </span>
           </div>
-          {celebrities.length === 0 ? (
+          {browseAll.length === 0 ? (
             <EmptyState message={<T k="common.noResults" />} />
           ) : (
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {celebrities.map((c) => (
+              {browseAll.map((c) => (
                 <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
               ))}
             </div>

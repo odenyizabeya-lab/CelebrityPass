@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
-import { dataUriDims, profileImageUrl } from "./images";
+import { dataUriDims, profileImageUrl, celebrityImageFlags } from "./images";
 import { platformTotal, displayCountryCount } from "./display";
 import { displayFanCountFor } from "./fame";
 import { representedCountryList } from "./countries";
@@ -16,6 +16,52 @@ function panelTagline(json: string | null): string | null {
 }
 
 /**
+ * Tiny in-process TTL cache for expensive read queries. Public pages are
+ * served through Supabase's pooled connection where every round trip costs
+ * ~1-2s, so running the same 6-11 queries on every render made pages take
+ * tens of seconds. These read caches make repeated loads instant while the
+ * short TTL keeps data fresher than the pages' own ISR revalidation window.
+ */
+const READ_CACHE_TTL_MS = 45_000;
+const READ_CACHE_LIMIT = 64;
+const readCache = new Map<string, { value: unknown; expires: number }>();
+
+function cachedRead<V>(key: string, loader: () => Promise<V>): Promise<V> {
+  const hit = readCache.get(key);
+  const now = Date.now();
+  if (hit && hit.expires > now) return Promise.resolve(hit.value as V);
+  return loader().then((value) => {
+    readCache.set(key, { value, expires: now + READ_CACHE_TTL_MS });
+    if (readCache.size > READ_CACHE_LIMIT) {
+      const oldest = readCache.keys().next().value;
+      if (oldest) readCache.delete(oldest);
+    }
+    return value;
+  });
+}
+
+/** The live represented-country list (celebrity countries + active fan countries, curated base included). */
+export async function getRepresentedCountries(): Promise<string[]> {
+  return cachedRead("representedCountries", async () => {
+    const [fanCountryRows, celebrityCountryRows] = await Promise.all([
+      prisma.fan.groupBy({
+        by: ["country"],
+        where: { isActive: true, country: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.celebrity.findMany({
+        where: { isActive: true },
+        select: { country: true },
+      }),
+    ]);
+    return representedCountryList([
+      ...celebrityCountryRows.map((r) => r.country),
+      ...fanCountryRows.map((r) => r.country),
+    ]);
+  });
+}
+
+/**
  * The platform's highest represented-country total: the curated base list plus
  * every country found on our active celebrities and fans. This single figure
  * powers the "Countries Represented" counter on EVERY celebrity profile/card,
@@ -23,21 +69,7 @@ function panelTagline(json: string | null): string | null {
  * the platform whenever a new country appears — no per-celebrity setup needed.
  */
 async function platformCountryTotal(): Promise<number> {
-  const [fanCountryRows, celebrityCountryRows] = await Promise.all([
-    prisma.fan.groupBy({
-      by: ["country"],
-      where: { isActive: true, country: { not: null } },
-      _count: { _all: true },
-    }),
-    prisma.celebrity.findMany({
-      where: { isActive: true },
-      select: { country: true },
-    }),
-  ]);
-  return representedCountryList([
-    ...celebrityCountryRows.map((r) => r.country),
-    ...fanCountryRows.map((r) => r.country),
-  ]).length;
+  return (await getRepresentedCountries()).length;
 }
 
 export type CelebritySummary = {
@@ -88,17 +120,40 @@ export function toCardCelebrity(c: CelebritySummary): CelebrityCardData {
 
 /** List celebrity communities with LIVE fan/community stats. */
 export async function getCelebritySummaries(filters: CelebritiesFilters = {}): Promise<CelebritySummary[]> {
-  const where: Record<string, unknown> = {};
-  if (!filters.includeInactive) where.isActive = true;
+  return cachedRead(`summaries:${JSON.stringify(filters)}`, async () => {
+    const where: Record<string, unknown> = {};
+    if (!filters.includeInactive) where.isActive = true;
 
-  if (filters.category) where.category = filters.category;
-  if (filters.country) where.country = filters.country;
-  if (filters.profession) where.profession = filters.profession;
+    if (filters.category) where.category = filters.category;
+    if (filters.country) where.country = filters.country;
+    if (filters.profession) where.profession = filters.profession;
 
-  const celebrities = await prisma.celebrity.findMany({
-    where,
-    orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-  });
+    const [celebrities, imageFlags] = await Promise.all([
+    prisma.celebrity.findMany({
+      where,
+      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        category: true,
+        country: true,
+        city: true,
+        profession: true,
+        googleInfo: true,
+        accentColor: true,
+        isFeatured: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+        instagramFollowers: true,
+        tiktokFollowers: true,
+        facebookFollowers: true,
+        displayFanCount: true,
+      },
+    }),
+    celebrityImageFlags(),
+  ]);
 
   const q = filters.search?.trim().toLowerCase();
   const filtered = q
@@ -112,7 +167,9 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
   const totalCountries = await platformCountryTotal();
 
   return filtered.map((c) => {
-    const profileDims = c.profileImage ? dataUriDims(c.profileImage) : null;
+    const img = imageFlags.get(c.slug);
+    const hasProfile = img?.hasProfile ?? false;
+    const hasCover = img?.hasCover ?? false;
     return {
       id: c.id,
       slug: c.slug,
@@ -122,12 +179,12 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       city: c.city,
       profession: c.profession,
       tagline: panelTagline(c.googleInfo),
-      profileImage: c.profileImage,
-      coverImage: c.coverImage,
-      profileImageUrl: c.profileImage ? profileImageUrl(c.slug, c.profileImage) : null,
-      profileImageW: profileDims?.w ?? 144,
-      profileImageH: profileDims?.h ?? 180,
-      coverImageUrl: c.coverImage ? `/images/${c.slug}/cover` : null,
+      profileImage: hasProfile ? `/images/${c.slug}/profile` : null,
+      coverImage: hasCover ? `/images/${c.slug}/cover` : null,
+      profileImageUrl: hasProfile ? `/images/${c.slug}/profile` : null,
+      profileImageW: hasProfile ? 375 : 144,
+      profileImageH: hasProfile ? 500 : 180,
+      coverImageUrl: hasCover ? `/images/${c.slug}/cover` : null,
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
       isActive: c.isActive,
@@ -139,6 +196,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       tiktokFollowers: c.tiktokFollowers,
       facebookFollowers: c.facebookFollowers,
     };
+    });
   });
 }
 
@@ -223,10 +281,29 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
 
 /** Get a single fan card with celebrity + fan + level, for public views. */
 export async function getFanCardByNumber(fanNumber: string) {
-  return prisma.fanCard.findUnique({
-    where: { fanNumber },
-    include: { celebrity: true, fan: true, membershipLevel: true },
-  });
+  const [card, imageFlags] = await Promise.all([
+    prisma.fanCard.findUnique({
+      where: { fanNumber },
+      include: {
+        celebrity: {
+          select: { id: true, slug: true, name: true, accentColor: true, cardDesign: true, isVerified: true },
+        },
+        fan: true,
+        membershipLevel: true,
+      },
+    }),
+    celebrityImageFlags(),
+  ]);
+  if (!card) return null;
+  const img = imageFlags.get(card.celebrity.slug);
+  return {
+    ...card,
+    celebrity: {
+      ...card.celebrity,
+      profileImage: img?.hasProfile ? `/images/${card.celebrity.slug}/profile` : null,
+      coverImage: img?.hasCover ? `/images/${card.celebrity.slug}/cover` : null,
+    },
+  };
 }
 
 export type PlatformStats = {
@@ -245,61 +322,65 @@ export type PlatformStats = {
  * 82 and grow automatically from the countries found on celebrities and fans.
  */
 export async function getPlatformStats(): Promise<PlatformStats> {
-  const [celebrities, activeCelebrities, fans, activeCards, totalCards, countriesRows, celebrityCountryRows] =
-    await Promise.all([
-      prisma.celebrity.count(),
-      prisma.celebrity.count({ where: { isActive: true } }),
-      prisma.fan.count({ where: { isActive: true } }),
-      prisma.fanCard.count({ where: { status: "ACTIVE" } }),
-      prisma.fanCard.count(),
-      prisma.fan.groupBy({
-        by: ["country"],
-        where: { isActive: true, country: { not: null } },
-        _count: { _all: true },
-      }),
-      prisma.celebrity.findMany({
-        where: { isActive: true },
-        select: {
-          slug: true,
-          country: true,
-          displayFanCount: true,
-          googleInfo: true,
-          instagramFollowers: true,
-          tiktokFollowers: true,
-          facebookFollowers: true,
-        },
-      }),
+  return cachedRead("platformStats", async () => {
+    const [celebrities, activeCelebrities, fans, activeCards, totalCards, countriesRows, celebrityCountryRows] =
+      await Promise.all([
+        prisma.celebrity.count(),
+        prisma.celebrity.count({ where: { isActive: true } }),
+        prisma.fan.count({ where: { isActive: true } }),
+        prisma.fanCard.count({ where: { status: "ACTIVE" } }),
+        prisma.fanCard.count(),
+        prisma.fan.groupBy({
+          by: ["country"],
+          where: { isActive: true, country: { not: null } },
+          _count: { _all: true },
+        }),
+        prisma.celebrity.findMany({
+          where: { isActive: true },
+          select: {
+            slug: true,
+            country: true,
+            displayFanCount: true,
+            googleInfo: true,
+            instagramFollowers: true,
+            tiktokFollowers: true,
+            facebookFollowers: true,
+          },
+        }),
+      ]);
+
+    const displayedCounts = celebrityCountryRows.map((r) => displayFanCountFor(r));
+
+    const countries = representedCountryList([
+      ...celebrityCountryRows.map((r) => r.country),
+      ...countriesRows.map((r) => r.country),
     ]);
 
-  const displayedCounts = celebrityCountryRows.map((r) => displayFanCountFor(r));
-
-  const countries = representedCountryList([
-    ...celebrityCountryRows.map((r) => r.country),
-    ...countriesRows.map((r) => r.country),
-  ]);
-
-  return {
-    celebrities,
-    activeCelebrities,
-    fans: platformTotal(displayedCounts, fans),
-    activeCards,
-    totalCards,
-    countries: countries.length,
-  };
+    return {
+      celebrities,
+      activeCelebrities,
+      fans: platformTotal(displayedCounts, fans),
+      activeCards,
+      totalCards,
+      countries: countries.length,
+    };
+  });
 }
 
 /** Distinct filter options derived from the database. */
 export async function getSearchOptions() {
-  const rows = await prisma.celebrity.findMany({
-    where: { isActive: true },
-    select: { category: true, country: true, profession: true },
-    distinct: ["category", "country", "profession"],
+  return cachedRead("searchOptions", async () => {
+    const rows = await prisma.celebrity.findMany({
+      where: { isActive: true },
+      select: { category: true, country: true, profession: true },
+      distinct: ["category", "country", "profession"],
+    });
+    return {
+      categories: [...new Set(rows.map((r) => r.category).filter(Boolean))].sort(),
+      countries: [...new Set(rows.map((r) => r.country).filter(Boolean))].sort(),
+      professions: [...new Set(rows.map((r) => r.profession).filter(Boolean))].sort(),
+    };
   });
-  return {
-    categories: [...new Set(rows.map((r) => r.category).filter(Boolean))].sort(),
-    countries: [...new Set(rows.map((r) => r.country).filter(Boolean))].sort(),
-    professions: [...new Set(rows.map((r) => r.profession).filter(Boolean))].sort(),
-  };
 }
 
 export type AdminCardRow = {

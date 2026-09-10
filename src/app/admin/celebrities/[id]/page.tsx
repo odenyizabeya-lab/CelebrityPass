@@ -68,7 +68,16 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-8">
-        <CelebrityForm mode="edit" celebrity={celebrity} />
+        <CelebrityForm
+          mode="edit"
+          celebrity={{
+            ...celebrity,
+            profileImage: null,
+            coverImage: null,
+            hasProfileImage: !!celebrity.profileImage,
+            hasCoverImage: !!celebrity.coverImage,
+          }}
+        />
       </div>
 
       <div className="mt-8">

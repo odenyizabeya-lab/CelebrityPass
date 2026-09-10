@@ -34,7 +34,7 @@ type CelebrityLike = Partial<
     | "tiktokFollowers"
     | "facebookFollowers"
   >
-> & { profileImage?: string | null; coverImage?: string | null };
+> & { profileImage?: string | null; coverImage?: string | null; hasProfileImage?: boolean; hasCoverImage?: boolean };
 
 export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "edit"; celebrity?: CelebrityLike }) {
   const router = useRouter();
@@ -61,8 +61,10 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [isFeatured, setIsFeatured] = useState(celebrity?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(celebrity?.isActive ?? true);
   const [isVerified, setIsVerified] = useState(celebrity?.isVerified ?? true);
-  const [profileImage, setProfileImage] = useState<string | null>(celebrity?.profileImage ?? null);
-  const [coverImage, setCoverImage] = useState<string | null>(celebrity?.coverImage ?? null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileChanged, setProfileChanged] = useState(false);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [coverChanged, setCoverChanged] = useState(false);
   const [igFollowers, setIgFollowers] = useState(celebrity?.instagramFollowers != null ? String(celebrity.instagramFollowers) : "");
   const [ttFollowers, setTtFollowers] = useState(celebrity?.tiktokFollowers != null ? String(celebrity.tiktokFollowers) : "");
   const [fbFollowers, setFbFollowers] = useState(celebrity?.facebookFollowers != null ? String(celebrity.facebookFollowers) : "");
@@ -94,8 +96,8 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       isActive,
       isVerified,
       accentColor: accent,
-      profileImage,
-      coverImage,
+      profileImage: profileChanged || mode === "create" ? profileImage : undefined,
+      coverImage: coverChanged || mode === "create" ? coverImage : undefined,
       instagramFollowers: igFollowers === "" ? null : Number(igFollowers),
       tiktokFollowers: ttFollowers === "" ? null : Number(ttFollowers),
       facebookFollowers: fbFollowers === "" ? null : Number(fbFollowers),
@@ -374,9 +376,21 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
           </div>
           <ImageUpload
             label=""
-            value={profileImage}
-            onPick={(data) => setProfileImage(data)}
-            onRemove={() => setProfileImage(null)}
+            value={
+              profileChanged || mode === "create"
+                ? (profileImage ?? null)
+                : celebrity?.hasProfileImage && celebrity?.slug
+                  ? `/images/${celebrity.slug}/profile`
+                  : null
+            }
+            onPick={(data) => {
+              setProfileImage(data);
+              setProfileChanged(true);
+            }}
+            onRemove={() => {
+              setProfileImage(null);
+              setProfileChanged(true);
+            }}
           />
         </div>
         <div>
@@ -385,9 +399,21 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
           </div>
           <ImageUpload
             label=""
-            value={coverImage}
-            onPick={(data) => setCoverImage(data)}
-            onRemove={() => setCoverImage(null)}
+            value={
+              coverChanged || mode === "create"
+                ? (coverImage ?? null)
+                : celebrity?.hasCoverImage && celebrity?.slug
+                  ? `/images/${celebrity.slug}/cover`
+                  : null
+            }
+            onPick={(data) => {
+              setCoverImage(data);
+              setCoverChanged(true);
+            }}
+            onRemove={() => {
+              setCoverImage(null);
+              setCoverChanged(true);
+            }}
           />
         </div>
       </div>

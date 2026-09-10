@@ -5,6 +5,9 @@
 
 const DIMS_CACHE_LIMIT = 128;
 const dimsCache = new Map<string, { w: number; h: number }>();
+let imageFlagsCache: { flags: Map<string, { hasProfile: boolean; hasCover: boolean }>; expires: number } | null = null;
+
+import { prisma } from "./db";
 
 function dimsKey(uri: string): string {
   return `${uri.length}:${uri.slice(0, 96)}`;
@@ -128,4 +131,25 @@ export function dataUriDims(uri: string | null): { w: number; h: number } | null
 export function profileImageUrl(slug: string, dataUri: string | null): string | null {
   if (!dataUri) return null;
   return `/images/${slug}/profile`;
+}
+
+/**
+ * Photo presence flags for every celebrity WITHOUT transferring the image
+ * bytes. Reading the giant base64 `profileImage`/`coverImage` columns in list
+ * queries makes pages take tens of seconds over the network, so user-facing
+ * queries fetch only these 0/1 flags and then point at the cacheable routes.
+ */
+export async function celebrityImageFlags(): Promise<Map<string, { hasProfile: boolean; hasCover: boolean }>> {
+  const hit = imageFlagsCache;
+  const now = Date.now();
+  if (hit && hit.expires > now) return hit.flags;
+  const rows = await prisma.$queryRaw<{ slug: string; has_profile: boolean; has_cover: boolean }[]>`
+    SELECT "slug",
+           ("profileImage" IS NOT NULL AND "profileImage" <> '') AS has_profile,
+           ("coverImage"   IS NOT NULL AND "coverImage"   <> '') AS has_cover
+    FROM "Celebrity"`;
+  const flags = new Map<string, { hasProfile: boolean; hasCover: boolean }>();
+  for (const r of rows) flags.set(r.slug, { hasProfile: r.has_profile, hasCover: r.has_cover });
+  imageFlagsCache = { flags, expires: now + 45_000 };
+  return flags;
 }

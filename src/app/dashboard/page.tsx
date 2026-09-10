@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getCurrentFanId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { celebrityImageFlags } from "@/lib/images";
 import { formatMoney } from "@/lib/payments";
 import FanCardView, { type CardViewData } from "@/components/FanCardView";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -13,16 +14,27 @@ export default async function DashboardPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/dashboard");
 
-  const fan = await prisma.fan.findUnique({
-    where: { id: fanId },
-    include: {
-      cards: { include: { celebrity: true, membershipLevel: true }, orderBy: { createdAt: "desc" } },
-      payments: {
-        include: { celebrity: { select: { name: true, slug: true, accentColor: true } }, membershipLevel: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
+  const [fan, imageFlags] = await Promise.all([
+    prisma.fan.findUnique({
+      where: { id: fanId },
+      include: {
+        cards: {
+          include: {
+            celebrity: {
+              select: { id: true, slug: true, name: true, accentColor: true, cardDesign: true, isVerified: true },
+            },
+            membershipLevel: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        payments: {
+          include: { celebrity: { select: { name: true, slug: true, accentColor: true } }, membershipLevel: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
-    },
-  });
+    }),
+    celebrityImageFlags(),
+  ]);
   if (!fan) redirect("/login?next=/dashboard");
 
   const pending = fan.payments.filter((p) => p.status === "PENDING");
@@ -74,8 +86,8 @@ export default async function DashboardPage() {
                   slug: card.celebrity.slug,
                   accentColor: card.celebrity.accentColor,
                   cardDesign: card.celebrity.cardDesign,
-                  profileImage: card.celebrity.profileImage,
-                  coverImage: card.celebrity.coverImage,
+                  profileImage: imageFlags.get(card.celebrity.slug)?.hasProfile ? `/images/${card.celebrity.slug}/profile` : null,
+                  coverImage: imageFlags.get(card.celebrity.slug)?.hasCover ? `/images/${card.celebrity.slug}/cover` : null,
                   isVerified: card.celebrity.isVerified,
                 },
               };
@@ -83,7 +95,7 @@ export default async function DashboardPage() {
                 <div key={card.id} className="glass rounded-3xl p-5">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="h-20 w-20 overflow-hidden rounded-2xl bg-ink-900 p-1.5">
-                      {card.celebrity.profileImage ? (
+                      {imageFlags.get(card.celebrity.slug)?.hasProfile ? (
                         <Image
                           src={`/images/${card.celebrity.slug}/profile`}
                           alt={card.celebrity.name}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AdminCelebrityRow from "@/components/admin/AdminCelebrityRow";
 import { prisma } from "@/lib/db";
+import { celebrityImageFlags } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,26 @@ export default async function AdminCelebritiesPage({
     ];
   }
 
-  const celebrities = await prisma.celebrity.findMany({
-    where,
-    orderBy: { name: "asc" },
-    include: { _count: { select: { fans: true, memberships: true } } },
-  });
+  const [celebrities, imageFlags] = await Promise.all([
+    prisma.celebrity.findMany({
+      where,
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        category: true,
+        country: true,
+        profession: true,
+        accentColor: true,
+        isVerified: true,
+        isFeatured: true,
+        isActive: true,
+        _count: { select: { fans: true, memberships: true } },
+      },
+    }),
+    celebrityImageFlags(),
+  ]);
 
   const totalCount = await prisma.celebrity.count();
 
@@ -109,8 +125,8 @@ export default async function AdminCelebritiesPage({
             {celebrities.map((c) => (
               <AdminCelebrityRow key={c.id} id={c.id}>
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink-900 p-1">
-                  {c.profileImage ? (
-                    <Image src={c.profileImage} alt="" width={48} height={60} className="h-full w-full rounded-md object-cover object-top" unoptimized />
+                  {imageFlags.get(c.slug)?.hasProfile ? (
+                    <Image src={`/images/${c.slug}/profile`} alt="" width={48} height={60} className="h-full w-full rounded-md object-cover object-top" />
                   ) : (
                     <div className="grid h-full w-full place-items-center rounded-md text-sm font-bold text-white" style={{ backgroundColor: c.accentColor }}>
                       {c.name[0]}
