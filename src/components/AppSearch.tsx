@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 type SearchItem = {
   id: string;
@@ -99,17 +100,9 @@ function ResultRow({ item, highlighted, onPress }: { item: SearchItem; highlight
         <AvatarFallback name={item.name} accent={item.accentColor} />
       )}
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm font-bold text-zinc-900">{item.name}</span>
-          {item.isVerified && (
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-sky-500" fill="currentColor" aria-label="Verified">
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M8.6 2.2a2.5 2.5 0 013.5-.8l.9.6.9-.6a2.5 2.5 0 013.5.8l.6.9.7.4a2.5 2.5 0 012 2.8v1.1l.9.7a2.5 2.5 0 01.5 3.6l-.6.9.6.9a2.5 2.5 0 01-1 3l-.9.6v1a2.5 2.5 0 01-3 2.4l-1-.2-.9.7a2.5 2.5 0 01-3.6-.5l-.6-.9-1 .2a2.5 2.5 0 01-2.9-2.4v-1l-.9-.6a2.5 2.5 0 01-.5-3.6l.6-.9-.6-.9a2.5 2.5 0 011-3l.9-.6v-1a2.5 2.5 0 012.8-2.8l1 .2.8-.7a2.5 2.5 0 01.8-.6zM11 15.8l5.2-5.2-1.4-1.4L11 13l-2.2-2.2-1.4 1.4L11 15.8z"
-              />
-            </svg>
-          )}
+          {item.isVerified && <VerifiedBadge className="h-[1.1em] w-[1.1em] shrink-0" />}
         </span>
         <span className="block truncate text-sm text-zinc-500">
           {item.category}
