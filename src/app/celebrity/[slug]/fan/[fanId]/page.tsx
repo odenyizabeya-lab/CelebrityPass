@@ -11,7 +11,7 @@ type Props = { params: Promise<{ slug: string; fanId: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { fanId } = await params;
-  return { title: `${fanId} — Verified Fan Card` };
+  return { title: `${fanId} — Verified Fan Card`, robots: { index: false, follow: false } };
 }
 
 export default async function FanCardPage({ params }: Props) {

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import LoginForm from "@/components/LoginForm";
 
-export const metadata: Metadata = { title: "Fan Login" };
+export const metadata: Metadata = {
+  title: "Fan Login",
+  robots: { index: false, follow: false },
+};
 
 export default function LoginPage() {
   return (

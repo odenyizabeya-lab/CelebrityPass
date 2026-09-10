@@ -14,7 +14,7 @@ type Props = { searchParams: Promise<{ eventId?: string; sel?: string }> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { eventId } = await searchParams;
   const event = eventId ? await getEventById(eventId) : null;
-  return { title: event ? `Checkout — ${event.name}` : "Checkout" };
+  return { title: event ? `Checkout — ${event.name}` : "Checkout", robots: { index: false, follow: false } };
 }
 
 export default async function CheckoutPage({ searchParams }: Props) {
