@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { signToken, verifyToken } from "./utils";
+import { markOnboarded } from "./onboarding";
 
 const FAN_COOKIE = "fc_fan";
 
@@ -25,6 +26,8 @@ export async function createFanSession(fanId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
+  // An authenticated fan has completed onboarding — never re-show the welcome.
+  await markOnboarded();
 }
 
 export async function clearFanSession() {

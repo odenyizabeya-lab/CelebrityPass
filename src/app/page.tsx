@@ -4,8 +4,10 @@ import CelebrityCard from "@/components/CelebrityCard";
 import AppSearch from "@/components/AppSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
+import WelcomeScreen from "@/components/welcome/WelcomeScreen";
 import { getCelebritySummaries, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
 import { formatMoney } from "@/lib/payments";
+import { isOnboarded } from "@/lib/onboarding";
 
 export const revalidate = 60;
 
@@ -14,6 +16,7 @@ const PREMIUM_PRICE = 1000;
 const VIP_PRICE = 1700;
 
 export default async function HomePage() {
+  const onboarded = await isOnboarded();
   const [representedCountries, celebrities] = await Promise.all([getRepresentedCountries(), getCelebritySummaries()]);
 
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
@@ -26,8 +29,10 @@ export default async function HomePage() {
   const browseAll = celebrities.filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id));
 
   return (
-    <div className="overflow-hidden">
-      {/* ============ HERO ============ */}
+    <div>
+      {!onboarded && <WelcomeScreen />}
+      <div className="overflow-hidden">
+        {/* ============ HERO ============ */}
       <section className="relative px-4 pb-20 pt-20 text-center sm:px-6 sm:pt-28">
         <div className="pointer-events-none absolute left-1/2 top-0 h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-primary-600/20 blur-[120px]" />
         <div className="relative mx-auto max-w-4xl">
@@ -388,6 +393,7 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+      </div>
     </div>
   );
 }

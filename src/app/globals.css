@@ -121,6 +121,67 @@ body {
   }
 }
 
+/* ============ App welcome screen ============ */
+.welcome-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(110px);
+  will-change: transform, opacity;
+}
+.welcome-glow-a {
+  left: 10%;
+  top: -12%;
+  width: 480px;
+  height: 480px;
+  background: rgba(124, 58, 237, 0.32);
+  animation: glowDrift 9s ease-in-out infinite;
+}
+.welcome-glow-b {
+  right: 6%;
+  top: 24%;
+  width: 420px;
+  height: 420px;
+  background: rgba(217, 70, 239, 0.2);
+  animation: glowDrift 11s ease-in-out infinite reverse;
+}
+.welcome-glow-c {
+  left: 18%;
+  bottom: -18%;
+  width: 520px;
+  height: 520px;
+  background: rgba(245, 158, 11, 0.12);
+  animation: glowDrift 13s ease-in-out infinite;
+  animation-delay: 1.4s;
+}
+@keyframes glowDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(0, -22px, 0) scale(1.06);
+    opacity: 1;
+  }
+}
+
+.welcome-exit {
+  animation: welcomeExit 0.45s ease forwards;
+}
+@keyframes welcomeExit {
+  to {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-glow,
+  .welcome-exit {
+    animation: none !important;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
