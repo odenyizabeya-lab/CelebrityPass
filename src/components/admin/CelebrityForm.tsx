@@ -83,11 +83,30 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
   const [preparedTiers, setPreparedTiers] = useState<PreparedTier[]>([]);
 
-  const submit = async (e: React.FormEvent) => {
+  /** Never send a multi-megabyte photo. Compress anything still raster and
+ * bigger than ~700KB so the saved image and the JSON payload both stay sane
+ * (small PNGs/WebP pass through untouched; only oversized raster re-encodes). */
+const shrinkImage = async (value: string | null | undefined): Promise<string | null | undefined> => {
+  if (!value || !/^data:image\/(png|jpe?g|webp);base64,/i.test(value)) return value;
+  const bytes = Math.round((value.length * 3) / 4);
+  if (bytes < 1_000_000) return value;
+  try {
+    return await downscaleImage(value, 1600, 0.82);
+  } catch {
+    return value;
+  }
+};
+
+const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setDuplicate(null);
     setLoading(true);
+    // Compress any oversized photo before it is stringified into the request,
+    // so saves work regardless of server body-size limits.
+    const rawProfile = profileChanged || mode === "create" ? profileImage : undefined;
+    const rawCover = coverChanged || mode === "create" ? coverImage : undefined;
+    const [savedProfile, savedCover] = await Promise.all([shrinkImage(rawProfile), shrinkImage(rawCover)]);
     const payload = {
       name,
       slug: slug || undefined,
@@ -100,8 +119,8 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
       isActive,
       isVerified,
       accentColor: accent,
-      profileImage: profileChanged || mode === "create" ? profileImage : undefined,
-      coverImage: coverChanged || mode === "create" ? coverImage : undefined,
+      profileImage: savedProfile,
+      coverImage: savedCover,
       instagramFollowers: igFollowers === "" ? null : Number(igFollowers),
       tiktokFollowers: ttFollowers === "" ? null : Number(ttFollowers),
       facebookFollowers: fbFollowers === "" ? null : Number(fbFollowers),
@@ -120,7 +139,17 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      let data: Record<string, unknown> & { error?: string; code?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // The server sent a non-JSON body (e.g. an oversized-body HTML error).
+        setError(
+          `The server rejected the request (HTTP ${res.status}). If you just uploaded a photo, please use a smaller image and try again.`,
+        );
+        setLoading(false);
+        return;
+      }
       if (!res.ok) {
         const code = data?.code;
         if (code === "CELEBRITY_EXISTS" || code === "IMAGE_EXISTS" || code === "SLUG_EXISTS") {
@@ -132,7 +161,13 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
         return;
       }
       setLoading(false);
-      const id = data.celebrity?.id ?? celebrity!.id;
+      const created = data?.celebrity as { id?: string } | undefined;
+      const id = (edit ? celebrity!.id : undefined) ?? created?.id;
+      if (!id) {
+        setError("Could not determine the saved celebrity id.");
+        setLoading(false);
+        return;
+      }
       if (mode === "create") {
         // Memberships and events still get created, but in the background so the
         // admin is never left waiting on the form.
