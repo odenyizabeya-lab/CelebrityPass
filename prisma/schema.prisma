@@ -39,6 +39,7 @@ bio            String
   facebookFollowers  Int?
   followersUpdatedAt DateTime?
   socialAutoPost  Boolean         @default(true) // eligible for automatic social posting
+  displayFanCount Int?            @unique // auto-assigned Registered Fans figure (unique per celebrity, never shared)
   fans           FanCard[]
   memberships    MembershipLevel[]
   payments       Payment[]

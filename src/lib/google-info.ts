@@ -16,6 +16,7 @@ export type GoogleInfo = {
   occupations: string[]; // e.g. ["Actor","Producer","Musician"]
   films: string[]; // titled film credits, e.g. ["Pirates…","Edward Scissorhands"]
   overview: string | null; // the Google-style encyclopedic overview paragraph
+  siteLinks: number | null; // languages the Wikipedia article exists in (global fame proxy)
   wikipediaUrl: string | null;
   source: "wikipedia/wikidata";
   fetchedAt: string;
@@ -188,6 +189,7 @@ export async function fetchGoogleInfo(
       occupations: [],
       films: [],
       overview: null,
+      siteLinks: null,
       wikipediaUrl: `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`,
       source: "wikipedia/wikidata",
       fetchedAt: new Date().toISOString(),
@@ -207,10 +209,11 @@ export async function fetchGoogleInfo(
     // 2) Born + occupations + films from Wikidata when an entity exists.
     if (wikidataId) {
       const ent = (await fetchJson(
-        `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidataId}&props=claims|descriptions&languages=en&format=json`
-      )) as { entities?: Record<string, { claims?: Record<string, unknown>; descriptions?: Record<string, { value?: string }> }> };
+        `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidataId}&props=claims|descriptions|sitelinks&languages=en&format=json`
+      )) as { entities?: Record<string, { claims?: Record<string, unknown>; descriptions?: Record<string, { value?: string }>; sitelinks?: Record<string, unknown> }> };
       const e = ent && ent.entities ? ent.entities[wikidataId] : undefined;
       if (e) {
+        if (typeof e.sitelinks === "object" && e.sitelinks !== null) info.siteLinks = Object.keys(e.sitelinks).length;
         if (!info.description && e.descriptions && e.descriptions.en?.value) {
           info.description = e.descriptions.en.value;
         }

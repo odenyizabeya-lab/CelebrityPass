@@ -27,7 +27,7 @@ export const es: Dict = {
     titleB: " que amas.",
     sub: "Únete a la comunidad oficial de fans de tus artistas, atletas, actores y creadores favoritos. Obtén una tarjeta de fan digital verificada con tu propio ID de fan, nivel de membresía y una página de tarjeta QR para compartir.",
     statsCommunities: "Comunidades",
-    statsVerifiedFans: "Fans verificados",
+    statsVerifiedFans: "Fans registrados",
     statsActiveCards: "Tarjetas activas",
     statsCountries: "Países",
     statsLiveNote: "Estadísticas en vivo contadas solo desde registros reales",

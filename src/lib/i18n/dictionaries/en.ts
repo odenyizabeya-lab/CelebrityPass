@@ -33,7 +33,7 @@ export const en = {
     titleB: "you love.",
     sub: "Join the official fan community of your favorite artists, athletes, actors, and creators. Get a verified digital fan card with your own Fan ID, membership level, and a shareable QR card page.",
     statsCommunities: "Communities",
-    statsVerifiedFans: "Verified Fans",
+    statsVerifiedFans: "Registered Fans",
     statsActiveCards: "Active Cards",
     statsCountries: "Countries",
     statsLiveNote: "Live statistics counted from real registrations only",

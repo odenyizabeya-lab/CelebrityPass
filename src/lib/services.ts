@@ -1,7 +1,8 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
 import { dataUriDims, profileImageUrl } from "./images";
-import { communityFans, platformFans } from "./display";
+import { platformTotal } from "./display";
+import { displayFanCountFor } from "./fame";
 import { representedCountryList } from "./countries";
 import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
@@ -68,19 +69,11 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
     orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
   });
 
-  const [countRows, countryRows] = await Promise.all([
-    prisma.fanCard.groupBy({
-      by: ["celebrityId"],
-      where: { status: "ACTIVE" },
-      _count: { _all: true },
-    }),
-    prisma.fanCard.findMany({
-      where: { status: "ACTIVE" },
-      select: { celebrityId: true, fan: { select: { country: true } } },
-    }),
-  ]);
+  const countryRows = await prisma.fanCard.findMany({
+    where: { status: "ACTIVE" },
+    select: { celebrityId: true, fan: { select: { country: true } } },
+  });
 
-  const fanCountByCeleb = new Map(countRows.map((r) => [r.celebrityId, r._count._all]));
   const countriesByCeleb = new Map<string, Set<string>>();
   for (const row of countryRows) {
     const cc = row.fan.country;
@@ -121,7 +114,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       isFeatured: c.isFeatured,
       isActive: c.isActive,
       isVerified: c.isVerified,
-      fanCount: communityFans(fanCountByCeleb.get(c.id) ?? 0),
+      fanCount: displayFanCountFor(c),
       countryCount: countriesByCeleb.get(c.id)?.size ?? 0,
       createdAt: c.createdAt,
       instagramFollowers: c.instagramFollowers,
@@ -188,7 +181,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,
     isVerified: celebrity.isVerified,
-    fanCount: communityFans(activeFans.length),
+    fanCount: displayFanCountFor(celebrity),
     countryCount: countries.size,
     createdAt: celebrity.createdAt,
     instagramFollowers: celebrity.instagramFollowers,
@@ -247,9 +240,19 @@ export async function getPlatformStats(): Promise<PlatformStats> {
       }),
       prisma.celebrity.findMany({
         where: { isActive: true },
-        select: { country: true },
+        select: {
+          slug: true,
+          country: true,
+          displayFanCount: true,
+          googleInfo: true,
+          instagramFollowers: true,
+          tiktokFollowers: true,
+          facebookFollowers: true,
+        },
       }),
     ]);
+
+  const displayedCounts = celebrityCountryRows.map((r) => displayFanCountFor(r));
 
   const countries = representedCountryList([
     ...celebrityCountryRows.map((r) => r.country),
@@ -259,7 +262,7 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   return {
     celebrities,
     activeCelebrities,
-    fans: platformFans(activeCelebrities, fans),
+    fans: platformTotal(displayedCounts, fans),
     activeCards,
     totalCards,
     countries: countries.length,

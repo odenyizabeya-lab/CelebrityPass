@@ -27,7 +27,7 @@ export const fr: Dict = {
     titleB: " que vous aimez.",
     sub: "Rejoignez la communauté officielle de fans de vos artistes, athlètes, acteurs et créateurs préférés. Obtenez une carte de fan numérique vérifiée avec votre propre ID de fan, votre niveau d'adhésion et une page de carte QR partageable.",
     statsCommunities: "Communautés",
-    statsVerifiedFans: "Fans vérifiés",
+    statsVerifiedFans: "Fans inscrits",
     statsActiveCards: "Cartes actives",
     statsCountries: "Pays",
     statsLiveNote: "Statistiques en direct issues uniquement des inscriptions réelles",

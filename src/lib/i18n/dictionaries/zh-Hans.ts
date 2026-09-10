@@ -27,7 +27,7 @@ export const zhHans: Dict = {
     titleB: "。",
     sub: "加入您最喜爱的艺人、运动员、演员和创作者的官方粉丝社区。获取带有专属粉丝 ID、会员等级和可分享二维码卡片的已验证数字粉丝卡。",
     statsCommunities: "社区",
-    statsVerifiedFans: "已验证粉丝",
+    statsVerifiedFans: "注册粉丝",
     statsActiveCards: "有效卡片",
     statsCountries: "国家/地区",
     statsLiveNote: "实时统计仅来自真实注册",

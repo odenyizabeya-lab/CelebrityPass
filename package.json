@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && prisma generate && node prisma/apply-premium-levels.mjs && node prisma/set-base-memberships.mjs && next build",
+    "build": "prisma migrate deploy && prisma generate && node prisma/apply-premium-levels.mjs && node prisma/set-base-memberships.mjs && node prisma/assign-fan-counts.mjs && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint",
@@ -13,7 +13,7 @@
     "db:seed": "node prisma/seed.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:setup": "prisma generate && prisma db push && node prisma/seed.mjs && node prisma/set-base-memberships.mjs",
+    "db:setup": "prisma generate && prisma db push && node prisma/seed.mjs && node prisma/set-base-memberships.mjs && node prisma/assign-fan-counts.mjs",
     "premium:apply": "node prisma/apply-premium-levels.mjs",
     "base:apply": "node prisma/set-base-memberships.mjs",
     "events:seed": "node prisma/seed-events.mjs",

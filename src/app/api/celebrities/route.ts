@@ -5,6 +5,8 @@ import { defaultFollowerCounts } from "@/lib/followers";
 import { getCelebritySummaries } from "@/lib/services";
 import { isAdminAuthed } from "@/lib/auth";
 import { fetchGoogleInfo } from "@/lib/google-info";
+import { assignFanNumber, fameTier, maxFollowers } from "@/lib/fame";
+import { FANS_BIG_MIN } from "@/lib/display";
 
 export const dynamic = "force-dynamic";
 
@@ -89,10 +91,19 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Assign the celebrity's unique Registered Fans figure right away based on
+  // what we already know. The Google knowledge panel (fetched in the background
+  // below) may later reveal the celebrity is famous enough to move up a tier.
+  const maxF = maxFollowers({ instagramFollowers, tiktokFollowers, facebookFollowers });
+  await assignFanNumber(celebrity.id, celebrity.slug, fameTier(null, maxF));
+
   // Auto-populate the Google-style knowledge panel for a NEW celebrity in the
   // background (never blocks the create response). If lookups fail, the profile
-  // falls back to its own bio — nothing is ever fabricated.
+  // falls back to its own bio — nothing is ever fabricated. When the panel
+  // shows a genuinely big public figure, its fan number moves up to the big
+  // tier (1M–5M).
   const celebId = celebrity.id;
+  const celebSlug = celebrity.slug;
   const celebName = celebrity.name;
   void (async () => {
     try {
@@ -100,6 +111,16 @@ export async function POST(request: NextRequest) {
         profession: celebrity.profession,
         category: celebrity.category,
       });
+      const panelTier = fameTier(info, maxF);
+      if (panelTier === "big") {
+        const current = await prisma.celebrity.findUnique({
+          where: { id: celebId },
+          select: { displayFanCount: true },
+        });
+        if ((current?.displayFanCount ?? 0) < FANS_BIG_MIN) {
+          await assignFanNumber(celebId, celebSlug, "big");
+        }
+      }
       if (info) {
         await prisma.celebrity.update({
           where: { id: celebId },
