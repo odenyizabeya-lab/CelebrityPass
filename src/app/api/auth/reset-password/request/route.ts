@@ -3,7 +3,8 @@ import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { clientIp } from "@/lib/trust";
 import { makeRateLimiter } from "@/lib/secure";
-import { sendEmail } from "@/lib/emails";
+import { enqueuePasswordReset } from "@/lib/emails/senders";
+import { isEmailProviderConfigured } from "@/lib/emails/provider";
 import { appUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -40,33 +41,25 @@ export async function POST(request: NextRequest) {
   }
 
   const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   await prisma.passwordResetToken.create({
-    data: { fanId: fan.id, tokenHash: hashToken(token), expiresAt },
+    data: { fanId: fan.id, tokenHash, expiresAt },
   });
 
   const base = appUrl();
   const resetUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`;
-  const sent = await sendEmail(
-    [fan.email],
-    "Reset your CelebrityPass password",
-    `<p>Hi ${fan.name},</p>
-     <p>We received a request to reset your CelebrityPass password. Use the link below to choose a new password. This link is valid for <strong>1 hour</strong>.</p>
-     <p><a href="${resetUrl}" style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Reset your password</a></p>
-     <p>If you didn't request this, you can safely ignore this email — your password won't change.</p>`,
-  );
-
-  if (!sent) {
-    return NextResponse.json({
-      ok: true,
-      message:
-        "If an account exists for that email, a reset link has been sent.",
-      emailUnconfigured: true,
-    });
+  // Durable: written to the email queue with a per-token dedupe key (every
+  // reset request gets its own link). The queue retries up to 3 times.
+  try {
+    await enqueuePasswordReset({ fan, resetUrl, tokenHash });
+  } catch (err) {
+    console.error("[email] Password reset enqueue failed:", err);
   }
 
   return NextResponse.json({
     ok: true,
     message: "If an account exists for that email, a reset link has been sent.",
+    emailUnconfigured: !(await isEmailProviderConfigured()),
   });
 }

@@ -5,6 +5,7 @@
  * `.env` to "mock" (dev-only) or "stripe" (production). When "stripe" is set,
  * STRIPE_SECRET_KEY must also be present.
  */
+import { appUrl, cardUrlFor } from "./utils";
 
 export type CardDetails = {
   name: string;
@@ -191,6 +192,34 @@ export async function settlePayment(paymentId: string, origin?: string | null) {
     membershipLevelId: payment.membershipLevelId,
     origin,
   });
+
+  // Durable payment-confirmation email. This is the ONLY spot that settles a
+  // fan-card payment, and payment.gatewayRef + cardId guard run twice at the
+  // database level — even a doubled webhook/call can never send it twice.
+  prisma.fanCard
+    .findUnique({
+      where: { id: card.id },
+      include: { celebrity: true, fan: true, membershipLevel: true },
+    })
+    .then(async (final) => {
+      if (!final) return;
+      const { sendPaymentReceipt } = await import("./emails/senders");
+      await sendPaymentReceipt({
+        payment: {
+          id: payment.id,
+          amount: payment.amount,
+          currency: payment.currency,
+          gatewayRef: payment.gatewayRef,
+          paidAt: new Date(),
+        },
+        fan: { id: final.fan.id, name: final.fan.name, email: final.fan.email },
+        celebrityName: final.celebrity.name,
+        level: final.membershipLevel?.name ?? "Fan Card",
+        cardNumber: final.fanNumber,
+        cardUrl: `${origin ?? appUrl()}${final.cardUrl ?? cardUrlFor(final.celebrity.slug, final.fanNumber)}`,
+      });
+    })
+    .catch(() => {});
 
   return prisma.payment.update({
     where: { id: paymentId },

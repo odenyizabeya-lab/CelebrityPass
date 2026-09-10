@@ -42,16 +42,17 @@ async function issueCard(
     include: { celebrity: true, fan: true, membershipLevel: true },
   });
 
-  // Fire an email notification (non-blocking).
-  import("./emails").then(({ notifyCardIssued }) =>
-    notifyCardIssued({
-      to: final.fan.email,
-      fanName: final.fan.name,
+  // Fire the fan-card activation email through the durable queue (fire and
+  // forget — enqueue dedupeKey keeps it to exactly one send per card).
+  import("./emails/senders").then(({ sendCardActivated }) =>
+    sendCardActivated({
+      card: { id: final.id },
+      fan: { id: final.fan.id, name: final.fan.name, email: final.fan.email },
       celebrityName: final.celebrity.name,
       membershipName: final.membershipLevel?.name ?? null,
       cardNumber: final.fanNumber,
       cardUrl: `${baseOrigin}${cardUrl}`,
-    }),
+    }).catch(() => {}),
   );
 
   return final;

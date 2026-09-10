@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/utils";
 import { createFanSession } from "@/lib/auth";
 import { clientIp } from "@/lib/trust";
 import { makeRateLimiter } from "@/lib/secure";
+import { sendRegistrationEmails } from "@/lib/emails/senders";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,14 @@ export async function POST(request: NextRequest) {
       password: hashPassword(password),
     },
   });
+
+  // Welcome + email-verification burst. Expected to succeed, but a broken
+  // email provider must never fail the registration itself.
+  try {
+    await sendRegistrationEmails(fan);
+  } catch (err) {
+    console.error("[email] Registration email burst failed:", err);
+  }
 
   await createFanSession(fan.id);
 

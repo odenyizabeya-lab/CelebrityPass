@@ -15,6 +15,7 @@ import {
   DUP_CODE,
   type DuplicateCode,
 } from "@/lib/dedupe";
+import { sendNewCelebrityAnnouncement } from "@/lib/emails/senders";
 
 export const dynamic = "force-dynamic";
 
@@ -198,6 +199,15 @@ export async function POST(request: NextRequest) {
   // below) may later reveal the celebrity is famous enough to move up a tier.
   const maxF = maxFollowers({ instagramFollowers, tiktokFollowers, facebookFollowers });
   await assignFanNumber(celebrity.id, celebrity.slug, fameTier(null, maxF));
+
+  // Notify fans who opted into "New celebrity added" updates. A real, curated
+  // customer-facing announcement — never fires for ordinary edits.
+  void sendNewCelebrityAnnouncement({
+    id: celebrity.id,
+    slug: celebrity.slug,
+    name: celebrity.name,
+    category: celebrity.category,
+  }).catch((err) => console.error("[email] New-celebrity announcement failed:", err));
 
   // Auto-populate the Google-style knowledge panel for a NEW celebrity in the
   // background (never blocks the create response). If lookups fail, the profile

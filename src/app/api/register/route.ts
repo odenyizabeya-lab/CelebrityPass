@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/utils";
 import { createFanSession } from "@/lib/auth";
 import { issueFanCard } from "@/lib/cards";
+import { sendRegistrationEmails } from "@/lib/emails/senders";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,12 @@ export async function POST(request: NextRequest) {
         password: password ? hashPassword(password) : null,
       },
     });
+    // New fan → welcome + verification burst (idempotent, never blocks join).
+    try {
+      await sendRegistrationEmails(fan);
+    } catch (err) {
+      console.error("[email] Registration email burst failed:", err);
+    }
   }
 
   // Idempotency: if the fan already holds a card in THIS community, return it.

@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import { getCurrentFanId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import AccountSettingsForm from "@/components/AccountSettingsForm";
+import NotificationPreferences from "@/components/NotificationPreferences";
+import ResendVerificationButton from "@/components/ResendVerificationButton";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Account Settings",
-  description: "Manage your CelebrityPass account, password, and data.",
+  description: "Manage your CelebrityPass account, password, and notifications.",
   alternates: { canonical: "/account" },
 };
 
@@ -35,9 +37,21 @@ export default async function AccountPage() {
           {fan.email} · member since{" "}
           {fan.createdAt.toLocaleDateString("en-US", { year: "numeric", month: "short" })}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+              fan.emailVerified
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+            }`}
+          >
+            {fan.emailVerified ? "Email verified" : "Email not verified"}
+          </span>
+          {!fan.emailVerified && <ResendVerificationButton />}
+        </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-6">
         <AccountSettingsForm
           initialFan={{
             id: fan.id,
@@ -47,6 +61,17 @@ export default async function AccountPage() {
             country: fan.country,
             createdAt: fan.createdAt.toISOString(),
             hasPassword: Boolean(fan.password),
+          }}
+        />
+        <NotificationPreferences
+          initial={{
+            emailVerified: fan.emailVerified,
+            emailVerifiedAt: fan.emailVerifiedAt?.toISOString() ?? null,
+            notifyNewCelebrities: fan.notifyNewCelebrities,
+            notifyUpdates: fan.notifyUpdates,
+            notifyCommunity: fan.notifyCommunity,
+            notifyPromotions: fan.notifyPromotions,
+            unsubscribedAt: fan.unsubscribedAt?.toISOString() ?? null,
           }}
         />
       </div>

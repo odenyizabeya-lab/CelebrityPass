@@ -28,6 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <nav className="mt-4 space-y-1">
             <AdminLink href="/admin/events/sources" label="Event Sources" />
             <AdminLink href="/admin/notifications" label="Notifications" />
+            <AdminLink href="/admin/emails" label="Email Center" />
             <AdminLink href="/admin/payments/bank" label="Bank Accounts" />
 <AdminLink href="/admin/payments/verify" label="Verify Transfers" />
           <AdminLink href="/admin/ai-settings" label="AI Settings" />
@@ -50,6 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/payments/verify" label="Verify Transfers" compact />
           <AdminLink href="/admin/ai-settings" label="AI Settings" compact />
           <AdminLink href="/admin/notifications" label="Notifications" compact />
+          <AdminLink href="/admin/emails" label="Email Center" compact />
           <AdminLink href="/admin/security" label="Account & Security" compact />
           <AdminLink href="/admin/events/sources" label="Event Sources" compact />
         </div>

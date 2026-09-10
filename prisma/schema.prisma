@@ -57,6 +57,7 @@ model Celebrity {
   payments       Payment[]
   events         CelebrityEvent[]
   socialArticles SocialArticle[]
+  announcements  EmailAnnouncement[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -95,9 +96,24 @@ model Fan {
   phone     String?
   country   String?
   isActive  Boolean   @default(true)
-  cards     FanCard[]
-  payments  Payment[]
+
+  // Email verification + notification preferences. Transactional emails
+  // (account, security, payment confirmations) are always sent; every other
+  // category can be switched off from /account or via the one-click
+  // unsubscribe link in the footer of every promotional email.
+  emailVerified        Boolean   @default(false)
+  emailVerifiedAt      DateTime?
+  notifyNewCelebrities Boolean   @default(true) // "New celebrity added" announcements
+  notifyUpdates        Boolean   @default(true) // important platform updates
+  notifyCommunity      Boolean   @default(true) // community/news updates
+  notifyPromotions     Boolean   @default(true) // optional promotional/marketing
+  unsubscribedAt       DateTime?
+
+  cards        FanCard[]
+  payments     Payment[]
   ticketOrders TicketOrder[]
+  emailMessages EmailMessage[]
+  emailVerifications EmailVerificationToken[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -872,4 +888,104 @@ model SocialOAuthState {
 
   @@index([state])
   @@index([expiresAt])
+}
+
+// ===========================================================================
+// EMAIL & NOTIFICATION SYSTEM
+// ---------------------------------------------------------------------------
+// A persistent email queue. Every customer-facing email is written here first
+// (with a unique `dedupeKey` so the same message can never be queued twice),
+// then a background worker sends it in small batches with automatic retries
+// (up to `maxAttempts`) and records delivery status from provider webhooks.
+// ---------------------------------------------------------------------------
+
+// One queued/sent email message. `dedupeKey` (e.g. "welcome:<fanId>") is the
+// idempotency guard: calling enqueueEmail twice for the same event returns the
+// original row instead of creating a second email.
+model EmailMessage {
+  id                String   @id @default(cuid())
+  fanId             String?
+  fan               Fan?     @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  announcementId    String?
+  announcement      EmailAnnouncement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  dedupeKey         String   @unique
+  type              String   // WELCOME | EMAIL_VERIFICATION | PASSWORD_RESET | PAYMENT_RECEIPT | CARD_ACTIVATED | NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
+  to                String
+  from              String?
+  subject           String
+  template          String
+  htmlBody          String   @db.Text
+  status            String   @default("PENDING") // PENDING | SENDING | SENT | DELIVERED | OPENED | FAILED | PERMANENT_FAILED | CANCELED
+  attempts          Int      @default(0)
+  maxAttempts       Int      @default(3)
+  nextAttemptAt     DateTime @default(now())
+  lastError         String?
+  providerMessageId String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([fanId])
+  @@index([announcementId])
+  @@index([providerMessageId])
+  @@index([createdAt])
+}
+
+// An admin-defined broadcast. `audienceConfigJson` holds the selector for the
+// chosen audience type; the worker fans eligible recipients out as individual
+// EmailMessage rows (batch-insered, one per fan).
+model EmailAnnouncement {
+  id                 String   @id @default(cuid())
+  title              String
+  audienceType       String   // ALL_SUBSCRIBED | NEW_CELEBRITY | CELEBRITY_FANS | MEMBERSHIP_LEVEL | COUNTRY | SPECIFIC_FANS
+  audienceConfigJson String?
+  template           String   // NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
+  celebrityId        String?
+  celebrity          Celebrity? @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
+  subject            String
+  htmlBody           String?  @db.Text // rendered at send time so it is always current
+  status             String   @default("DRAFT") // DRAFT | SENDING | SENT | CANCELED
+  targetsCount       Int      @default(0)
+  enqueuedCount      Int      @default(0)
+  sentCount          Int      @default(0)
+  failedCount        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  messages           EmailMessage[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// One-time email-verification tokens (hashed at rest, like password resets).
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  fanId     String
+  fan       Fan      @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([fanId])
+  @@index([expiresAt])
+}
+
+// Idempotency ledger for incoming provider webhooks. A provider event ID is
+// stored here once; if the provider retries/delivers the same event twice the
+// duplicate is ignored. Replaces per-provider webhook fetch logic.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String   // e.g. "resend"
+  eventId    String   @unique
+  type       String?
+  payload    String?  @db.Text
+  receivedAt DateTime @default(now())
+  handledAt  DateTime?
+
+  @@index([provider])
+  @@index([receivedAt])
 }

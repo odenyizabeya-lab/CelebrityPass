@@ -1,0 +1,2 @@
+-- Back-relation for EmailVerificationToken -> Fan (onDelete: Cascade)
+ALTER TABLE "EmailVerificationToken" ADD CONSTRAINT "EmailVerificationToken_fanId_fkey" FOREIGN KEY ("fanId") REFERENCES "Fan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
