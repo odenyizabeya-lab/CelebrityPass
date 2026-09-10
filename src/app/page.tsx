@@ -5,6 +5,7 @@ import HeroSearch from "@/components/HeroSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
 import { getCelebritySummaries, getPlatformStats, toCardCelebrity } from "@/lib/services";
+import { representedCountryList } from "@/lib/countries";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/payments";
 
@@ -25,7 +26,10 @@ export default async function HomePage() {
     by: ["country"],
     _count: { _all: true },
   });
-  const memberCountries = memberCountryGroups.map((g) => ({ country: g.country ?? "" }));
+  const representedCountries = representedCountryList([
+    ...celebrities.map((c) => c.country),
+    ...memberCountryGroups.map((g) => g.country),
+  ]);
 
   return (
     <div className="overflow-hidden">
@@ -310,34 +314,26 @@ export default async function HomePage() {
             </p>
           </div>
 
-          {memberCountries.length === 0 ? (
-            <div className="mx-auto mt-10 max-w-xl">
-              <EmptyState message={<T k="countries.empty" />} />
+          <div className="mx-auto mt-8 flex max-w-xl justify-center">
+            <div className="glass rounded-2xl px-8 py-5 text-center">
+              <p className="text-4xl font-black text-white">
+                <CountUp value={representedCountries.length} />
+              </p>
+              <p className="text-xs font-medium text-zinc-500">
+                <T k="countries.count" />
+              </p>
             </div>
-          ) : (
-            <>
-              <div className="mx-auto mt-8 flex max-w-xl justify-center">
-                <div className="glass rounded-2xl px-8 py-5 text-center">
-                  <p className="text-4xl font-black text-white">
-                    <CountUp value={memberCountries.length} />
-                  </p>
-                  <p className="text-xs font-medium text-zinc-500">
-                    <T k="countries.count" />
-                  </p>
-                </div>
-              </div>
-              <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2">
-                {memberCountries.map((c) => (
-                  <span
-                    key={c.country}
-                    className="rounded-full bg-white/[0.05] px-4 py-1.5 text-sm font-medium text-zinc-300 ring-1 ring-white/10"
-                  >
-                    {c.country}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
+          </div>
+          <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2">
+            {representedCountries.map((c) => (
+              <span
+                key={c}
+                className="rounded-full bg-white/[0.05] px-4 py-1.5 text-sm font-medium text-zinc-300 ring-1 ring-white/10"
+              >
+                {c}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -1,6 +1,8 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
 import { dataUriDims, profileImageUrl } from "./images";
+import { communityFans, platformFans } from "./display";
+import { representedCountryList } from "./countries";
 import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
 import type { GoogleInfo } from "./google-info";
@@ -119,7 +121,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       isFeatured: c.isFeatured,
       isActive: c.isActive,
       isVerified: c.isVerified,
-      fanCount: fanCountByCeleb.get(c.id) ?? 0,
+      fanCount: communityFans(fanCountByCeleb.get(c.id) ?? 0),
       countryCount: countriesByCeleb.get(c.id)?.size ?? 0,
       createdAt: c.createdAt,
       instagramFollowers: c.instagramFollowers,
@@ -186,7 +188,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,
     isVerified: celebrity.isVerified,
-    fanCount: activeFans.length,
+    fanCount: communityFans(activeFans.length),
     countryCount: countries.size,
     createdAt: celebrity.createdAt,
     instagramFollowers: celebrity.instagramFollowers,
@@ -224,22 +226,44 @@ export type PlatformStats = {
   countries: number;
 };
 
-/** Live platform statistics — every figure comes from the database. */
+/**
+ * Live platform statistics. Fan and country figures are display totals powered
+ * by the growth engine (see display.ts / countries.ts): fans start at 9,272 and
+ * climb toward 1,000,000 as communities grow; countries start at a base list of
+ * 82 and grow automatically from the countries found on celebrities and fans.
+ */
 export async function getPlatformStats(): Promise<PlatformStats> {
-  const [celebrities, activeCelebrities, fans, activeCards, totalCards, countriesRows] = await Promise.all([
-    prisma.celebrity.count(),
-    prisma.celebrity.count({ where: { isActive: true } }),
-    prisma.fan.count({ where: { isActive: true } }),
-    prisma.fanCard.count({ where: { status: "ACTIVE" } }),
-    prisma.fanCard.count(),
-    prisma.fan.groupBy({
-      by: ["country"],
-      where: { isActive: true, country: { not: null } },
-      _count: { _all: true },
-    }),
+  const [celebrities, activeCelebrities, fans, activeCards, totalCards, countriesRows, celebrityCountryRows] =
+    await Promise.all([
+      prisma.celebrity.count(),
+      prisma.celebrity.count({ where: { isActive: true } }),
+      prisma.fan.count({ where: { isActive: true } }),
+      prisma.fanCard.count({ where: { status: "ACTIVE" } }),
+      prisma.fanCard.count(),
+      prisma.fan.groupBy({
+        by: ["country"],
+        where: { isActive: true, country: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.celebrity.findMany({
+        where: { isActive: true },
+        select: { country: true },
+      }),
+    ]);
+
+  const countries = representedCountryList([
+    ...celebrityCountryRows.map((r) => r.country),
+    ...countriesRows.map((r) => r.country),
   ]);
 
-  return { celebrities, activeCelebrities, fans, activeCards, totalCards, countries: countriesRows.length };
+  return {
+    celebrities,
+    activeCelebrities,
+    fans: platformFans(activeCelebrities, fans),
+    activeCards,
+    totalCards,
+    countries: countries.length,
+  };
 }
 
 /** Distinct filter options derived from the database. */
