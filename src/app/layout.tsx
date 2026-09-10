@@ -27,6 +27,20 @@ export const metadata: Metadata = {
     "CelebrityPass is an entertainment platform for legitimate celebrity fan cards, event tickets, concerts, shows, VIP experiences, meet-and-greet experiences, and other legitimate ticketed events.",
   applicationName: "CelebrityPass",
   alternates: { canonical: BASE_URL },
+  openGraph: {
+    type: "website",
+    url: BASE_URL,
+    siteName: "CelebrityPass",
+    title: "CelebrityPass — Official Celebrity Fan Cards & Communities",
+    description:
+      "Get a legitimate official fan card for your favorite celebrity and join their exclusive community. CelebrityPass.",
+  },
+  twitter: {
+    card: "summary",
+    title: "CelebrityPass — Official Celebrity Fan Cards & Communities",
+    description:
+      "Get a legitimate official fan card for your favorite celebrity and join their exclusive community. CelebrityPass.",
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -58,6 +72,31 @@ export default async function RootLayout({
   return (
     <html lang={initialLocale} dir={localeDir(initialLocale)} className="h-full antialiased">
       <body className="flex min-h-full flex-col bg-aurora">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "WebSite",
+                  "@id": `${BASE_URL}/#website`,
+                  url: BASE_URL,
+                  name: "CelebrityPass",
+                  description:
+                    "Official celebrity fan cards and exclusive fan communities. Legitimate tickets and experiences for A-list celebrities, athletes, musicians and creators.",
+                },
+                {
+                  "@type": "Organization",
+                  "@id": `${BASE_URL}/#organization`,
+                  url: BASE_URL,
+                  name: "CelebrityPass",
+                  email: "support@celebritypass.app",
+                },
+              ],
+            }),
+          }}
+        />
         <LanguageProvider initialLocale={initialLocale} serverCountry={serverCountry}>
           <Header />
           <main className="flex-1">{children}</main>
