@@ -1,8 +1,10 @@
 /**
  * Payment gateway layer.
  *
- * All money movement flows through a PaymentProvider. Set PAYMENT_PROVIDER in
- * `.env` to "mock" (dev-only) or "stripe" (production). When "stripe" is set,
+ * Fan-card "ATM Card" purchases flow through Flutterwave (see
+ * `./payments/flutterwave.ts`); this module keeps the legacy provider layer
+ * used by older/direct card-charge paths. Set PAYMENT_PROVIDER in `.env` to
+ * "mock" (dev-only) or "stripe" (production legacy). When "stripe" is set,
  * STRIPE_SECRET_KEY must also be present.
  */
 import { appUrl, cardUrlFor } from "./utils";

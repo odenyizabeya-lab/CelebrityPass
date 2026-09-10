@@ -32,6 +32,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AdminLink href="/admin/payments/bank" label="Bank Accounts" />
 <AdminLink href="/admin/payments/verify" label="Verify Transfers" />
           <AdminLink href="/admin/ai-settings" label="AI Settings" />
+            <AdminLink href="/admin/payment-settings" label="Payment Settings" />
           <AdminLink href="/admin/security" label="Account & Security" />
             <Link href="/" className="block rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-white">
               View public site →
@@ -50,6 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/payments/bank" label="Bank Accounts" compact />
           <AdminLink href="/admin/payments/verify" label="Verify Transfers" compact />
           <AdminLink href="/admin/ai-settings" label="AI Settings" compact />
+          <AdminLink href="/admin/payment-settings" label="Payment Settings" compact />
           <AdminLink href="/admin/notifications" label="Notifications" compact />
           <AdminLink href="/admin/emails" label="Email Center" compact />
           <AdminLink href="/admin/security" label="Account & Security" compact />

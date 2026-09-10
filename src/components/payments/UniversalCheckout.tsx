@@ -259,39 +259,49 @@ export default function UniversalCheckout(props: Props) {
 
     setProcessing(true);
     try {
-      if (props.kind === "FAN_CARD") {
-        const res = await fetch(`/api/payments/${props.purchaseId}/pay`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? "Card payment failed. Please try again.");
-          setProcessing(false);
-          return;
-        }
-        window.location.href = props.redirectUrl;
-      } else {
-        const res = await fetch("/api/universal/atm-card", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "TICKET",
-            orderRef: props.orderRef,
-            card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? "Card payment could not be completed.");
-          setProcessing(false);
-          return;
-        }
-        window.location.href = props.redirectUrl;
+      const res = await fetch("/api/universal/atm-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "TICKET",
+          orderRef: props.orderRef,
+          card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Card payment could not be completed.");
+        setProcessing(false);
+        return;
       }
+      window.location.href = props.redirectUrl;
+    } catch {
+      setError("Network error. Please try again.");
+      setProcessing(false);
+    }
+  };
+
+  const payByCardFanCard = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!props.purchaseId) {
+      setError("This purchase is missing its payment reference.");
+      return;
+    }
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/payments/${props.purchaseId}/flutterwave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.link) {
+        setError(data.error ?? "Card payment could not be started.");
+        setProcessing(false);
+        return;
+      }
+      window.location.href = data.link;
     } catch {
       setError("Network error. Please try again.");
       setProcessing(false);
@@ -567,7 +577,37 @@ export default function UniversalCheckout(props: Props) {
       )}
 
       {method === "atm-card" && cardAvailable && (
-        <form onSubmit={payByCard} className="space-y-6">
+        props.kind === "FAN_CARD" ? (
+          <div className="space-y-6">
+            <div>
+              <StepHeader n={2} title="Card payment" subtitle={`Pay ${total} securely — you'll be taken to a secure payment page.`} />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-zinc-400">
+              We never see your card details. You&apos;ll be redirected to the card processor&apos;s secure page to finish your
+              payment, and your fan card is issued automatically once the payment is confirmed.
+            </div>
+
+            {error && (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-500">{t("checkout.secureNote")}</p>
+              <button
+                type="button"
+                onClick={payByCardFanCard}
+                disabled={processing}
+                className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
+              >
+                {processing ? "Redirecting…" : `${t("checkout.payNow")} · ${total}`}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={payByCard} className="space-y-6">
           <div>
             <StepHeader n={2} title="Card payment" subtitle={`Enter your card details to pay ${total} securely.`} />
           </div>
@@ -612,7 +652,8 @@ export default function UniversalCheckout(props: Props) {
               {processing ? t("checkout.processing") : `${t("checkout.payNow")} · ${total}`}
             </button>
           </div>
-        </form>
+          </form>
+        )
       )}
 
       {method === "atm-card" && !cardAvailable && (

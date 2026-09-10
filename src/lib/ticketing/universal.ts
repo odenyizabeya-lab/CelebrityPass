@@ -12,7 +12,9 @@
  *      on the customer's word alone.
  *
  *   2. "ATM Card"       — money moves through a real card processor. The
- *      gateway's brand is never shown to the customer. If no card processor is
+ *      gateway's brand is never shown to the customer. Fan cards pay through
+ *      Flutterwave's hosted page (credentialed from Admin → Payment Settings);
+ *      ticket orders use their registered gateway. If no card processor is
  *      configured this option is honestly shown as "not connected yet" and is
  *      never faked.
  *
@@ -22,6 +24,7 @@
 
 import { listActiveBankAccounts, type PublicBankAccount } from "./banking";
 import { getGateway } from "./gateways";
+import { getFlutterwaveConfig } from "@/lib/payments/flutterwave";
 
 // The two customer-facing methods. The ATM gateway brand is never surfaced.
 export const UNIVERSAL_METHOD_BANK = "bank-transfer";
@@ -77,10 +80,17 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
   const bankUnavailable = !bankForCurrency ? "Bank Transfer isn't set up yet on this site." : undefined;
 
   // --- ATM Card -----------------------------------------------------------
-  // A live card flow needs a registered processor with credentials. If not
-  // connected, we show the option honestly (never a fake charge form).
-  const cardGateway = getGateway(UNIVERSAL_METHOD_CARD);
-  const cardConnected = Boolean(cardGateway && cardGateway.hasCredentials());
+  // Fan cards are charged through Flutterwave (hosted page, brand hidden).
+  // Ticket orders still use their registered gateway. If not connected, we
+  // show the option honestly (never a fake charge form).
+  let cardConnected: boolean;
+  if (plan.kind === "FAN_CARD") {
+    const fw = await getFlutterwaveConfig();
+    cardConnected = fw.enabled && (fw.environment === "test" || fw.environment === "live") && Boolean(fw.clientId) && Boolean(fw.clientSecret);
+  } else {
+    const cardGateway = getGateway(UNIVERSAL_METHOD_CARD);
+    cardConnected = Boolean(cardGateway && cardGateway.hasCredentials());
+  }
   const cardUnavailable = !cardConnected
     ? "ATM Card payments aren't enabled on this site yet."
     : undefined;

@@ -162,7 +162,7 @@ model Payment {
   amount            Float
   currency          String            @default("USD")
   status            String            @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
-  provider          String            @default("mock")    // mock | stripe | paypal
+  provider          String            @default("mock")    // mock | stripe | flutterwave | paypal | bank
   gatewayRef        String?           @unique // provider charge reference id — a charge can never settle twice
 description       String?           // e.g. "Taylor Swift — Swiftie Gold"
   createdAt         DateTime          @default(now())

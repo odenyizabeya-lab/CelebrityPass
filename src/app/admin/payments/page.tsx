@@ -79,6 +79,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
                   <th className="px-5 py-3 font-semibold">Order</th>
                   <th className="px-5 py-3 font-semibold">Fan</th>
                   <th className="px-5 py-3 font-semibold">Amount</th>
+                  <th className="px-5 py-3 font-semibold">Gateway</th>
                   <th className="px-5 py-3 font-semibold">Reference</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Date</th>
@@ -99,6 +100,9 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
                       <p className="text-xs text-zinc-500">{p.fan.email}</p>
                     </td>
                     <td className="px-5 py-3.5 font-black text-white">{formatMoney(p.amount, p.currency)}</td>
+                    <td className="px-5 py-3.5">
+                      <ProviderChip provider={p.provider} />
+                    </td>
                     <td className="px-5 py-3.5 font-mono text-xs text-zinc-400">{p.gatewayRef ?? "—"}</td>
                     <td className="px-5 py-3.5">
                       <PaymentStatus status={p.status} />
@@ -128,4 +132,15 @@ function PaymentStatus({ status }: { status: string }) {
     REFUNDED: "bg-zinc-500/15 text-zinc-400",
   };
   return <span className={`rounded-full px-3 py-1 text-xs font-bold ${map[status] ?? map.PENDING}`}>{status}</span>;
+}
+
+function ProviderChip({ provider }: { provider: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    flutterwave: { label: "Flutterwave", cls: "bg-sky-500/15 text-sky-300" },
+    stripe: { label: "Stripe", cls: "bg-violet-500/15 text-violet-300" },
+    mock: { label: "Mock", cls: "bg-zinc-500/15 text-zinc-400" },
+    bank: { label: "Bank", cls: "bg-amber-500/15 text-amber-300" },
+  };
+  const entry = map[provider] ?? { label: provider || "—", cls: "bg-zinc-500/15 text-zinc-400" };
+  return <span className={`rounded-full px-3 py-1 text-xs font-bold ${entry.cls}`}>{entry.label}</span>;
 }
