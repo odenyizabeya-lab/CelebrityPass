@@ -11,7 +11,7 @@
 // valid"). Every other failure is reported with its real cause.
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
-import { classifyError, type AiErrorType } from "@/lib/ai/gemini";
+import { classifyError, type AiErrorType } from "@/lib/ai/client";
 import {
   getGeminiKeys,
   getAIModel,

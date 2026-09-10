@@ -3,7 +3,7 @@
 // Returns the prepared payload for admin review. Performs NO writes.
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
-import { runCelebrityScan } from "@/lib/ai/scan";
+import { runCelebrityScan } from "@/lib/ai/scanner";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

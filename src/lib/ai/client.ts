@@ -1,79 +1,80 @@
-// Minimal, dependency-free Gemini REST client used by the Automatic Celebrity
-// Scanner. Server-side only — API keys never leave the backend.
+// Minimal, dependency-free Gemini REST client + call builders for the
+// Automatic Celebrity Scanner (v2 — rebuilt 2026-09).
 //
-// Two capabilities are used:
-//   1. Vision identification — send the uploaded image, ask "who is this?"
-//   2. Web research — Gemini with the googleSearch grounding tool finds and
-//      cites real public facts (no invented bios, URLs, follower counts).
+// Differences from the old client that make it resilient:
+//   1. NEVER trusts a single stored model. If the configured model is retired,
+//      renamed, or unavailable for this key (HTTP 404 NOT_FOUND), the pipeline
+//      automatically moves to the next model in the current catalog instead of
+//      failing the whole scan.
+//   2. Transient failures (network / server / timeout) are retried with backoff
+//      before the scanner falls through to another credential.
+//   3. Key-level blocks (invalid key, quota, billing, suspended/restricted,
+//      disabled service) are treated as "skip this key, try the next" so one
+//      broken key can never take the scanner down.
+//   4. All credential/model hiking lives in the caller (scanner.ts) — this
+//      module is pure: same input, same REST behavior, no app imports.
 //
-// Every step asks for strict JSON output (responseMimeType: application/json +
-// responseSchema) so results map cleanly onto the existing admin form.
+// The JSON contract matches what the admin celebrity form consumes.
 
-const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+export type GeminiCredential = { key: string; model: string; label: string };
 
-// A key is only reported as "invalid" when the Gemini API actually confirms it
-// (HTTP 401, or 400 with reason API_KEY_INVALID / "api key not valid"). Other
-// 403 PERMISSION_DENIED responses mean the key is valid but the project blocks
-// the request: billing not enabled for the model, the Generative Language API
-// not enabled, or the key restricted (API/IP/referrer allow-lists).
 export type AiErrorType =
-  | "invalid_key" // Gemini confirmed the key is bad
-  | "api_disabled" // Generative Language API not enabled for the project
-  | "billing" // key is valid but the model requires billing / a paid plan
-  | "project_restriction" // key is valid but restricted so this request is blocked
-  | "permission" // valid key, 403 for another reason
-  | "model" // model id not found / not available for this key
+  | "invalid_key"
   | "quota"
+  | "timeout"
+  | "model"
+  | "billing"
+  | "permission"
+  | "api_disabled"
+  | "project_restriction"
   | "unsupported_combination"
   | "server"
-  | "network"
-  | "timeout";
+  | "network";
 
 export class AiCallError extends Error {
   type: AiErrorType;
-  status: number;
-  constructor(type: AiErrorType, message: string, status = 0) {
+  status?: number;
+  constructor(type: AiErrorType, message: string, status?: number) {
     super(message);
+    this.name = "AiCallError";
     this.type = type;
     this.status = status;
   }
 }
 
+/** Turn any error into a safe, user-facing message (never contains a key). */
 export function friendlyAiError(e: unknown): { message: string; detail?: string } {
   if (e instanceof AiCallError) {
     switch (e.type) {
       case "invalid_key":
-        return { message: "The Gemini API key was rejected. Check the key in Admin \u2192 AI Settings." };
+        return { message: "The Gemini API key was rejected. Check the key in Admin → AI Settings." };
       case "api_disabled":
         return {
           message: "The Generative Language (Gemini) API is not enabled for this key's Google Cloud project.",
-          detail: "Go to console.cloud.google.com \u2192 APIs & Services \u2192 Enable APIs \u2192 search for \"Generative Language API\" \u2192 Enable it. Then test the key again.",
+          detail: "Enable it in Google Cloud console, or add a working GEMINI_API_KEY.",
         };
       case "billing":
         return {
           message: "The Gemini key is valid, but this model requires billing on the Google project.",
-          detail: "Go to console.cloud.google.com \u2192 Billing \u2192 link a billing account to the project. Free-tier models (gemini-3.6-flash) may also work.",
+          detail: "Link a billing account in Google Cloud console. A valid key without billing can often use gemini-3.6-flash.",
         };
       case "project_restriction":
         return {
-          message: "The Gemini key is valid but restricted \u2014 its API/IP/referrer allow-list blocked this request.",
-          detail: "Go to console.cloud.google.com \u2192 Credentials \u2192 edit the key \u2192 under \"API restrictions\" select \"Allow all\" or add \"Generative Language API\".",
-        };
-      case "permission":
-        return {
-          message: "Google denied access (403). The key works but this project or model blocks the request.",
-          detail: "1) Enable the Generative Language API in Google Cloud Console. 2) Check the key has no restrictive API allow-list. 3) Ensure billing is enabled if using a paid model. Then test again.",
+          message: "The Gemini key is valid but restricted — its API/IP/referrer allow-list blocked this request.",
+          detail: "Remove the key's application/IP restrictions in Google AI Studio or Cloud.",
         };
       case "quota":
-        return { message: "The Gemini API has reached its limit (quota/rate limit). An automatic fallback key is used if one is configured." };
+        return { message: "The Gemini API has reached its limit (quota/rate limit). Try again shortly." };
       case "model":
-        return { message: `Gemini model unavailable: ${e.message}. Try a different model in AI Settings.` };
-      case "unsupported_combination":
-        return { message: "Web research was rejected by the API and could not fall back." };
+        return { message: "The configured Gemini model is unavailable. The scanner is retrying a current model automatically." };
+      case "permission":
+        return { message: "The Gemini API denied this request (key suspended or project locked)." };
       case "timeout":
         return { message: "Gemini took too long to respond. Try again in a moment." };
       case "network":
         return { message: "Could not reach the Gemini API (network error). Try again in a moment." };
+      case "unsupported_combination":
+        return { message: "The model does not support search grounding with structured JSON output on this request." };
       default:
         return { message: `Gemini request failed: ${e.message}` };
     }
@@ -98,24 +99,24 @@ export function parseGeminiError(text: string): GeminiErrorBody {
   return { status: "", reason: "", message: text };
 }
 
+/**
+ * Map an HTTP/body error to an AiErrorType so the scanner knows whether to
+ * retry, skip the credential, or surface a friendly message.
+ */
 export function classifyError(status: number, text: string, hadSearchTool: boolean): AiErrorType {
   const body = parseGeminiError(text);
   const t = body.message.toLowerCase();
   const has = (...words: string[]) => words.some((w) => t.includes(w));
 
-  if (status === 401) return "invalid_key"; // unauthenticated — confirmed bad/missing key
+  if (status === 401) return "invalid_key";
 
   if (status === 429 || body.status === "RESOURCE_EXHAUSTED") return "quota";
 
   if (status === 404 || body.status === "NOT_FOUND") return "model";
 
   if (status === 400) {
-    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "key is not valid", "invalid api key", "unauthenticated")) {
-      return "invalid_key";
-    }
-    if (body.reason === "PROJECT_INVALID" || body.reason === "USER_PROJECT_INVALID" || has("project not found", "project id")) {
-      return "project_restriction";
-    }
+    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "key is not valid", "invalid api key", "unauthenticated")) return "invalid_key";
+    if (body.reason === "PROJECT_INVALID" || body.reason === "USER_PROJECT_INVALID" || has("project not found", "project id")) return "project_restriction";
     if (has("referrer", "ip address", "api key internal", "restriction")) return "project_restriction";
     if (has("model")) return "model";
     if (hadSearchTool && /(search|grounding|schema|mime type|mimetype|not supported|combination|cannot use)/.test(t)) return "unsupported_combination";
@@ -124,13 +125,11 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
   }
 
   if (status === 403) {
-    // Google uses 403 for several distinct conditions — check the structured
-    // reason field first (most reliable), then fall back to message keywords.
     if (body.reason === "SERVICE_DISABLED") return "api_disabled";
     if (body.reason === "CONSUMER_INVALID") return "project_restriction";
     if (body.reason === "API_KEY_INVALID") return "invalid_key";
-    // FAILED_PRECONDITION is Gemini's signal that the model needs billing/paid access.
     if (body.status === "FAILED_PRECONDITION" || has("billing", "paid", "upgrade", "pricing", "payment", "plan")) return "billing";
+    if (body.reason === "CONSUMER_SUSPENDED" || has("suspended")) return "permission";
     if (has("quota", "rate", "limit", "exhausted")) return "quota";
     if (has("not enabled", "disabled", "enable the", "enable it", "enable this", "api key that cannot", "api is not")) return "api_disabled";
     if (has("restricted", "restriction", "ip addresses", "referrer", "android package", "permitted", "allowlisted")) return "project_restriction";
@@ -140,23 +139,44 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
     return "permission";
   }
 
-  if (status >= 500) return "server";
   return "server";
 }
 
-export type GeminiCredentials = { key: string; model: string; label: string };
+/** Current, live model candidates. First entry is the preferred new default. */
+export const CURRENT_MODEL_CATALOG = [
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+] as const;
 
-/** Ordered fallback chain of credentials derived from settings + env. */
-export function geminiCredentialCandidates(primary: string, backup: string, model: string): GeminiCredentials[] {
-  const out: GeminiCredentials[] = [];
-  const push = (key?: string, label?: string) => {
-    const k = key?.trim();
-    if (k && !out.some((c) => c.key === k)) out.push({ key: k, model, label: label ?? "Gemini key" });
-  };
-  push(primary, "Gemini primary key");
-  push(backup, "Gemini backup key");
-  push(process.env.GEMINI_API_KEY, "GEMINI_API_KEY env");
-  push(process.env.GEMINI_BACKUP_API_KEY, "GEMINI_BACKUP_API_KEY env");
+/**
+ * Ordered (model × key) credential chain for a scan. The preferred model is
+ * tried first across every available key, then the next model, and so on — so
+ * a retired model on a working key, or a broken key, degrades gracefully
+ * instead of failing the scan.
+ */
+export function buildCredentialChain(
+  sources: { key: string; label: string }[],
+  preferredModel: string,
+): GeminiCredential[] {
+  const models = [preferredModel, ...CURRENT_MODEL_CATALOG].filter(
+    (m, i, arr) => !!m && arr.indexOf(m) === i,
+  );
+  const keys = sources
+    .map((s) => ({ key: s.key.trim(), label: s.label }))
+    .filter((s) => s.key);
+  const seen = new Set<string>();
+  const out: GeminiCredential[] = [];
+  for (const model of models) {
+    for (const k of keys) {
+      const id = `${k.key}|${model}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ key: k.key, model, label: k.label });
+    }
+  }
   return out;
 }
 
@@ -169,7 +189,7 @@ function parseDataUri(dataUri: string): { mimeType: string; data: string } {
 }
 
 type CallOptions = {
-  credentials: GeminiCredentials;
+  credential: GeminiCredential;
   system: string;
   userText: string;
   imageDataUri?: string | null;
@@ -179,30 +199,35 @@ type CallOptions = {
   timeoutMs?: number;
 };
 
-/** Single Gemini generateContent call that returns the parsed JSON payload. */
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** One Gemini generateContent call (no retries) returning the parsed JSON payload. */
 export async function geminiJson<T>(opts: CallOptions): Promise<T> {
-  const { credentials, system, userText, schema, useSearch, temperature } = opts;
   const timeoutMs = opts.timeoutMs ?? 55_000;
   // Key travels in the X-Goog-Api-Key header — never in the URL, so it can't
   // leak into request logs, proxy history, or query-string dumps.
-  const url = `${API_BASE}/${encodeURIComponent(credentials.model)}:generateContent`;
+  const url = `${API_BASE}/${encodeURIComponent(opts.credential.model)}:generateContent`;
 
   const parts: Array<Record<string, unknown>> = [];
   const img = opts.imageDataUri ? parseDataUri(opts.imageDataUri) : null;
   if (img) parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
-  parts.push({ text: userText });
+  parts.push({ text: opts.userText });
 
   const body: Record<string, unknown> = {
     contents: [{ role: "user", parts }],
-    systemInstruction: { parts: [{ text: system }] },
+    systemInstruction: { parts: [{ text: opts.system }] },
     generationConfig: {
-      temperature: temperature ?? 0.2,
+      temperature: opts.temperature ?? 0.2,
       responseMimeType: "application/json",
-      responseSchema: schema,
+      responseSchema: opts.schema,
       maxOutputTokens: 8192,
     },
   };
-  if (useSearch) body.tools = [{ googleSearch: {} }];
+  if (opts.useSearch) body.tools = [{ googleSearch: {} }];
 
   let res: Response;
   try {
@@ -213,7 +238,7 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": credentials.key,
+          "X-Goog-Api-Key": opts.credential.key,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -231,7 +256,7 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    throw new AiCallError(classifyError(res.status, text, Boolean(useSearch)), `Gemini HTTP ${res.status}: ${text.slice(0, 300)}`, res.status);
+    throw new AiCallError(classifyError(res.status, text, Boolean(opts.useSearch)), `Gemini HTTP ${res.status}: ${text.slice(0, 300)}`, res.status);
   }
 
   let parsed: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
@@ -252,7 +277,7 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Schemas (Gemini OpenAPI-style responseSchema)
+// Schemas (Gemini OpenAPI-style responseSchema) — contract with the admin form
 // ---------------------------------------------------------------------------
 const STRING = { type: "STRING" as const };
 const BOOLEAN = { type: "BOOLEAN" as const };
@@ -349,7 +374,7 @@ const EVENTS_SCHEMA = {
 };
 
 // ---------------------------------------------------------------------------
-// Prompt builders
+// Prompt builders + call functions
 // ---------------------------------------------------------------------------
 const IDENTIFY_SYSTEM = `You are the identity verifier for a celebrity fan-card platform.
 Your ONLY job is to decide whether a photo clearly shows a single well-known public figure, and who they are.
@@ -358,7 +383,7 @@ Rules:
 - If the image is unclear, blurry, a group shot, an object, a meme, a child, a private/non-famous person, or you have any real doubt, set identified=false, confidence="low", best_name=null, and explain in reason why a clearer image is needed.
 - NEVER guess. It is better to reject a photo than to misidentify a person.`;
 
-export function identifyPerson(c: GeminiCredentials, imageDataUri: string) {
+export function identifyPerson(c: GeminiCredential, imageDataUri: string) {
   return geminiJson<{
     identified: boolean;
     best_name: string | null;
@@ -366,10 +391,9 @@ export function identifyPerson(c: GeminiCredentials, imageDataUri: string) {
     confidence: "high" | "low";
     reason: string | null;
   }>({
-    credentials: c,
+    credential: c,
     system: IDENTIFY_SYSTEM,
-    userText:
-      "Look at this photo. Identify whether it clearly shows one well-known public figure. Respond only in JSON per the schema.",
+    userText: "Look at this photo. Identify whether it clearly shows one well-known public figure. Respond only in JSON per the schema.",
     imageDataUri,
     schema: IDENTIFY_SCHEMA,
     temperature: 0,
@@ -407,7 +431,7 @@ function profilePrompt(name: string): string {
 Return the complete profile JSON for admin review. Only verified facts are allowed.`;
 }
 
-export function researchProfile(c: GeminiCredentials, name: string, useSearch: boolean) {
+export function researchProfile(c: GeminiCredential, name: string, useSearch: boolean) {
   return geminiJson<{
     name: string;
     aliases?: string[];
@@ -428,7 +452,7 @@ export function researchProfile(c: GeminiCredentials, name: string, useSearch: b
     base_memberships: Array<{ name: string; description: string; price: number | null; currency: string }>;
     source_urls: string[];
   }>({
-    credentials: c,
+    credential: c,
     system: PROFILE_SYSTEM,
     userText: profilePrompt(name),
     schema: PROFILE_SCHEMA,
@@ -451,7 +475,7 @@ function eventsPrompt(name: string): string {
   return `Search for ${name}'s publicly announced events (concerts, tours, appearances). Return the JSON list — only verified events with real source URLs.`;
 }
 
-export function researchEvents(c: GeminiCredentials, name: string, useSearch: boolean) {
+export function researchEvents(c: GeminiCredential, name: string, useSearch: boolean) {
   return geminiJson<{
     events: Array<{
       name: string;
@@ -467,11 +491,65 @@ export function researchEvents(c: GeminiCredentials, name: string, useSearch: bo
       source_url: string | null;
     }>;
   }>({
-    credentials: c,
+    credential: c,
     system: EVENTS_SYSTEM,
     userText: eventsPrompt(name),
     schema: EVENTS_SCHEMA,
     useSearch,
     temperature: 0.2,
   });
+}
+
+/**
+ * Try a step across an ordered credential chain. Transient failures are
+ * retried with backoff before moving on; key-level blocks (invalid, quota,
+ * billing, suspended/restricted, disabled) skip to the next credential.
+ * Terminal errors (e.g. search+JSON not supported) propagate for the caller
+ * to handle.
+ */
+export async function callAcrossCredentials<T>(
+  pairs: GeminiCredential[],
+  fn: (c: GeminiCredential) => Promise<T>,
+): Promise<{ value: T; used: GeminiCredential }> {
+  const transientAttempts = 3;
+  const quotaAttempts = 3;
+  const errors: { type: string; label: string; message: string }[] = [];
+  for (const pair of pairs) {
+    for (let attempt = 1; attempt <= Math.max(transientAttempts, quotaAttempts); attempt++) {
+      try {
+        const value = await fn(pair);
+        return { value, used: pair };
+      } catch (e) {
+        if (!(e instanceof AiCallError)) throw e;
+        const transient = e.type === "network" || e.type === "server" || e.type === "timeout";
+        const keyBlock = [
+          "invalid_key",
+          "permission",
+          "api_disabled",
+          "model",
+          "billing",
+          "project_restriction",
+        ].includes(e.type);
+        if (transient && attempt < transientAttempts) {
+          await sleep(750 * attempt); // 0.75s / 1.5s backoff
+          continue;
+        }
+        if (e.type === "quota" && attempt < quotaAttempts) {
+          await sleep(10_000 * attempt); // 10s / 20s — free-tier windows refill per-minute
+          continue;
+        }
+        if (keyBlock || e.type === "quota") {
+          errors.push({ type: e.type, label: pair.label, message: e.message });
+          break; // this key/model is blocked — try the next pair
+        }
+        throw e; // terminal for this step (e.g. unsupported_combination)
+      }
+    }
+  }
+  const first = errors[0];
+  const label = first?.message ?? "";
+  throw new AiCallError(
+    first?.type === "permission" || first?.type === "api_disabled" ? "permission" : "invalid_key",
+    `No working Gemini credential ${label ? `(${label})` : ""}${errors.length > 1 ? " — also tried the fallback credentials" : ""}`,
+  );
 }

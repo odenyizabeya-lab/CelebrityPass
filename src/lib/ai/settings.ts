@@ -64,7 +64,15 @@ function decryptStoredKey(stored: string): string {
 }
 
 export const DEFAULT_AI_MODEL = "gemini-3.6-flash";
-export const AI_MODEL_OPTIONS = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"] as const;
+// Live catalog for this key (verified via listModels, 2026-09). Older
+// gemini-2.x flash models are retired for new users and handled by
+// DEPRECATED_MODELS below.
+export const AI_MODEL_OPTIONS = [
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-pro",
+] as const;
 
 async function getSetting(key: string): Promise<string> {
   try {

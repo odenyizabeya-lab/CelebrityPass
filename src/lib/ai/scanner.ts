@@ -1,4 +1,4 @@
-// Orchestrates the Automatic Celebrity Scanner pipeline.
+// Orchestrates the Automatic Celebrity Scanner (v2 — rebuilt 2026-09).
 //
 //   image -> identify (Gemini vision) -> duplicate check (existing DB)
 //         -> research profile + fan card + base membership tiers (Gemini +
@@ -6,18 +6,25 @@
 //
 // Runs server-side only. The result is a ScanResult the REAL admin form fills
 // itself with for review — nothing is written to the DB by a scan.
+//
+// Resilience vs the old scanner:
+//   - The configured model may be retired; the credential chain climbs the
+//     current model catalog automatically instead of failing.
+//   - A broken key (invalid/suspended/quota/billing) is skipped, never fatal.
+//   - Transient network/server failures are retried with backoff.
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 import { getAIModel, getGeminiKeys } from "./settings";
 import {
   AiCallError,
-  geminiCredentialCandidates,
+  buildCredentialChain,
+  callAcrossCredentials,
+  friendlyAiError,
   identifyPerson,
   researchProfile,
   researchEvents,
-  friendlyAiError,
-  type GeminiCredentials,
-} from "./gemini";
+  type GeminiCredential,
+} from "./client";
 import type {
   IdentifiedPerson,
   PrepMembershipTier,
@@ -32,7 +39,6 @@ export const CELEBRITY_CATEGORIES = ["Actor", "Musician", "Athlete", "Creator", 
 function normalizeCategory(raw: string | null | undefined): string {
   const v = (raw ?? "").trim();
   if (CELEBRITY_CATEGORIES.includes(v as (typeof CELEBRITY_CATEGORIES)[number])) return v;
-  // Fuzzy contains match ("Actor & Producer" -> Actor is too aggressive; use Public Figure).
   const lower = v.toLowerCase();
   if (/actor|actress/.test(lower)) return "Actor";
   if (/singer|music|rapper|vocal|musician/.test(lower)) return "Musician";
@@ -60,7 +66,6 @@ async function findExistingCommunity(name: string): Promise<{ id: string; slug: 
       const bySlug = await prisma.celebrity.findUnique({ where: { slug }, select: { id: true, slug: true, name: true } });
       if (bySlug) return bySlug;
     }
-    // Fuzzy normalized-name match catches "Beyoncé" vs "Beyonce" style variants.
     const all = await prisma.celebrity.findMany({ select: { id: true, slug: true, name: true } });
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     const target = norm(name);
@@ -68,34 +73,6 @@ async function findExistingCommunity(name: string): Promise<{ id: string; slug: 
   } catch {
     return null; // never block a scan on the lookup
   }
-}
-
-/** Try a step across each credential; returns first success. */
-async function runWithFallback<T>(
-  candidates: GeminiCredentials[],
-  fn: (c: GeminiCredentials) => Promise<T>,
-): Promise<{ value: T; usedLabel: string }> {
-  const errors: { type: string; label: string; message: string }[] = [];
-  for (const c of candidates) {
-    try {
-      return { value: await fn(c), usedLabel: c.label };
-    } catch (e) {
-      if (
-        e instanceof AiCallError &&
-        (e.type === "invalid_key" || e.type === "quota" || e.type === "timeout" || e.type === "permission" || e.type === "api_disabled")
-      ) {
-        errors.push({ type: e.type, label: c.label, message: e.message });
-        continue; // this key or project is blocked — try the next credential
-      }
-      throw e;
-    }
-  }
-  const first = errors[0];
-  const label = first?.message ?? "";
-  throw new AiCallError(
-    first?.type === "permission" || first?.type === "api_disabled" ? "permission" : "invalid_key",
-    `No working Gemini key ${label ? `(${label})` : ""}${errors.length > 1 ? " — also tried the fallback keys" : ""}`,
-  );
 }
 
 /**
@@ -201,28 +178,45 @@ function normalizeEvents(raw: RawEventsSchema): ScanEvent[] {
   return out;
 }
 
-async function researchProfileWithRetry(c: GeminiCredentials, name: string): Promise<RawProfileSchema> {
+/**
+ * Some Gemini models don't allow search grounding together with a JSON
+ * responseSchema, and free-tier plans can rate-limit or bill-block grounded
+ * research. Whenever the grounded call fails for a non-terminal reason the
+ * scanner retries strictly from knowledge — the system prompt still demands
+ * verified facts (no inventing).
+ */
+async function researchProfileSmart(c: GeminiCredential, name: string): Promise<RawProfileSchema> {
   try {
     return await researchProfile(c, name, true);
   } catch (e) {
-    if (e instanceof AiCallError && e.type === "unsupported_combination") {
-      // Grounding + JSON mode not allowed together on this model — retry the
-      // research strictly from knowledge, which must still refuse to invent.
+    if (e instanceof AiCallError && ["unsupported_combination", "quota", "billing", "model"].includes(e.type)) {
       return await researchProfile(c, name, false);
     }
     throw e;
   }
 }
 
-async function researchEventsWithRetry(c: GeminiCredentials, name: string): Promise<RawEventsSchema> {
+async function researchEventsSmart(c: GeminiCredential, name: string): Promise<RawEventsSchema> {
   try {
     return await researchEvents(c, name, true);
   } catch (e) {
-    if (e instanceof AiCallError && e.type === "unsupported_combination") {
+    if (e instanceof AiCallError && ["unsupported_combination", "quota", "billing", "model"].includes(e.type)) {
       return await researchEvents(c, name, false);
     }
     throw e;
   }
+}
+
+/** Build the ordered credential chain from DB settings + env (best key first). */
+async function credentialChain(): Promise<GeminiCredential[]> {
+  const model = await getAIModel();
+  const keys = await getGeminiKeys();
+  const sources: { key: string; label: string }[] = [];
+  if (keys.primary) sources.push({ key: keys.primary, label: keys.primarySource === "db" ? "Gemini primary key" : "GEMINI_API_KEY env" });
+  if (keys.backup) sources.push({ key: keys.backup, label: keys.backupSource === "db" ? "Gemini backup key" : "GEMINI_BACKUP_API_KEY env" });
+  if (process.env.GEMINI_API_KEY?.trim()) sources.push({ key: process.env.GEMINI_API_KEY.trim(), label: "GEMINI_API_KEY env" });
+  if (process.env.GEMINI_BACKUP_API_KEY?.trim()) sources.push({ key: process.env.GEMINI_BACKUP_API_KEY.trim(), label: "GEMINI_BACKUP_API_KEY env" });
+  return buildCredentialChain(sources, model);
 }
 
 /**
@@ -230,10 +224,8 @@ async function researchEventsWithRetry(c: GeminiCredentials, name: string): Prom
  * Returns an error-free outcome the API route serializes for admin review.
  */
 export async function runCelebrityScan(imageDataUri: string, opts: { includeEvents?: boolean } = {}): Promise<ScanOutcome> {
-  const model = await getAIModel();
-  const keys = await getGeminiKeys();
-  const candidates = geminiCredentialCandidates(keys.primary, keys.backup, model);
-  if (candidates.length === 0) {
+  const pairs = await credentialChain();
+  if (pairs.length === 0) {
     return {
       status: "provider_error",
       message: "No Gemini API key is configured yet. Open Admin → AI Settings to add your key, or set GEMINI_API_KEY.",
@@ -243,7 +235,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   // 1) Identify the person in the image.
   let identity: IdentifiedPerson;
   try {
-    const identified = await runWithFallback(candidates, (c) => identifyPerson(c, imageDataUri));
+    const identified = await callAcrossCredentials(pairs, (c) => identifyPerson(c, imageDataUri));
     // A valid low-confidence answer is NOT retried on another key — the image
     // itself is unclear, so a fallback key would only guess. Ask for a clearer photo.
     identity = {
@@ -273,7 +265,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   // 3) Research the profile (facts + fan card + base membership tiers).
   let profile: ScanProfile;
   try {
-    const result = await runWithFallback(candidates, (c) => researchProfileWithRetry(c, name));
+    const result = await callAcrossCredentials(pairs, (c) => researchProfileSmart(c, name));
     profile = normalizeProfile(name, result.value);
   } catch (e) {
     const { message, detail } = friendlyAiError(e);
@@ -284,7 +276,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   let events: ScanEvent[] = [];
   if (opts.includeEvents) {
     try {
-      const result = await runWithFallback(candidates, (c) => researchEventsWithRetry(c, name));
+      const result = await callAcrossCredentials(pairs, (c) => researchEventsSmart(c, name));
       events = normalizeEvents(result.value);
     } catch {
       events = []; // research is optional — never fail the whole scan for events
