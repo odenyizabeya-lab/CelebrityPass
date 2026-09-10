@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { GoogleInfo, PanelImage, PanelWork } from "@/lib/google-info";
+import { liveAge, type GoogleInfo, type PanelImage, type PanelWork } from "@/lib/google-info";
 
 /**
  * Google-style knowledge panel for one celebrity — the exact layout of
@@ -15,12 +15,18 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
   const kind = info.kind !== "other" ? info.kind : detectKind(category, info);
   const worksLabel = kind === "actor" ? "Movies" : kind === "musician" ? "Albums" : kind === "athlete" ? "Teams" : "Known For";
 
+  // The age is derived live from the stored birth date on EVERY page render —
+  // exactly like Google — so it stays correct automatically as birthdays pass,
+  // with no re-fetch ever needed. `info.age` is only a fallback for the rare
+  // entries that have no birth date at all.
+  const age = liveAge(info.born?.iso ?? null) ?? info.age;
+
   const works: PanelWork[] =
     info.works.length > 0
       ? info.works
       : info.films.map((f) => ({ title: f, year: undefined, source: "Wikipedia" } satisfies PanelWork));
   const hasDetails =
-    info.age != null || info.born != null || info.occupations.length > 0 || works.length > 0;
+    age != null || info.born != null || info.occupations.length > 0 || works.length > 0;
   const hasMedia = info.images.length > 0 || info.image != null;
 
   if (!info.overview && !hasDetails && !hasMedia) return null;
@@ -47,14 +53,14 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
           {info.image && <LeadImage image={info.image} name={info.name} />}
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Quick facts</p>
           <div className="mt-2 space-y-3">
-            {info.age != null && (
+            {age != null && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Age</p>
-                <p className="mt-0.5 text-2xl font-black text-white">{info.age} years</p>
+                <p className="mt-0.5 text-2xl font-black text-white">{age} years</p>
                 {info.born && <p className="mt-0.5 text-sm text-zinc-400">{info.born.display}</p>}
               </div>
             )}
-            {info.age == null && info.born && (
+            {age == null && info.born && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Born</p>
                 <p className="mt-0.5 text-base font-semibold text-white">{info.born.display}</p>

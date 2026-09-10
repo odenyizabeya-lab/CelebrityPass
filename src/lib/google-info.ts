@@ -25,8 +25,8 @@ export type PanelWork = {
 export type GoogleInfo = {
   name: string;
   description: string | null; // e.g. "American actor (born 1963)"
-  born: { iso: string; display: string } | null; // date of birth
-  age: number | null; // computed age
+born: { iso: string; display: string } | null; // date of birth (age on the page is computed live from ISO)
+age: number | null; // age snapshot from the last fetch — display always recomputes live via liveAge(born.iso)
   occupations: string[]; // e.g. ["Actor","Producer","Musician"]
   films: string[]; // titled film credits, e.g. ["Pirates…","Edward Scissorhands"]
   overview: string | null; // the Google-style encyclopedic overview paragraph
@@ -368,6 +368,26 @@ async function resolveEntityLabels(ids: string[]): Promise<Record<string, string
     }
   }
   return map;
+}
+
+/**
+ * Current age of a person from their stored birth date (YYYY-MM-DD), computed
+ * as of RIGHT NOW. The panel only needs to store the birth date — the age shown
+ * on the page is derived from it live, so it stays identical to Google every
+ * day of every year: the moment a birthday passes, the age ticks up with no
+ * re-fetch and no human action required.
+ */
+export function liveAge(bornIso: string | null | undefined): number | null {
+  if (!bornIso) return null;
+  const m = /^(\d{1,4})-(\d{2})-(\d{2})/.exec(bornIso);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  if (now.getMonth() + 1 < mo || (now.getMonth() + 1 === mo && now.getDate() < d)) age -= 1;
+  return Math.max(0, age);
 }
 
 function parseWikidataDate(time: string): { iso: string; display: string; age: number } | null {
