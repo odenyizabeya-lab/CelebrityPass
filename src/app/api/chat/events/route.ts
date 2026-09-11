@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
 import { touchFanPresence } from "@/lib/chat/presence";
+import { getTyping } from "@/lib/chat/typing-store";
 import { serializeSSE, type RealtimeEvent } from "@/lib/chat/realtime";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +94,13 @@ export async function GET(request: Request) {
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
             const isOnline = !!(online?.chatLastSeenAt && online.chatLastSeenAt > fiveMinAgo);
             send({ type: "presence", celebrityId, online: isOnline });
+          }
+
+          const { fanTyping, teamTyping } = getTyping(conversationId);
+          if (actorType === "fan" && teamTyping) {
+            send({ type: "typing", conversationId, senderType: "team" });
+          } else if (actorType === "team" && fanTyping) {
+            send({ type: "typing", conversationId, senderType: "fan" });
           }
         } catch (err) {
           console.error("SSE poll error", err);

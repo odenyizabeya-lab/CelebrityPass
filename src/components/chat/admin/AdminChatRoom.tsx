@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MessageBubble from "@/components/chat/MessageBubble";
+import AdminCallOverlay from "@/components/chat/admin/AdminCallOverlay";
 import type { RealtimeMessage } from "@/hooks/useChatRealtime";
 
 function parseAttachment(m: RealtimeMessage): {
@@ -302,6 +303,12 @@ export default function AdminChatRoom({
           </svg>
         </button>
       </div>
+
+      <AdminCallOverlay
+        conversationId={conversationId}
+        fanName={fan.name}
+        onClosed={() => {}}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { isConversationAccessible, canFanSendMessage, canTeamSendMessage } from 
 import { sendMessage, getMessages, type MessageWithReply } from "@/lib/chat/messages";
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
+import { notifyFanPush } from "@/lib/chat/push";
 
 export const dynamic = "force-dynamic";
 
@@ -154,6 +155,13 @@ export async function POST(request: Request, { params }: Ctx) {
           replyUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/chat/${conversationId}`,
           replyLabel: "Open chat",
           fan,
+        });
+
+        // Native push (PWA + future native apps). Fire-and-forget alongside the email.
+        await notifyFanPush(fan.id, {
+          title: celebrity?.name ?? "New message",
+          body: preview,
+          url: `/chat/${conversationId}`,
         });
       }
     }

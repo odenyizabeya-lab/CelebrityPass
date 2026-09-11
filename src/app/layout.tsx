@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import NativeIntegration from "@/components/NativeIntegration";
 import LanguageProvider from "@/lib/i18n/language-context";
 import {
   localeDir,
@@ -101,6 +102,7 @@ export default async function RootLayout({
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <NativeIntegration />
         </LanguageProvider>
       </body>
     </html>

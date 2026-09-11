@@ -65,6 +65,7 @@ model Celebrity {
   chatSelections FanCelebritySelection[]
   chatConversations ChatConversation[]
   chatBlocks     ChatBlock[]
+  calls          ChatCall[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -133,8 +134,64 @@ model Fan {
   chatMessages  ChatMessage[]
   chatBlocks    ChatBlock[]
   messageReports MessageReport[]
+  pushSubscriptions PushSubscription[]
+  chatCalls     ChatCall[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// A WebRTC voice/video call between a fan and the celebrity's team, together
+// with its signaling transcript (offers/answers/ICE). Signaling is stored in the
+// DB and polled by clients (works behind the SSE shim / proxy-less deploys).
+model ChatCall {
+  id             String    @id @default(cuid())
+  conversationId String
+  celebrityId    String
+  fanId          String?
+  mode           String    @default("voice") // voice | video
+  status         String    @default("RINGING") // RINGING | ACTIVE | ENDED | MISSED | DECLINED
+  createdBy      String    @default("fan") // fan | team
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  celebrity    Celebrity         @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  fan          Fan?              @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  signals      ChatCallSignal[]
+
+  @@index([conversationId, createdAt])
+}
+
+model ChatCallSignal {
+  id        String   @id @default(cuid())
+  callId    String
+  from      String   // fan | team
+  type      String   // offer | answer | ice | cancel | reject | end
+  payload   String?  // JSON-encoded SDP or ICE candidate
+  createdAt DateTime @default(now())
+
+  call ChatCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId, createdAt])
+}
+
+// A fan's Web Push subscription (desktop/PWA installs). Native push is used to
+// deliver chat messages while the fan is offline. Android's Capacitor wrapper
+// uses FCM instead (see docs); subscriptions here cover the browser/PWA path.
+model PushSubscription {
+  id        String    @id @default(cuid())
+  fanId     String
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  fan Fan @relation(fields: [fanId], references: [id], onDelete: Cascade)
+
+  @@index([fanId])
 }
 
 // A membership card issued to a fan under a specific celebrity.
@@ -234,6 +291,7 @@ model ChatConversation {
   messages           ChatMessage[]
   readState          ChatReadState?
   reports            MessageReport[]
+  calls              ChatCall[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

@@ -1,9 +1,17 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+let _supabase: SupabaseClient | null = null
+
+function getSupabase(): SupabaseClient {
+  if (_supabase) return _supabase
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error("Supabase storage is not configured (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)")
+  }
+  _supabase = createClient(url, key)
+  return _supabase
+}
 
 export async function uploadChatAttachment(params: {
   bucket: string
@@ -12,6 +20,7 @@ export async function uploadChatAttachment(params: {
   contentType: string
 }): Promise<{ bucket: string; key: string; url: string } | null> {
   try {
+    const supabase = getSupabase()
     const { error } = await supabase.storage
       .from(params.bucket)
       .upload(params.path, params.file, {
@@ -38,6 +47,7 @@ export async function getSignedUrl(
   expiresIn?: number
 ): Promise<string | null> {
   try {
+    const supabase = getSupabase()
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(key, expiresIn ?? 3600)
@@ -57,6 +67,7 @@ export async function deleteChatAttachment(
   key: string
 ): Promise<boolean> {
   try {
+    const supabase = getSupabase()
     const { error } = await supabase.storage.from(bucket).remove([key])
     if (error) {
       console.error("Failed to delete chat attachment", error)

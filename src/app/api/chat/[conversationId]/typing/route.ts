@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
 import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
+import { setTyping, clearTyping } from "@/lib/chat/typing-store";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,12 @@ export async function POST(request: Request, { params }: Ctx) {
     touchFanPresence(fanId as string).catch(() => {});
   } else {
     touchTeamPresence(conversation.celebrityId).catch(() => {});
+  }
+
+  if (isTyping) {
+    setTyping(conversationId, actorType);
+  } else {
+    clearTyping(conversationId, actorType);
   }
 
   return NextResponse.json({ ok: true, typing: isTyping });
