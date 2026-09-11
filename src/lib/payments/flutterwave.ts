@@ -373,7 +373,8 @@ export async function testFlutterwaveConnection(opts: {
     return {
       ok: false,
       code: "format",
-      message: "That doesn't look like a Flutterwave secret key — they start with FLWSECK-. The key was NOT sent to Flutterwave.",
+      message:
+        "That doesn't look like a Flutterwave secret key (Public key = FLWPUBK-…, Secret key = FLWSECK-…). The v4 dashboard 'Client ID' (a UUID like 9543ec71-…) won't work — get these keys from Settings → API Keys and switch to the v3 'Public Key / Secret Key' view. The key was NOT sent to Flutterwave.",
       mode,
     };
   }
@@ -381,7 +382,8 @@ export async function testFlutterwaveConnection(opts: {
     return {
       ok: false,
       code: "format",
-      message: "That doesn't look like a Flutterwave public key — they start with FLWPUBK-. The client ID was NOT sent to Flutterwave.",
+      message:
+        "That doesn't look like a Flutterwave public key — it must start with FLWPUBK-. The v4 dashboard 'Client ID' (a UUID like 9543ec71-…) is not the public key; copy the Public Key (FLWPUBK-…) from Settings → API Keys. The value was NOT sent to Flutterwave.",
       mode,
     };
   }

@@ -27,12 +27,18 @@ export async function POST(request: NextRequest) {
 
   const clientId = typeof body.clientId === "string" ? body.clientId.trim() : undefined;
   if (clientId !== undefined && clientId && !isPlausibleFlutterwaveKey("client_id", clientId)) {
-    return NextResponse.json({ error: "Client ID must be a Flutterwave public key starting with FLWPUBK-." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Public key must start with FLWPUBK- (copy it from Settings → API Keys). The v4 'Client ID' UUID like 9543ec71-… won't work." },
+      { status: 400 },
+    );
   }
 
   const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : undefined;
   if (clientSecret !== undefined && clientSecret && !isPlausibleFlutterwaveKey("client_secret", clientSecret)) {
-    return NextResponse.json({ error: "Client Secret must be a Flutterwave secret key starting with FLWSECK-." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Secret key must start with FLWSECK- (copy it from Settings → API Keys). The v4 'Client Secret' UUID won't work." },
+      { status: 400 },
+    );
   }
 
   const webhookHash = typeof body.webhookHash === "string" ? body.webhookHash.trim() : undefined;

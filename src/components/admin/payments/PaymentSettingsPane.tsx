@@ -206,10 +206,13 @@ export default function PaymentSettingsPane() {
       <div className="glass rounded-2xl p-6">
         <h2 className="text-lg font-black text-white">Flutterwave credentials</h2>
         <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-          From your Flutterwave dashboard: the <strong className="text-zinc-200">Client ID</strong> is the public key (
-          <code className="text-primary-300">FLWPUBK-…</code>), the <strong className="text-zinc-200">Client Secret</strong> is the
-          secret key (<code className="text-primary-300">FLWSECK-…</code>). Secrets are server-side only — never sent back to the
-          browser, never logged, and never included in error messages. Recommended: set{" "}
+          From your Flutterwave dashboard (<code className="text-zinc-300">Settings → API Keys</code>, the <strong className="text-zinc-200">v3
+          Public Key / Secret Key</strong> view): <strong className="text-zinc-200">Public key</strong> starts with{" "}
+          <code className="text-primary-300">FLWPUBK-…</code>, <strong className="text-zinc-200">Secret key</strong> starts with{" "}
+          <code className="text-primary-300">FLWSECK-…</code>. ⚠️ Don&apos;t paste the v4 dashboard&apos;s{" "}
+          <strong className="text-zinc-200">Client ID / Client Secret</strong> (UUIDs like{" "}
+          <code className="text-zinc-300">9543ec71-…</code>) — those are for the new v4 API and will be rejected here. Secrets are
+          server-side only — never sent back to the browser, never logged, and never included in error messages. Recommended: set{" "}
           <code className="text-zinc-300">FLUTTERWAVE_CLIENT_SECRET</code> in the server environment so no secret is stored in a
           database. Keys saved here end up in the database; set <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the
           environment to encrypt them at rest.
@@ -218,7 +221,7 @@ export default function PaymentSettingsPane() {
         <div className="mt-5 space-y-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Client ID (public key)</label>
+              <label className="text-sm font-semibold text-zinc-300">Public key (FLWPUBK-…)</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.clientIdSource} />
                 <KeyStatus configured={status?.clientIdConfigured} />
@@ -232,14 +235,14 @@ export default function PaymentSettingsPane() {
               onChange={(e) => setClientId(e.target.value)}
               placeholder={
                 status?.clientIdConfigured
-                  ? `Current Client ID ends in ${status.clientIdLast4} — paste a new one to replace it`
-                  : "Paste your Flutterwave public key (FLWPUBK-…)…"
+                  ? `Current public key ends in ${status.clientIdLast4} — paste a new one to replace it`
+                  : "Paste your Flutterwave Public Key (FLWPUBK-…)…"
               }
             />
           </div>
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Client Secret (secret key)</label>
+              <label className="text-sm font-semibold text-zinc-300">Secret key (FLWSECK-…)</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.clientSecretSource} />
                 <KeyStatus configured={status?.clientSecretConfigured} />
@@ -252,7 +255,7 @@ export default function PaymentSettingsPane() {
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
               placeholder={
-                status?.clientSecretConfigured ? `New secret key — current key ends in ${status.clientSecretLast4}` : "Paste your Flutterwave secret key (FLWSECK-…)…"
+                status?.clientSecretConfigured ? `New secret key — current key ends in ${status.clientSecretLast4}` : "Paste your Flutterwave Secret Key (FLWSECK-…)…"
               }
             />
           </div>
