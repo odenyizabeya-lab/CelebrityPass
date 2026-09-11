@@ -162,7 +162,7 @@ export function maskSecret(secret: string): string {
 /** Best-effort environment hint ("test"|"live"|"") derived from a key prefix. */
 export function envHint(secret: string): "test" | "live" | "" {
   const t = secret.trim();
-  if (/^FLW(PUBK|SECK)-TEST-/.test(t)) return "test";
+  if (/^FLW(PUBK|SECK)_TEST-/.test(t)) return "test";
   if (/^FLW(PUBK|SECK)-/.test(t)) return "live";
   return "";
 }
@@ -328,11 +328,15 @@ export async function verifyFlutterwaveWebhook(received: string | null | undefin
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
-/** Format check only — Flutterwave keys start FLWPUBK- (public) / FLWSECK- (secret). */
+/**
+ * Format check only — Flutterwave keys are FLWPUBK(_TEST)- (public) /
+ * FLWSECK(_TEST)- (secret). Note the underscore: test keys are suffixed
+ * `_TEST-`, e.g. `FLWSECK_TEST-31c2f57a4c9e…-X`.
+ */
 export function isPlausibleFlutterwaveKey(kind: "client_id" | "client_secret", key: string): boolean {
   const t = key.trim();
-  if (kind === "client_id") return /^FLWPUBK(-TEST)?-[0-9A-Za-z_-]{10,}$/.test(t);
-  return /^FLWSECK(-TEST)?-[0-9A-Za-z_-]{10,}$/.test(t);
+  if (kind === "client_id") return /^FLWPUBK(_TEST)?-[0-9A-Za-z_-]{10,}$/.test(t);
+  return /^FLWSECK(_TEST)?-[0-9A-Za-z_-]{10,}$/.test(t);
 }
 
 export type FwTestResult = {
