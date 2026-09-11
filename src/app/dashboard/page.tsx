@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/dashboard");
 
-  const [fan, imageFlags] = await Promise.all([
+  const [fan, imageFlags, selectionCount] = await Promise.all([
     prisma.fan.findUnique({
       where: { id: fanId },
       include: {
@@ -34,6 +34,7 @@ export default async function DashboardPage() {
       },
     }),
     celebrityImageFlags(),
+    prisma.fanCelebritySelection.count({ where: { fanId } }),
   ]);
   if (!fan) redirect("/login?next=/dashboard");
 
@@ -41,6 +42,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      {selectionCount === 0 && (
+        <div className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-primary-500/30 bg-primary-600/10 px-6 py-5">
+          <div>
+            <p className="font-bold text-white">Choose your favorite celebrities</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              Pick the communities you follow — this personalizes your feed and chat suggestions.
+            </p>
+          </div>
+          <Link
+            href="/onboarding/celebrities"
+            className="btn-grad rounded-full px-6 py-2.5 text-sm font-bold text-white"
+          >
+            Choose now
+          </Link>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Fan Dashboard</p>

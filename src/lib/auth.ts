@@ -62,3 +62,16 @@ export async function isAdminAuthed(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Email of the currently authenticated admin (null when no admin session).
+ * Used to stamp team chat messages with the responsible team member.
+ */
+export async function getCurrentAdminEmail(): Promise<string | null> {
+  const { getCurrentAdminEmail: resolve } = await import("@/lib/supabase/server");
+  try {
+    return await resolve();
+  } catch {
+    return null;
+  }
+}

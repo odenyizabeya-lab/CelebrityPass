@@ -52,12 +52,19 @@ model Celebrity {
   followersUpdatedAt DateTime?
   socialAutoPost  Boolean         @default(true) // eligible for automatic social posting
   displayFanCount Int?            @unique // auto-assigned Registered Fans figure (unique per celebrity, never shared)
+  // Chat presence + account-type for this celebrity's chat room.
+  chatAccountType String         @default("TEAM") // OFFICIAL | TEAM | SYSTEM
+  chatAccountLabel String?       // optional "About" line shown above the chat input
+  chatLastSeenAt  DateTime?      // last activity by the authorized team (drives online/offline)
   fans           FanCard[]
   memberships    MembershipLevel[]
   payments       Payment[]
   events         CelebrityEvent[]
   socialArticles SocialArticle[]
   announcements  EmailAnnouncement[]
+  chatSelections FanCelebritySelection[]
+  chatConversations ChatConversation[]
+  chatBlocks     ChatBlock[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -109,11 +116,23 @@ model Fan {
   notifyPromotions     Boolean   @default(true) // optional promotional/marketing
   unsubscribedAt       DateTime?
 
+  // Fan last activity — drives "online / last seen" in chat (no raw location/device data).
+  lastSeenAt                 DateTime?
+  // "Choose Your Celebrities" onboarding: true once the picker was shown & saved (or skipped).
+  onboardingCelebritiesDone  Boolean   @default(false)
+  // Chat notification preference (in-app + email for new messages).
+  chatNotify                 Boolean   @default(true)
+
   cards        FanCard[]
   payments     Payment[]
   ticketOrders TicketOrder[]
   emailMessages EmailMessage[]
   emailVerifications EmailVerificationToken[]
+  chatSelections FanCelebritySelection[]
+  chatConversations ChatConversation[]
+  chatMessages  ChatMessage[]
+  chatBlocks    ChatBlock[]
+  messageReports MessageReport[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -175,6 +194,135 @@ description       String?           // e.g. "Taylor Swift — Swiftie Gold"
   @@index([cardId])
   @@index([celebrityId])
   @@index([membershipLevelId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat & messaging
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The celebrities a fan chose in the "Choose Your Celebrities" onboarding step.
+// A personalization list only — it grants no chat, payment or membership rights.
+model FanCelebritySelection {
+  id          String    @id @default(cuid())
+  fanId       String
+  celebrityId String
+  fan         Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity   Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([fanId, celebrityId])
+  @@index([fanId])
+  @@index([celebrityId])
+}
+
+// One chat room between a fan and one celebrity — exactly one row per
+// (fan, celebrity) pair. The two "participants" are the bound actors; the
+// celebrity side is operated by the celebrity's authorized team (or an
+// official/system account) — the UI always labels that honestly.
+model ChatConversation {
+  id                 String    @id @default(cuid())
+  fanId              String
+  celebrityId        String
+  status             String    @default("ACTIVE") // ACTIVE | BLOCKED_BY_FAN | BLOCKED_BY_TEAM | ARCHIVED
+  mutedByFan         Boolean   @default(false)
+  pinnedByFan        Boolean   @default(false)
+  lastMessagePreview String?
+  lastMessageAt      DateTime?
+  lastMessageSender  String?   // "fan" | "team" | "system"
+  fan                Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity          Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  messages           ChatMessage[]
+  readState          ChatReadState?
+  reports            MessageReport[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([fanId, celebrityId])
+  @@index([celebrityId])
+  @@index([fanId])
+}
+
+// A chat message. `clientId` is the sender's locally generated id; the
+// (conversationId, clientId) unique constraint makes retries idempotent, so a
+// flaky connection can never create a duplicate message.
+model ChatMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Who wrote it: a fan, the celebrity's authorized team, or the system.
+  senderType     String         // "fan" | "team" | "system"
+  fanId          String?
+  fan            Fan?           @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  teamEmail      String?        // admin email of the authorized team member (senderType = "team")
+  clientId       String         // sender-generated unique id (dedupe)
+  type           String         @default("text") // text | image | voice | video | call | system
+  body           String         @default("")
+  attachmentJson String?        // JSON: { bucket, key, mime, size, width?, height?, durationSec?, name? }
+  status         String         @default("SENT") // PENDING | SENT | FAILED (server-side delivery state)
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  repliedToId    String?
+  repliedTo      ChatMessage?   @relation("ChatReplies", fields: [repliedToId], references: [id], onDelete: SetNull)
+  replies        ChatMessage[]  @relation("ChatReplies")
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  reports        MessageReport[]
+
+  @@unique([conversationId, clientId])
+  @@index([conversationId, createdAt])
+}
+
+// Watermark-based read receipts per conversation: the highest message time each
+// participant has seen (or had delivered). Keeps read/delivered cheap and
+// correct at any conversation size.
+model ChatReadState {
+  id               String          @id @default(cuid())
+  conversationId   String          @unique
+  conversation     ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fanLastReadAt    DateTime?
+  teamLastReadAt   DateTime?
+  fanDeliveredUpTo DateTime?
+  teamDeliveredUpTo DateTime?
+  updatedAt        DateTime        @updatedAt
+}
+
+// A fan-initiated (or platform) block between a fan and one celebrity. While a
+// block exists the fan cannot send messages — enforced on the server, never in
+// the UI alone.
+model ChatBlock {
+  id          String    @id @default(cuid())
+  fanId       String
+  celebrityId String
+  fan         Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity   Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  reason      String?   // "none" | "spam" | "abuse" | "harassment" | "other"
+  details     String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([fanId, celebrityId])
+  @@index([fanId])
+  @@index([celebrityId])
+}
+
+// Fan- or team-reported content. Never auto-bans anyone — reports surface in
+// the admin moderation view for a human decision.
+model MessageReport {
+  id             String          @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String?
+  message        ChatMessage?    @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  reporterFanId  String?
+  reporterFan    Fan?            @relation(fields: [reporterFanId], references: [id], onDelete: SetNull)
+  reason         String
+  details        String?
+  status         String          @default("OPEN") // OPEN | REVIEWED | DISMISSED
+  createdAt      DateTime        @default(now())
+
+  @@index([status])
+  @@index([conversationId])
+  @@index([reporterFanId])
 }
 
 // Simple key/value app settings managed from the admin dashboard (e.g. the

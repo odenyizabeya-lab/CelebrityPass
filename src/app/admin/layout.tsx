@@ -19,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminLink href="/admin/events" label="Events" />
           <AdminLink href="/admin/tickets" label="Tickets" />
           <AdminLink href="/admin/fans" label="Fans" />
+          <AdminLink href="/admin/messages" label="Messages" />
           <AdminLink href="/admin/cards" label="Cards" />
           <AdminLink href="/admin/payments" label="Payments" />
           <AdminLink href="/admin/marketing/overview" label="Marketing" />
@@ -46,6 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Mobile secondary nav (primary tabs live in the bottom app bar) */}
         <div className="flex gap-2 overflow-x-auto border-b border-white/[0.06] px-4 py-3 lg:hidden">
           <AdminLink href="/admin/fans" label="Fans" compact />
+          <AdminLink href="/admin/messages" label="Messages" compact />
           <AdminLink href="/admin/cards" label="Cards" compact />
           <AdminLink href="/admin/marketing/overview" label="Marketing" compact />
           <AdminLink href="/admin/payments/bank" label="Bank Accounts" compact />

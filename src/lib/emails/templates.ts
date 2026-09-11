@@ -130,6 +130,7 @@ export type EmailTemplate =
     }
   | { kind: "cardActivated"; fanName: string; celebrityName: string; membershipName: string; cardNumber: string; cardUrl: string }
   | { kind: "newCelebrity"; fanName: string; celebrityName: string; category: string; profileUrl: string }
+  | { kind: "chatNew"; fanName: string; senderName: string; actorLabel: string; preview: string; replyLabel: string; replyUrl: string; replyPreview: string }
   | { kind: "update"; fanName: string; message: string; linkUrl?: string; linkLabel?: string }
   | { kind: "promotion"; fanName: string; message: string; linkUrl?: string; linkLabel?: string; unsubscribeUrl: string };
 
@@ -215,6 +216,22 @@ export function renderEmailTemplate(input: EmailTemplate): { subject: string; ht
         footer: transactionFooter(),
       });
       return { subject: `${input.celebrityName} is now on CelebrityPass`, html };
+    }
+    case "chatNew": {
+      const body =
+        para(`Hi ${input.fanName},`) +
+        para(`${input.senderName} (${input.actorLabel}) sent you a new message:`) +
+        `<div style="background:#13141b;border:1px solid #27272a;border-radius:14px;padding:14px 18px;margin:0 0 20px;">
+          <p style="margin:0;font-size:14px;color:#e4e4e7;font-style:italic;">“${input.preview}”</p>
+        </div>` +
+        para(`${input.replyPreview}`);
+      const html = brandLayout({
+        title: `New message from ${input.senderName}`,
+        body,
+        cta: { label: input.replyLabel, url: input.replyUrl },
+        footer: transactionFooter(),
+      });
+      return { subject: `New message from ${input.senderName} on CelebrityPass`, html };
     }
     case "update": {
       const body = para(`Hi ${input.fanName},`) + para(input.message);

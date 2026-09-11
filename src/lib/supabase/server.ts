@@ -48,3 +48,21 @@ export async function isAdminAuthedSupabase(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Email of the currently authenticated admin, or null when the session is not
+ * an authenticated admin. Used to stamp which team member sent a chat message.
+ */
+export async function getCurrentAdminEmail(): Promise<string | null> {
+  try {
+    const supabase = await createServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const email = user?.email ?? null;
+    if (!email) return null;
+    return (await isAdminEmail(email)) ? email.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}

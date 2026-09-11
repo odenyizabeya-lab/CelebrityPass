@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import LanguageSelector from "@/components/LanguageSelector";
 import Logo from "@/components/Logo";
+import ChatNavBadge from "@/components/chat/ChatNavBadge";
 import { useLanguage } from "@/lib/i18n/language-context";
 
 export default function Header() {
@@ -30,6 +31,7 @@ export default function Header() {
               {l.label}
             </Link>
           ))}
+          <ChatNavBadge variant="nav" />
         </nav>
 
         <div className="flex items-center gap-3">
@@ -61,6 +63,7 @@ export default function Header() {
       {open && (
         <nav className="border-t border-white/[0.06] bg-ink-900/95 px-4 py-3 backdrop-blur-xl md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            <ChatNavBadge variant="menu" onNavigate={() => setOpen(false)} />
             {links.map((l) => (
               <Link
                 key={l.href}

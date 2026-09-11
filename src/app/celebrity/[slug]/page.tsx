@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
 import Logo from "@/components/Logo";
+import ChatNowButton from "@/components/chat/ChatNowButton";
 import { prisma } from "@/lib/db";
 import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
 import { formatFollowerCount } from "@/lib/followers";
@@ -399,6 +400,7 @@ export default async function CelebrityPage({ params }: Props) {
             </svg>
             <T k="join.joinCommunity" />
           </Link>
+          <ChatNowButton celebrityId={celebrity.id} celebritySlug={celebrity.slug} />
         </div>
 
         {/* Body grid */}

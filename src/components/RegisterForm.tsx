@@ -44,7 +44,7 @@ export default function RegisterForm() {
         setLoading(false);
         return;
       }
-      router.push("/dashboard");
+      router.push("/onboarding/celebrities");
       router.refresh();
     } catch {
       setError(t("common.networkError"));

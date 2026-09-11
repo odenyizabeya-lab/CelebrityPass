@@ -7,6 +7,7 @@
  */
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
+import { getAdminEmails } from "@/lib/admin/settings";
 import { appUrl, signToken } from "@/lib/utils";
 import { formatMoney } from "@/lib/payments";
 import { renderEmailTemplate } from "./templates";
@@ -203,3 +204,75 @@ export async function sendNewCelebrityAnnouncement(celebrity: { id: string; slug
 /** Shared announcement rendering for the admin Email Center composer. */
 export { fanOutAnnouncement };
 export type { AudienceSpec };
+
+/**
+ * 8. First-message chat notification. Fires once per conversation (dedupeKey
+ * is permanent, so repeat messages never spam a recipient). The recipient is
+ * only emailed when they are offline — someone actively chatting clearly
+ * doesn't need an email. Never blocking: enqueue + kick worker.
+ */
+export async function sendChatMessageNotification(input: {
+  direction: "toFan" | "toTeam";
+  conversationId: string;
+  fan?: { id: string; name: string; email: string; lastSeenAt: Date | null } | null;
+  celebrityName: string;
+  senderName: string;
+  preview: string;
+  replyUrl: string;
+  replyLabel: string;
+}) {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+  if (input.direction === "toFan") {
+    const fan = input.fan;
+    if (!fan) return;
+    // Offline check + email hygiene: inactive or unsubscribed fans are skipped.
+    if (fan.lastSeenAt && fan.lastSeenAt > fiveMinutesAgo) return;
+    const { subject, html } = renderEmailTemplate({
+      kind: "chatNew",
+      fanName: fan.name,
+      senderName: input.senderName,
+      actorLabel: input.celebrityName,
+      preview: input.preview,
+      replyLabel: input.replyLabel,
+      replyUrl: input.replyUrl,
+      replyPreview: `You can reply inside the chat whenever you're ready.`,
+    });
+    await enqueueEmail({
+      fanId: fan.id,
+      dedupeKey: `chat-fan:${input.conversationId}`,
+      type: "CHAT",
+      to: fan.email,
+      subject,
+      template: "chat-new",
+      html,
+    });
+    kickWorker();
+    return;
+  }
+
+  // toTeam: notify the first configured admin address (once per conversation).
+  const adminEmails = (await getAdminEmails()).filter((e) => e.length > 0);
+  const to = adminEmails[0];
+  if (!to) return;
+  const { subject, html } = renderEmailTemplate({
+    kind: "chatNew",
+    fanName: "Team",
+    senderName: input.senderName,
+    actorLabel: "fan",
+    preview: input.preview,
+    replyLabel: input.replyLabel,
+    replyUrl: input.replyUrl,
+    replyPreview: `A fan is waiting for a reply in the team inbox.`,
+  });
+  await enqueueEmail({
+    fanId: null,
+    dedupeKey: `chat-team:${input.conversationId}`,
+    type: "CHAT",
+    to,
+    subject,
+    template: "chat-new",
+    html,
+  });
+  kickWorker();
+}
