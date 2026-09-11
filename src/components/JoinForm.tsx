@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import type { MembershipLevelType } from "@/lib/utils";
 import { formatMoney } from "@/lib/payments";
+import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
 
 const COUNTRIES = [
@@ -60,7 +61,9 @@ function LevelOptionThumb({
           <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white">
             Celebrity<span style={{ color: neon }}>Pass</span>
           </span>
-          <span className="grid h-5 w-5 place-items-center rounded-md bg-white text-[8px] font-black text-ink-900 shadow">CP</span>
+          <span className="grid h-5 w-5 place-items-center rounded-md bg-white text-[8px] font-black text-ink-900 shadow">
+            <Logo size="xs" className="rounded-md shadow-md" />
+          </span>
         </div>
         <div>
           <p className="text-sm font-black uppercase tracking-[0.1em] text-white">{tierName}</p>

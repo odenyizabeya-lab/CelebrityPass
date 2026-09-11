@@ -58,7 +58,7 @@ async function celebrityPosts(since: Date | null): Promise<GeneratedPost[]> {
     contentType: "celebrity",
     contentRefId: c.id,
     title: c.name,
-    caption: `Welcome ${c.name} to KCO Global! 🎉\nJoin the official ${c.name} community and get your official fan card.`,
+    caption: `Welcome ${c.name} to CelebrityPass! 🎉\nJoin the official ${c.name} community and get your official fan card.`,
     linkUrl: `${appUrl()}/celebrity/${c.slug}`,
     media: c.profileImage ? [{ url: c.profileImage, mimeType: "image/jpeg" }] : [],
   }));

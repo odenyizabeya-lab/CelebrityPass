@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import LanguageSelector from "@/components/LanguageSelector";
+import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
 
 export default function Header() {
@@ -19,13 +20,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-ink-900/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-accent-500 text-xs font-black text-white shadow-lg shadow-primary-600/30 ring-1 ring-white/20">
-            CP
-          </span>
-          <span className="text-lg font-bold tracking-tight">
-            Celebrity<span className="gradient-text">Pass</span>
-          </span>
+        <Link href="/" className="group flex items-center gap-2.5" aria-label="CelebrityPass home">
+          <Logo variant="full" size="md" className="shadow-lg shadow-primary-600/30 ring-1 ring-white/20" />
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm font-medium text-zinc-300 md:flex">

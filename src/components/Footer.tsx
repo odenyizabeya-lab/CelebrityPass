@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
 
 export default function Footer() {
@@ -10,12 +11,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div className="md:col-span-1">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-600 to-accent-500 text-xs font-black text-white">
-              CP
-            </span>
-            <span className="text-lg font-bold tracking-tight">
-              Celebrity<span className="gradient-text">Pass</span>
-            </span>
+            <Logo variant="full" size="md" />
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-zinc-400">
             {t("footer.tagline")}

@@ -34,7 +34,7 @@ export default function DownloadPage() {
             device, search for <strong>CelebrityPass</strong>, and tap Install.
           </p>
           <p className="mt-3 text-xs text-zinc-500">
-            The app is built as package <code className="text-zinc-400">com.kcoai.app</code> and loads the live
+            The app is built as package <code className="text-zinc-400">com.celebritypass.app</code> and loads the live
             CelebrityPass platform over HTTPS.
           </p>
         </div>

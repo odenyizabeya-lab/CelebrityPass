@@ -133,7 +133,7 @@ export async function fetchMediaBytes(ref: SocialMediaRef): Promise<{
     return { bytes: Uint8Array.from(atobSafe(url.slice(comma + 1))), mimeType: mime, name: ref.name ?? null };
   }
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "KCO/1.0" } });
+    const res = await fetch(url, { headers: { "User-Agent": "CelebrityPass/1.0" } });
     if (!res.ok) return null;
     const buf = Uint8Array.from(new Uint8Array(await res.arrayBuffer()));
     return { bytes: buf, mimeType: res.headers.get("content-type") ?? mimeType, name: ref.name ?? null };

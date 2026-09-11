@@ -8,6 +8,7 @@ import BackButton from "@/components/BackButton";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import GooglePanel from "@/components/GooglePanel";
+import Logo from "@/components/Logo";
 import { prisma } from "@/lib/db";
 import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
 import { formatFollowerCount } from "@/lib/followers";
@@ -559,7 +560,9 @@ async function LevelCardGraphic({
                 Experience
               </span>
             )}
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-[10px] font-black text-ink-900 shadow">CP</span>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-[10px] font-black text-ink-900 shadow">
+              <Logo size="xs" className="rounded-lg" />
+            </span>
           </div>
         </div>
 
@@ -606,7 +609,7 @@ async function LevelCardGraphic({
               </div>
             ) : (
               <div className="grid h-14 w-14 place-items-center rounded-lg bg-white/90 text-[8px] font-black uppercase tracking-widest text-ink-900 shadow">
-                CP
+                <Logo size="sm" className="rounded-md" />
               </div>
             )}
           </div>

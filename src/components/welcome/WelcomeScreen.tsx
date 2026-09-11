@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Logo from "@/components/Logo";
 
 const EXIT_MS = 440;
 
@@ -51,8 +52,8 @@ export default function WelcomeScreen() {
         <div className="fade-up" style={{ animationDelay: "140ms" }}>
           <div className="relative mx-auto grid h-24 w-24 place-items-center">
             <div className="absolute inset-0 rounded-[1.75rem] bg-primary-600/40 blur-2xl" aria-hidden />
-            <div className="relative grid h-20 w-20 place-items-center rounded-[1.5rem] bg-gradient-to-br from-primary-600 to-accent-500 text-xl font-black text-white shadow-2xl shadow-primary-600/40 ring-1 ring-white/25">
-              CP
+            <div className="relative">
+              <Logo size="xl" className="shadow-2xl shadow-primary-600/40 ring-1 ring-white/25" />
             </div>
           </div>
         </div>
