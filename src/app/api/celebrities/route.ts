@@ -16,6 +16,7 @@ import {
   type DuplicateCode,
 } from "@/lib/dedupe";
 import { sendNewCelebrityAnnouncement } from "@/lib/emails/senders";
+import { normalizeSocialUrl } from "@/lib/social/resolve";
 
 export const dynamic = "force-dynamic";
 
@@ -150,11 +151,12 @@ export async function POST(request: NextRequest) {
         isActive: Boolean(body.isActive ?? true),
         isVerified: true,
         socialLinks: body.socialLinks ? JSON.stringify(body.socialLinks) : null,
-        // Permanent verified official platform links — stored in dedicated columns.
-        facebookUrl: body.facebookUrl ? String(body.facebookUrl) : null,
-        instagramUrl: body.instagramUrl ? String(body.instagramUrl) : null,
-        tiktokUrl: body.tiktokUrl ? String(body.tiktokUrl) : null,
-        googleUrl: body.googleUrl ? String(body.googleUrl) : null,
+        // Permanent verified official platform links — stored in dedicated
+        // columns, normalized so only real official URLs survive.
+        facebookUrl: normalizeSocialUrl("facebook", body.facebookUrl ? String(body.facebookUrl) : null),
+        instagramUrl: normalizeSocialUrl("instagram", body.instagramUrl ? String(body.instagramUrl) : null),
+        tiktokUrl: normalizeSocialUrl("tiktok", body.tiktokUrl ? String(body.tiktokUrl) : null),
+        googleUrl: normalizeSocialUrl("google", body.googleUrl ? String(body.googleUrl) : null),
         cardDesign: body.cardDesign ? JSON.stringify(body.cardDesign) : null,
         website: body.website ? String(body.website) : null,
         instagramFollowers: instagramFollowers ?? null,

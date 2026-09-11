@@ -13,7 +13,8 @@ import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
 import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
-import { tryParseJson, type SocialLinks } from "@/lib/utils";
+import { canonicalSocialLinks, type CanonicalSocialLinks } from "@/lib/social/resolve";
+import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import QRCode from "qrcode";
 
@@ -209,12 +210,47 @@ export default async function CelebrityPage({ params }: Props) {
   }
 
   // The four permanent, verified platform links (source of truth).
-  const socials: SocialLinks = {
-    facebook: celebrity.facebookUrl ?? undefined,
-    instagram: celebrity.instagramUrl ?? undefined,
-    tiktok: celebrity.tiktokUrl ?? undefined,
-    google: celebrity.googleUrl ?? undefined,
-  };
+  // Google is always present (deterministic official-result search page for the
+  // exact name); Facebook/Instagram/TikTok render only when a verified official
+  // URL exists — never a guessed or placeholder link.
+  const socials = canonicalSocialLinks(celebrity.name, {
+    facebook: celebrity.facebookUrl,
+    instagram: celebrity.instagramUrl,
+    tiktok: celebrity.tiktokUrl,
+    google: celebrity.googleUrl,
+  });
+
+  // Self-heal (same pattern as the Google knowledge panel above): persist the
+  // canonical values so the database converges — Google filled when missing,
+  // junk/placeholder URLs cleaned to null. Runs only until the stored columns
+  // match; failures never break the page.
+  try {
+    const patches: { facebookUrl?: string | null; instagramUrl?: string | null; tiktokUrl?: string | null; googleUrl?: string | null } = {};
+    const patchField = <K extends "facebook" | "instagram" | "tiktok" | "google">(platform: K) => {
+      const field = `${platform}Url` as const;
+      const canonical = socials[platform] ?? null;
+      if ((celebrity[field] ?? null) !== canonical) patches[field] = canonical;
+    };
+    patchField("facebook");
+    patchField("instagram");
+    patchField("tiktok");
+    patchField("google");
+    if (Object.keys(patches).length > 0) {
+      await prisma.celebrity.update({ where: { id: celebrity.id }, data: patches });
+    }
+  } catch {
+    /* the rest of the profile still renders */
+  }
+
+  // A platform tile shows only when it has a real, clickable link AND a count —
+  // a platform that isn't verified on a network is simply not shown.
+  const followerTiles = [
+    { icon: "instagram" as const, label: "Instagram", count: celebrity.instagramFollowers, url: socials.instagram },
+    { icon: "tiktok" as const, label: "TikTok", count: celebrity.tiktokFollowers, url: socials.tiktok },
+    { icon: "facebook" as const, label: "Facebook", count: celebrity.facebookFollowers, url: socials.facebook },
+  ].filter((t): t is { icon: "instagram" | "tiktok" | "facebook"; label: string; count: number | null; url: string } =>
+    typeof t.url === "string" && (t.count ?? null) != null
+  );
   const hasMemberships = celebrity.memberships.length > 0;
   const standardTiers = celebrity.memberships.filter((l) => (l.price ?? 0) < PREMIUM_MIN_PRICE);
   const premiumTiers = celebrity.memberships.filter((l) => (l.price ?? 0) >= PREMIUM_MIN_PRICE);
@@ -308,12 +344,13 @@ export default async function CelebrityPage({ params }: Props) {
           <GooglePanel info={panel} category={celebrity.category} />
         )}
 
-        {/* Verified follower counts */}
-        {(celebrity.instagramFollowers || celebrity.tiktokFollowers || celebrity.facebookFollowers) && (
+        {/* Verified follower counts — tiles render only when a platform also
+            has a verified, clickable link, so nothing shown is ever a dead end. */}
+        {followerTiles.length > 0 && (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FollowerTile icon="instagram" label="Instagram" count={celebrity.instagramFollowers} url={socials.instagram} />
-            <FollowerTile icon="tiktok" label="TikTok" count={celebrity.tiktokFollowers} url={socials.tiktok} />
-            <FollowerTile icon="facebook" label="Facebook" count={celebrity.facebookFollowers} url={socials.facebook} />
+            {followerTiles.map((t) => (
+              <FollowerTile key={t.icon} icon={t.icon} label={t.label} count={t.count} url={t.url} />
+            ))}
           </div>
         )}
 
@@ -787,7 +824,7 @@ function SignatureExperienceCard({
   );
 }
 
-function SocialLinksRow({ links }: { links: SocialLinks }) {
+function SocialLinksRow({ links }: { links: CanonicalSocialLinks }) {
   const items = [
     { key: "facebook", label: "Facebook" },
     { key: "instagram", label: "Instagram" },

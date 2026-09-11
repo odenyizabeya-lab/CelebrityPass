@@ -11,6 +11,7 @@ import {
   DUP_CODE,
   type DuplicateCode,
 } from "@/lib/dedupe";
+import { normalizeSocialUrl, type SocialPlatform } from "@/lib/social/resolve";
 
 export const dynamic = "force-dynamic";
 
@@ -133,12 +134,20 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     if (body[field] !== undefined) data[field] = body[field] === null ? null : String(body[field]);
   }
   // The four permanent verified platform URLs. Only fields the client explicitly
-  // sent are updated — a stale/empty payload can never wipe verified links.
-  const socialUrlFields = ["facebookUrl", "instagramUrl", "tiktokUrl", "googleUrl"] as const;
-  for (const field of socialUrlFields) {
+  // sent are updated — a stale/empty payload can never wipe verified links —
+  // and every value is normalized so junk/placeholder/guessed links are stored
+  // as null: nothing unverified can ever render as a link.
+  const socialUrlFields = [
+    ["facebookUrl", "facebook"],
+    ["instagramUrl", "instagram"],
+    ["tiktokUrl", "tiktok"],
+    ["googleUrl", "google"],
+  ] as const;
+  for (const [field, platform] of socialUrlFields) {
     if (body[field] === undefined) continue;
     const v = body[field];
-    data[field] = v === null || v === "" ? null : String(v).trim() || null;
+    const raw = v === null || v === "" ? null : String(v).trim() || null;
+    data[field] = normalizeSocialUrl(platform as SocialPlatform, raw);
   }
   if (body.website !== undefined) data.website = body.website === null ? null : String(body.website);
   if (body.socialLinks !== undefined) data.socialLinks = JSON.stringify(body.socialLinks);
