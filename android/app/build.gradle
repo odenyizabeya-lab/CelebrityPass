@@ -10,13 +10,13 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.kcoai.app"
+    namespace = "com.celebritypass.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.kcoai.app"
+        applicationId "com.celebritypass.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
+        versionCode 4
         versionName "2.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
