@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { hashPassword } from "@/lib/utils";
-import { createFanSession } from "@/lib/auth";
+import { hashPassword, verifyPassword, requestOrigin } from "@/lib/utils";
+import { getCurrentFanId, createFanSession } from "@/lib/auth";
 import { issueFanCard } from "@/lib/cards";
 import { sendRegistrationEmails } from "@/lib/emails/senders";
 
@@ -26,13 +26,22 @@ export async function POST(request: NextRequest) {
   }
   const password = typeof body.password === "string" && body.password.trim().length >= 6 ? body.password.trim() : null;
 
-  // Upsert the fan account by email.
   let fan = await prisma.fan.findUnique({ where: { email } });
+
   if (fan) {
-    const patch: Record<string, unknown> = {};
-    if (password && !fan.password) patch.password = hashPassword(password);
-    if (body.country && !fan.country) patch.country = String(body.country);
-    if (Object.keys(patch).length) fan = await prisma.fan.update({ where: { id: fan.id }, data: patch });
+    // Existing account — NEVER grant a fresh session off the email alone, or
+    // anyone could "join" with a victim's email and take over their account.
+    // Only proceed when the caller is already signed in as this fan, the
+    // submitted password verifies, or the account has no password yet.
+    const current = await getCurrentFanId();
+    const authorized = current === fan.id;
+    if (!fan.password && password) {
+      fan = await prisma.fan.update({ where: { id: fan.id }, data: { password: hashPassword(password) } });
+    } else if (!authorized && fan.password && password && !verifyPassword(password, fan.password)) {
+      return NextResponse.json({ requiresLogin: true, email, celebritySlug: celebrity.slug }, { status: 200 });
+    } else if (!authorized && fan.password && !password) {
+      return NextResponse.json({ requiresLogin: true, email, celebritySlug: celebrity.slug }, { status: 200 });
+    }
   } else {
     fan = await prisma.fan.create({
       data: {
@@ -103,9 +112,7 @@ export async function POST(request: NextRequest) {
   // Fallback (no membership level selected): issue the card instantly. All
   // standard base tiers are paid, so this path only triggers when the fan
   // joins without picking a level.
-  const origin =
-    request.headers.get("origin") ??
-    request.headers.get("x-forwarded-proto") + "://" + (request.headers.get("x-forwarded-host") ?? "localhost:3000");
+  const origin = requestOrigin(request.headers);
   const card = await issueFanCard({ fanId: fan.id, celebrityId: celebrity.id, membershipLevelId: level?.id, origin });
 
   return NextResponse.json(

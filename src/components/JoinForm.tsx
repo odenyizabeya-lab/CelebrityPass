@@ -141,6 +141,10 @@ export default function JoinForm({
         setLoading(false);
         return;
       }
+      if (data.requiresLogin) {
+        router.push(`/login?next=/celebrity/${encodeURIComponent(slug)}/join`);
+        return;
+      }
       if (data.requiresPayment && data.payment) {
         router.push(`/checkout/${data.payment.id}`);
         return;

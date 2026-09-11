@@ -9,6 +9,10 @@
 
 type Cta = { label: string; url: string };
 
+import { appUrl } from "@/lib/utils";
+
+const accountPreferencesUrl = `${appUrl()}/account`;
+
 function brandLayout(opts: {
   title: string;
   body: string;
@@ -75,7 +79,7 @@ function brandLayout(opts: {
 function transactionFooter(): string {
   return (
     `You received this email because you have an account with CelebrityPass. ` +
-    `<a href="https://celebritypass.app/account" style="color:#a78bfa;text-decoration:none;">Manage email preferences</a>.`
+    `<a href="${accountPreferencesUrl}" style="color:#a78bfa;text-decoration:none;">Manage email preferences</a>.`
   );
 }
 
@@ -83,7 +87,7 @@ function promoFooter(unsubscribeUrl: string): string {
   return (
     `You are receiving this because you opted into CelebrityPass updates. ` +
     `<a href="${unsubscribeUrl}" style="color:#a78bfa;text-decoration:none;">Unsubscribe</a> or ` +
-    `<a href="https://celebritypass.app/account" style="color:#a78bfa;text-decoration:none;">manage preferences</a>.`
+    `<a href="${accountPreferencesUrl}" style="color:#a78bfa;text-decoration:none;">manage preferences</a>.`
   );
 }
 

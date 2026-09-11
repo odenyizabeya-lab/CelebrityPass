@@ -109,6 +109,25 @@ export function appUrl(): string {
 }
 
 /**
+ * Derive a safe base origin for links and QR codes from request headers.
+ * Never returns "null://…", "localhost" fallbacks, or an empty string —
+ * falls back to the canonical app URL when no trustworthy origin exists.
+ */
+export function requestOrigin(headers: { get(name: string): string | null }): string {
+  const origin = headers.get("origin") || "";
+  if (/^https?:\/\/[^/]+$/i.test(origin)) return origin;
+  const proto = headers.get("x-forwarded-proto") || "";
+  const host = headers.get("x-forwarded-host") || "";
+  if (proto && host) {
+    const p = proto.split(",")[0].trim();
+    const h = host.split(",")[0].trim().replace(/\/+$/, "");
+    const combined = `${p}://${h}`;
+    if (/^https?:\/\/[^/]+$/i.test(combined)) return combined;
+  }
+  return appUrl();
+}
+
+/**
  * Generate a premium-looking inline SVG avatar for a celebrity when no
  * photo has been uploaded. Returns a `data:image/svg+xml` URI.
  */

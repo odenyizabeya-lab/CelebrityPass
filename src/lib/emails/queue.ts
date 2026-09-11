@@ -11,7 +11,7 @@
  */
 import { prisma } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/dedupe";
-import { EmailProviderError, sendViaResend } from "./provider";
+import { EmailProviderError, isEmailProviderConfigured, sendViaResend } from "./provider";
 
 export const OUTBOX_LIMIT = 50;
 
@@ -71,6 +71,10 @@ export async function enqueueEmail(
 /** Claim + send a batch of due messages. One failure never blocks the batch. */
 export async function processEmailQueue(batchSize = OUTBOX_LIMIT): Promise<{ claimed: number; sent: number; failed: number }> {
   const now = new Date();
+
+  // With no provider key configured, keep every message PENDING instead of
+  // burning attempts or permanently failing rows that only need the key added.
+  if (!(await isEmailProviderConfigured())) return { claimed: 0, sent: 0, failed: 0 };
 
   const due = await prisma.emailMessage.findMany({
     where: {

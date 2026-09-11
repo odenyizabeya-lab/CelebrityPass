@@ -28,11 +28,13 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     },
   });
   if (!payment || payment.fanId !== fanId) notFound();
+  const celebrity = payment.celebrity;
+  if (!celebrity) notFound();
 
   if (payment.status === "PAID" && payment.cardId) {
     const card = await prisma.fanCard.findUnique({ where: { id: payment.cardId } });
     if (card) {
-      redirect(`/celebrity/${payment.celebrity!.slug}/fan/${card.fanNumber}`);
+      redirect(`/celebrity/${celebrity.slug}/fan/${card.fanNumber}`);
     }
   }
 
@@ -41,7 +43,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     kind: "FAN_CARD" as const,
     id: payment.id,
     ref: payment.description ?? "Fan Card",
-    title: payment.description ?? `${payment.celebrity!.name} — ${label}`,
+    title: payment.description ?? `${celebrity.name} — ${label}`,
     amountCents: Math.round(payment.amount * 100),
     currency: payment.currency || "USD",
   };
@@ -57,21 +59,21 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   return (
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
       <div className="mb-8 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: payment.celebrity!.accentColor }}>
+        <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: celebrity.accentColor }}>
           <T k="checkout.secure" />
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
           <T k="checkout.complete" />
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-zinc-400">
-          <T k="checkout.sub" vars={{ name: payment.celebrity!.name }} />
+          <T k="checkout.sub" vars={{ name: celebrity.name }} />
         </p>
       </div>
 
       {/* Order summary */}
       <div
         className="mb-6 overflow-hidden rounded-3xl p-6 text-white shadow-xl ring-1 ring-white/15"
-        style={{ background: `linear-gradient(130deg, ${payment.celebrity!.accentColor}, #27104a 45%, #0b0c10)` }}
+        style={{ background: `linear-gradient(130deg, ${celebrity.accentColor}, #27104a 45%, #0b0c10)` }}
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -79,7 +81,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
               <T k="checkout.orderSummary" />
             </p>
             <h2 className="mt-1 text-xl font-black">
-              <T k="checkout.yourCard" vars={{ name: payment.celebrity!.name }} />
+              <T k="checkout.yourCard" vars={{ name: celebrity.name }} />
             </h2>
             <p className="text-sm text-white/70">{plan.title}</p>
           </div>
@@ -103,10 +105,10 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
               <T k="checkout.pendingSub" vars={{ ref: pendingProof.reference ?? "n/a" }} />
             </p>
             <a
-              href={`/celebrity/${payment.celebrity!.slug}`}
+              href={`/celebrity/${celebrity.slug}`}
               className="mt-6 inline-block rounded-full bg-white px-6 py-2.5 text-sm font-bold text-emerald-900 hover:bg-emerald-50"
             >
-              <T k="join.backToProfile" vars={{ name: payment.celebrity!.name }} />
+              <T k="join.backToProfile" vars={{ name: celebrity.name }} />
             </a>
           </div>
         </div>
@@ -119,8 +121,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             amountCents={Math.round(payment.amount * 100)}
             currency={payment.currency || "USD"}
             purchaseTitle={plan.title}
-            accent={payment.celebrity!.accentColor}
-            redirectUrl={`/celebrity/${payment.celebrity!.slug}`}
+            accent={celebrity.accentColor}
+            redirectUrl={`/celebrity/${celebrity.slug}`}
             purchaseId={payment.id}
           />
         </div>

@@ -52,7 +52,7 @@ async function issueCard(
       membershipName: final.membershipLevel?.name ?? null,
       cardNumber: final.fanNumber,
       cardUrl: `${baseOrigin}${cardUrl}`,
-    }).catch(() => {}),
+    }).catch((err) => console.error("[email] Card activation send failed:", err)),
   );
 
   return final;

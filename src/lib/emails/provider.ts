@@ -60,8 +60,10 @@ export async function sendViaResend(input: {
 }): Promise<SendResult> {
   const apiKey = await getEmailApiKey();
   if (!apiKey) {
+    // Treat "not configured" as RETRYABLE, not permanent: once the admin adds
+    // the key, queued mail must go out instead of being dead forever.
     throw new EmailProviderError("No email provider configured (RESEND_API_KEY is empty).", {
-      permanent: true,
+      permanent: false,
     });
   }
 

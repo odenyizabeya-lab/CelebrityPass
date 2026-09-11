@@ -221,7 +221,7 @@ export async function settlePayment(paymentId: string, origin?: string | null) {
         cardUrl: `${origin ?? appUrl()}${final.cardUrl ?? cardUrlFor(final.celebrity.slug, final.fanNumber)}`,
       });
     })
-    .catch(() => {});
+    .catch((err) => console.error("[email] Payment receipt send failed:", err));
 
   return prisma.payment.update({
     where: { id: paymentId },

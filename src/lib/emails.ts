@@ -67,7 +67,7 @@ function wrap(body: string): string {
 <body style="margin:0;padding:0;background:#0b0c10;font-family:system-ui,-apple-system,sans-serif;color:#e4e4e7;">
   <div style="max-width:560px;margin:0 auto;padding:40px 24px;">
     <div style="margin-bottom:24px;">
-      <span style="font-size:14px;font-weight:700;letter-spacing:0.1em;color:#8b5cf6;">FAN CARD</span>
+      <span style="font-size:14px;font-weight:700;letter-spacing:0.1em;color:#8b5cf6;">CELEBRITYPASS</span>
     </div>
     ${body}
     <hr style="border:none;border-top:1px solid #27272a;margin:32px 0;">
@@ -212,7 +212,10 @@ async function send(to: string[], subject: string, html: string) {
     return;
   }
 
-  const from = (await prisma.appSetting.findUnique({ where: { key: "EMAIL_FROM" } }))?.value ?? "Fan Card <noreply@fancard.app>";
+  const from =
+    (await prisma.appSetting.findUnique({ where: { key: "EMAIL_FROM" } }))?.value ??
+    process.env.EMAIL_FROM ??
+    "CelebrityPass <noreply@celebritypass.app>";
 
   try {
     await client.emails.send({ from, to, subject, html });

@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
   const fan = await prisma.fan.findUnique({ where: { email } });
 
   // Always return the same response whether or not the account exists, to
-  // avoid revealing which emails have accounts.
-  if (!fan || !fan.password) {
+  // avoid revealing which emails have accounts. Passwordless accounts get a
+  // link too — its confirm step simply sets their password.
+  if (!fan) {
     return NextResponse.json({
       ok: true,
       message: "If an account exists for that email, a reset link has been sent.",

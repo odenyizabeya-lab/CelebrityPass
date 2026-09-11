@@ -23,43 +23,61 @@ function evictIfNeeded() {
   }
 }
 
-async function getProfileImage(slug: string): Promise<CacheEntry | null> {
+async function getProfileImage(slug: string): Promise<
+  | { kind: "bytes"; entry: CacheEntry }
+  | { kind: "redirect"; url: string }
+  | null
+> {
   const now = Date.now();
   const hit = imageCache.get(slug);
   if (hit && now - hit.lastAccess < CACHE_TTL_MS) {
     hit.lastAccess = now;
-    return hit;
+    return { kind: "bytes", entry: hit };
   }
 
   const celebrity = await prisma.celebrity.findUnique({
     where: { slug },
     select: { profileImage: true },
   });
-  const parsed = dataUriBuffer(celebrity?.profileImage ?? null);
+  const uri = celebrity?.profileImage ?? null;
+  // External http(s) images are proxied via a 307 so browsers/clients render
+  // them without us having to downscale or whitelist the source.
+  if (uri && /^https?:\/\//i.test(uri)) return { kind: "redirect", url: uri };
+
+  const parsed = dataUriBuffer(uri);
   if (!parsed) return null;
 
   const etag = createHash("sha1").update(parsed.buffer).digest("hex").slice(0, 24);
   const entry: CacheEntry = { mime: parsed.mime, buf: parsed.buffer, etag, lastAccess: now };
   evictIfNeeded();
   imageCache.set(slug, entry);
-  return entry;
+  return { kind: "bytes", entry };
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const image = await getProfileImage(slug);
   if (!image) return new NextResponse("Not Found", { status: 404 });
+  if (image.kind === "redirect") {
+    return NextResponse.redirect(image.url, {
+      status: 307,
+      headers: {
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+        "CDN-Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    });
+  }
 
   const ifNoneMatch = request.headers.get("if-none-match");
-  if (ifNoneMatch === `"${image.etag}"`) {
+  if (ifNoneMatch === `"${image.entry.etag}"`) {
     return new NextResponse(null, { status: 304 });
   }
 
-  return new NextResponse(new Uint8Array(image.buf), {
+  return new NextResponse(new Uint8Array(image.entry.buf), {
     headers: {
-      "Content-Type": image.mime,
-      "Content-Length": String(image.buf.length),
-      ETag: `"${image.etag}"`,
+      "Content-Type": image.entry.mime,
+      "Content-Length": String(image.entry.buf.length),
+      ETag: `"${image.entry.etag}"`,
       "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
       "CDN-Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
       "Access-Control-Allow-Origin": "*",

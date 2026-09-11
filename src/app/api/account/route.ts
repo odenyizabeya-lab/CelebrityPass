@@ -59,7 +59,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "New password is too long." }, { status: 400 });
     }
     const fan = await prisma.fan.findUnique({ where: { id: fanId } });
-    if (!fan || !fan.password || !verifyPassword(String(body.currentPassword ?? ""), fan.password)) {
+    if (!fan) return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    // An account without a password (joined password-optional) can set one
+    // directly. Accounts that already have a password must confirm it.
+    if (fan.password && !verifyPassword(String(body.currentPassword ?? ""), fan.password)) {
       return NextResponse.json({ error: "Current password is incorrect." }, { status: 403 });
     }
     data.password = hashPassword(newPassword);

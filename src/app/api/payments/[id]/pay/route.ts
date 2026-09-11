@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentFanId } from "@/lib/auth";
 import { getPaymentProvider, settlePayment, validateCardDetails, type CardDetails } from "@/lib/payments";
+import { requestOrigin } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -51,9 +52,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     data: { status: "PAID", paidAt: new Date(), gatewayRef: charge.ref },
   });
 
-  const origin =
-    request.headers.get("origin") ??
-    request.headers.get("x-forwarded-proto") + "://" + (request.headers.get("x-forwarded-host") ?? "localhost:3000");
+  const origin = requestOrigin(request.headers);
   const cardRow = await settlePayment(settled.id, origin);
 
   if (!cardRow) return NextResponse.json({ error: "Failed to settle payment" }, { status: 500 });
