@@ -21,6 +21,14 @@ export default function LegalShell({
           About
         </Link>
         <span aria-hidden>·</span>
+        <Link href="/legal" className="transition hover:text-white">
+          Legal &amp; Support
+        </Link>
+        <span aria-hidden>·</span>
+        <Link href="/faq" className="transition hover:text-white">
+          FAQ
+        </Link>
+        <span aria-hidden>·</span>
         <Link href="/legal/privacy" className="transition hover:text-white">
           Privacy
         </Link>
@@ -39,6 +47,10 @@ export default function LegalShell({
         <span aria-hidden>·</span>
         <Link href="/legal/payments" className="transition hover:text-white">
           Payments &amp; Refunds
+        </Link>
+        <span aria-hidden>·</span>
+        <Link href="/help" className="transition hover:text-white">
+          Help
         </Link>
         <span aria-hidden>·</span>
         <Link href="/legal/contact" className="transition hover:text-white">

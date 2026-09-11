@@ -22,8 +22,9 @@ export default function HelpPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Help Center</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">How can we help?</h1>
         <p className="mt-3 max-w-2xl text-zinc-300">
-          Search for answers about accounts, login, the app, privacy, and more. Can&apos;t find what you need?{" "}
-          <Link href="/legal/contact" className="text-primary-400 underline">Contact support</Link>.
+          Search for answers about accounts, login, the app, privacy, and more. Browse the{" "}
+          <Link href="/faq" className="text-primary-400 underline">full FAQ</Link>, or{" "}
+          <Link href="/legal/contact" className="text-primary-400 underline">contact support</Link>.
         </p>
       </div>
 

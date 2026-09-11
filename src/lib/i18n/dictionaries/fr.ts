@@ -141,6 +141,7 @@ export const fr: Dict = {
     userRights: "Droits de l'utilisateur & demandes de données",
     helpCenter: "Centre d'aide",
     contactSupport: "Contact & support",
+    legalSupport: "Aperçu légal et support",
     rightsReserved: "Tous droits réservés.",
     statsNote: "Chaque communauté affiche uniquement des statistiques réelles vérifiées en base de données.",
   },

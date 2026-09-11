@@ -102,6 +102,14 @@ export default function SecurityPage() {
           choose the <strong>Security</strong> category. We will prioritize and review your report.
         </p>
       </section>
+
+      <section className="mt-12">
+        <p className="max-w-prose text-sm leading-relaxed text-zinc-300">
+          See all policies, rights, and support options on the{" "}
+          <Link href="/legal" className="text-primary-400 underline">Legal &amp; Support</Link> overview, or visit the{" "}
+          <Link href="/faq" className="text-primary-400 underline">FAQ</Link>.
+        </p>
+      </section>
     </div>
   );
 }

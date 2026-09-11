@@ -141,6 +141,7 @@ export const zhHans: Dict = {
     userRights: "用户权利与数据请求",
     helpCenter: "帮助中心",
     contactSupport: "联系与支持",
+    legalSupport: "法律与支持概览",
     rightsReserved: "版权所有。",
     statsNote: "每个名人社区仅显示真实、经过数据库验证的成员统计数据。",
   },

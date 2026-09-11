@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <LegalShell title="Contact & Support" updated="September 4, 2026">
+    <LegalShell title="Contact & Support" updated="September 10, 2026">
       <p>We&apos;re here to help. Send us a message below, or use the direct contact options that best match your question.</p>
 
       <ContactForm />
@@ -32,9 +32,13 @@ export default function ContactPage() {
           <p className="mt-2 text-sm text-zinc-400">
             Payment issues, bank-transfer verification, or refund requests. Include your order reference.
           </p>
-          <a href="mailto:payments@celebritypass.app" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
-            payments@celebritypass.app
-          </a>
+          <span className="mt-3 inline-block text-sm text-zinc-400">
+            Email{" "}
+            <a href="mailto:support@celebritypass.app?subject=Payments" className="text-primary-400 underline">
+              support@celebritypass.app
+            </a>{" "}
+            using the subject <strong>Payments</strong>, or choose the Payments category in the form above.
+          </span>
         </div>
 
         <div className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
@@ -52,9 +56,13 @@ export default function ContactPage() {
           <p className="mt-2 text-sm text-zinc-400">
             Event organizers, ticketing partners, and celebrity community requests.
           </p>
-          <a href="mailto:events@celebritypass.app" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
-            events@celebritypass.app
-          </a>
+          <span className="mt-3 inline-block text-sm text-zinc-400">
+            Email{" "}
+            <a href="mailto:support@celebritypass.app?subject=Business%20%26%20Events" className="text-primary-400 underline">
+              support@celebritypass.app
+            </a>{" "}
+            using the subject <strong>Business &amp; Events</strong>.
+          </span>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalShell title="Terms of Service" updated="September 4, 2026">
+    <LegalShell title="Terms of Service" updated="September 10, 2026">
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the{" "}
         <strong>CelebrityPass</strong> application, website, and services. By creating an account or using
@@ -107,10 +107,12 @@ export default function TermsPage() {
 
       <h2 className="text-base font-bold text-white">Governing Law</h2>
       <p>
-        The laws applicable to these Terms, and the jurisdiction for any dispute, depend on the country and legal
-        entity that operates CelebrityPass. CelebrityPass will state its governing-law provisions once the relevant
-        operating country and legal details are confirmed. Until then, these terms are provided without a claim of a
-        specific governing law or jurisdiction.
+        These Terms and any dispute arising out of or in connection with them are governed by the laws of the United
+        States of America, without regard to conflicts-of-law principles. Contrary to that choice, the
+        consumer-protection laws of the country where you reside always apply to the extent they protect you in ways
+        you cannot waive. To the fullest extent permitted by law, any dispute that is not subject to a mandatory law of
+        your country of residence shall be brought exclusively before the state and federal courts located in the United
+        States, and you and CelebrityPass consent to the jurisdiction of those courts.
       </p>
 
       <h2 className="text-base font-bold text-white">11. Contact</h2>

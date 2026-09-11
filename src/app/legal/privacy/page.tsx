@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" updated="September 4, 2026">
+    <LegalShell title="Privacy Policy" updated="September 10, 2026">
       <p>
         This Privacy Policy explains how <strong>CelebrityPass</strong> (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or
         &ldquo;our&rdquo;) collects, uses, stores, protects, and shares information when you use the CelebrityPass
@@ -20,12 +20,12 @@ export default function PrivacyPage() {
       <p>We collect the following categories of information in order to provide and operate the service:</p>
       <ul className="list-disc space-y-1 pl-5">
         <li>
-          <strong>Account information:</strong> your name, email address, and (optionally) phone number and country
-          when you register for a CelebrityPass account.
+          <strong>Account information:</strong> your name and email address, and (optionally) the country you choose.
+          A phone number is optional and is only stored if you voluntarily add it later in Account Settings.
         </li>
         <li>
-          <strong>Fan card information:</strong> your digital fan card number, the celebrity communities you join, your
-          chosen membership level, and your fan card design preferences.
+          <strong>Fan card information:</strong> your digital fan card number (Fan ID), the celebrity communities you
+          join, your chosen membership level, your card status, and your shareable card page with a QR code.
         </li>
         <li>
           <strong>Order information:</strong> your order reference, ticket selection, event attendance details,
@@ -42,7 +42,9 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Technical information:</strong> standard server logs (approximate IP address, device type, pages
-          visited, timestamps) are used to operate, secure, and improve the service.
+          visited, timestamps) are used to operate, secure, and improve the service. When you submit a support message
+          or a data request, we also record your IP address and browser details so we can respond, prevent abuse, and
+          secure the service.
         </li>
       </ul>
 
@@ -60,6 +62,8 @@ export default function PrivacyPage() {
         <li>Create and manage your account and fan cards.</li>
         <li>Process and fulfill your event ticket orders and membership purchases.</li>
         <li>Facilitate and verify Bank Transfer and card payments, including manual verification of bank-transfer receipts.</li>
+        <li>Provide visual search: a photo you upload is sent to our AI provider (Google Gemini) solely to identify the
+          celebrity or event shown in the image.</li>
         <li>Send order confirmations, tickets, and account notifications.</li>
         <li>Provide customer support and respond to inquiries.</li>
         <li>Maintain security, prevent fraud, and comply with legal obligations.</li>
@@ -72,17 +76,26 @@ export default function PrivacyPage() {
       <ul className="list-disc space-y-1 pl-5">
         <li>With payment processors and card merchants to process your payments securely.</li>
         <li>With trusted service providers that host the application and its database.</li>
+        <li>With our AI provider (Google Gemini) when you use visual search, so it can identify the celebrity or event
+          in a photo you upload. The image is processed on the fly and is not stored by us.</li>
         <li>Where required by law, regulation, or a valid legal request.</li>
         <li>With your consent, or as otherwise described at the time you provide the information.</li>
       </ul>
 
-      <h2 className="text-base font-bold text-white">4. Data Retention</h2>
+      <h2 className="text-base font-bold text-white">4. Data Retention &amp; Account Deletion</h2>
       <p>
         We retain your account and order data for as long as your account is active or as needed to provide the
         service, satisfy legal or tax obligations, resolve disputes, and enforce our agreements. Bank-transfer receipt
-        uploads are retained for the verification period and as legally required. When you delete your account, we
-        remove your account and associated fan cards. Some records may be retained only where required by law or for
-        legitimate, clearly defined purposes.
+        uploads are retained for the verification period and as legally required.
+      </p>
+      <p>
+        When you delete your account, we permanently remove your account, fan cards, and associated payment rows
+        through our deletion flow. You can delete your account <strong>in the app</strong> (sign in and open Account
+        Settings &rsaquo; Delete account) or <strong>on the web</strong> by submitting a deletion request on the{" "}
+        <a href="/legal/rights" className="text-primary-400 underline">User Rights &amp; Data Requests</a> page — no
+        app download or sign-in is required. Deletion is permanent and cannot be undone. For legitimate reasons such as
+        tax, anti-fraud, or regulatory compliance, some financial records may be retained only as long as the law
+        requires, and we will tell you when we need to retain them.
       </p>
 
       <h2 className="text-base font-bold text-white">4a. Service Providers</h2>
@@ -134,8 +147,8 @@ export default function PrivacyPage() {
       <h2 className="text-base font-bold text-white">9. Contact Us</h2>
       <p>
         For privacy questions or requests, contact us at{" "}
-        <a href="mailto:privacy@celebritypass.app" className="text-primary-400 underline">
-          privacy@celebritypass.app
+        <a href="mailto:support@celebritypass.app" className="text-primary-400 underline">
+          support@celebritypass.app
         </a>
         , use our{" "}
         <a href="/legal/contact" className="text-primary-400 underline">

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RightsPage() {
   return (
-    <LegalShell title="User Rights & Data Requests" updated="September 4, 2026">
+    <LegalShell title="User Rights & Data Requests" updated="September 10, 2026">
       <p>
         You have choices about the personal data we hold about you. This page explains what you can request and how to
         submit a request. Requests are handled by our team; we review and act on them in a reasonable time.
@@ -37,7 +37,8 @@ export default function RightsPage() {
       <h2 className="text-base font-bold text-white">How to submit a request</h2>
       <p>
         Fill in the form below, or if you are signed in you can update your details or delete your account from{" "}
-        <Link href="/account" className="text-primary-400 underline">Account Settings</Link>.
+        <Link href="/account" className="text-primary-400 underline">Account Settings</Link>. You do not need to be
+        signed in or have the app installed to submit a request through the form.
       </p>
 
       <h2 className="text-base font-bold text-white">What happens next</h2>

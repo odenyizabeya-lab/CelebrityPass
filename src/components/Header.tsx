@@ -13,7 +13,7 @@ export default function Header() {
     { href: "/discovery", label: t("nav.events") },
     { href: "/#how-it-works", label: t("nav.howItWorks") },
     { href: "/#membership", label: t("nav.membership") },
-    { href: "/#faq", label: t("nav.faq") },
+    { href: "/faq", label: t("nav.faq") },
     { href: "/dashboard", label: t("nav.myCards") },
   ];
   return (

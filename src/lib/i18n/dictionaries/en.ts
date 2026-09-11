@@ -147,6 +147,7 @@ export const en = {
     userRights: "User Rights & Data Requests",
     helpCenter: "Help Center",
     contactSupport: "Contact & Support",
+    legalSupport: "Legal & Support Overview",
     rightsReserved: "All rights reserved.",
     statsNote: "Each celebrity community displays only real, database-verified member statistics.",
   },

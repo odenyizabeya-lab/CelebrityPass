@@ -42,13 +42,15 @@ export default function Footer() {
             <li><Link href="/login" className="transition hover:text-white">{t("footer.login")}</Link></li>
             <li><Link href="/register" className="transition hover:text-white">{t("footer.register")}</Link></li>
             <li><Link href="/download" className="transition hover:text-white">{t("footer.appDownload")}</Link></li>
-            <li><Link href="/#faq" className="transition hover:text-white">{t("nav.faq")}</Link></li>
+            <li><Link href="/faq" className="transition hover:text-white">{t("nav.faq")}</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="text-sm font-semibold text-white">{t("footer.legal")}</h4>
           <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+            <li><Link href="/legal" className="transition hover:text-white">{t("footer.legalSupport")}</Link></li>
+            <li><Link href="/faq" className="transition hover:text-white">{t("nav.faq")}</Link></li>
             <li><Link href="/legal/privacy" className="transition hover:text-white">{t("footer.privacyPolicy")}</Link></li>
             <li><Link href="/legal/terms" className="transition hover:text-white">{t("footer.termsOfService")}</Link></li>
             <li><Link href="/legal/payments" className="transition hover:text-white">{t("footer.paymentsRefunds")}</Link></li>

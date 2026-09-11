@@ -8,10 +8,11 @@ export const metadata: Metadata = {
 
 export default function PaymentsPage() {
   return (
-    <LegalShell title="Payments & Refunds" updated="September 2, 2026">
+    <LegalShell title="Payments & Refunds" updated="September 10, 2026">
       <p>
         This page explains how payments work on CelebrityPass and how refunds are handled. CelebrityPass supports two
-        customer-facing payment methods: <strong>Bank Transfer</strong> and <strong>ATM Card</strong>.
+        customer-facing payment methods: <strong>Bank Transfer</strong> and <strong>ATM Card</strong>. Every purchase is
+        a one-time payment; there are no recurring or subscription charges.
       </p>
 
       <h2 className="text-base font-bold text-white">1. Supported Payment Methods</h2>
