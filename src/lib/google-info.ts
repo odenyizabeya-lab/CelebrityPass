@@ -481,16 +481,35 @@ async function fetchPosterImages(titles: string[]): Promise<(PanelImage | null)[
 /** Albums with cover art from Deezer's keyless public API (musicians). */
 async function fetchDeezerAlbums(name: string): Promise<{ works: PanelWork[]; artistImage: PanelImage | null }> {
   const search = (await fetchJson(
-    `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=5`
-  )) as { data?: Array<{ id?: number; name?: string; picture_medium?: string }> };
+    `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=10`
+  )) as {
+    data?: Array<{ id?: number; name?: string; picture_medium?: string; nb_fan?: number }>;
+  };
   const data = Array.isArray(search?.data) ? search.data : [];
-  if (data.length === 0) return { works: [], artistImage: null };
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   const target = norm(name);
+  if (data.length === 0 || !target) return { works: [], artistImage: null };
+
+  // Strict matching only — never accept the raw first result. A candidate must
+  // either match the normalized name exactly, or (for real multi-word names)
+  // contain it / be contained by it. Short strings like "V" match exactly only.
+  const MIN_CONTAIN = 4;
+  const candidates = data.filter((a) => {
+    const n = norm(a.name ?? "");
+    if (!n) return false;
+    if (n === target) return true;
+    return (n.includes(target) || target.includes(n)) && (n.length >= MIN_CONTAIN || target.length >= MIN_CONTAIN);
+  });
+
+  // Pick the most credible match: the artist page with the largest verified
+  // fan base. Deezer frequently lists impostor/typo pages that share a name
+  // with a celebrity but belong to someone else (e.g. "Jung Kook" with ~5.5k
+  // fans vs the real BTS member "Jungkook" with ~469k fans). First-in-query
+  // order is not safe to trust, so a wrong Page is never chosen.
   const artist =
-    data.find((a) => a.name && norm(a.name) === target) ??
-    data.find((a) => a.name && target && (norm(a.name).includes(target) || target.includes(norm(a.name)))) ??
-    data[0];
+    candidates.length > 0
+      ? candidates.reduce((best, a) => ((a.nb_fan ?? 0) > (best.nb_fan ?? 0) ? a : best), candidates[0])
+      : null;
   if (!artist?.id || !artist.name) return { works: [], artistImage: null };
 
   const albums = (await fetchJson(

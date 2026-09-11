@@ -4,6 +4,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import CelebrityForm from "@/components/admin/CelebrityForm";
 import MembershipsManager from "@/components/admin/MembershipsManager";
 import DeleteCelebrityButton from "@/components/admin/DeleteCelebrityButton";
+import RefreshGooglePanelButton from "@/components/admin/RefreshGooglePanelButton";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 
@@ -49,6 +50,7 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
           >
             View community →
           </Link>
+          <RefreshGooglePanelButton id={celebrity.id} name={celebrity.name} />
         </div>
       </div>
 
