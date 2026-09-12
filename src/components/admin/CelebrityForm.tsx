@@ -329,7 +329,10 @@ const submit = async (e: React.FormEvent) => {
     return warnings;
   };
 
-  /** After the celebrity row is created: base tiers, premium ladder, chosen events. */
+  /** After the celebrity row is created: chosen base tiers + scan events. The
+   *  shared premium ladder is applied server-side by the create route itself —
+   *  it never depends on this client call, which could be aborted by the form
+   *  navigating away. */
   const createExtras = async (cid: string) => {
     const warnings: string[] = [];
     if (preparedTiers.length > 0) {
@@ -357,15 +360,6 @@ const submit = async (e: React.FormEvent) => {
         } catch {
           warnings.push(`Membership "${nm}": network error`);
         }
-      }
-      try {
-        const r = await fetch(`/api/celebrities/${cid}/memberships/premium`, { method: "POST", headers: { "Content-Type": "application/json" } });
-        if (!r.ok) {
-          const d = await r.json().catch(() => null);
-          warnings.push(`Premium tiers: ${d?.error ?? "not created"}`);
-        }
-      } catch {
-        warnings.push("Premium tiers: network error");
       }
     }
     warnings.push(...(await createScanEvents(cid)));

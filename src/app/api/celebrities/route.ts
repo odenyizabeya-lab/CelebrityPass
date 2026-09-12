@@ -17,6 +17,7 @@ import {
 } from "@/lib/dedupe";
 import { sendNewCelebrityAnnouncement } from "@/lib/emails/senders";
 import { normalizeSocialUrl } from "@/lib/social/resolve";
+import { upsertPremiumLevels } from "../../../../prisma/premium-levels.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,23 @@ export async function POST(request: NextRequest) {
   // below) may later reveal the celebrity is famous enough to move up a tier.
   const maxF = maxFollowers({ instagramFollowers, tiktokFollowers, facebookFollowers });
   await assignFanNumber(celebrity.id, celebrity.slug, fameTier(null, maxF));
+
+  // Apply the shared premium "Experience" ladder ($2,500 – $15M) right here,
+  // server-side, so a brand-new community NEVER ships with only base tiers.
+  // This used to be a fire-and-forget client call that the form's redirect
+  // could abort — leaving celebrities stuck with just Premium/VIP. Retries
+  // once on a transient connection drop; a persistent failure is logged but
+  // never blocks creation (the deploy/build pipeline re-applies it later).
+  try {
+    await upsertPremiumLevels(prisma, celebrity);
+  } catch (err) {
+    try {
+      await upsertPremiumLevels(prisma, celebrity);
+    } catch (err2) {
+      console.error(`[create celebrity] premium ladder failed for ${celebrity.slug}:`, err2);
+    }
+    console.error("[create celebrity] premium ladder retry failed attempt 1:", err);
+  }
 
   // Notify fans who opted into "New celebrity added" updates. A real, curated
   // customer-facing announcement — never fires for ordinary edits.
