@@ -391,7 +391,16 @@ export default async function CelebrityPage({ params }: Props) {
             </svg>
             <span className="min-w-0 text-center leading-snug"><T k="join.getFanCard" /></span>
           </Link>
-          <ChatNowButton celebrityId={celebrity.id} />
+          <ChatNowButton
+            celebrityId={celebrity.id}
+            celebrity={{
+              id: celebrity.id,
+              slug: celebrity.slug,
+              name: celebrity.name,
+              profileImage: celebrity.profileImageUrl ?? "",
+              isVerified: celebrity.isVerified,
+            }}
+          />
         </div>
 
         {/* Body grid */}

@@ -1,19 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  readChatNowSeed,
+  writeChatNowSeed,
+  writeMetaCache,
+  type ChatNowSeed,
+} from "@/lib/chat/local-cache";
+
+/** Minimal celebrity snapshot used to seed an instant-open chat room. */
+export interface ChatNowCelebrity {
+  id: string;
+  slug: string;
+  name: string;
+  profileImage: string;
+  isVerified: boolean;
+}
+
+const EMPTY_READ_STATE = { fanLastReadAt: null, teamLastReadAt: null };
 
 export default function ChatNowButton({
   celebrityId,
+  celebrity,
 }: {
   celebrityId: string;
+  celebrity?: ChatNowCelebrity | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ kind: "blocked" | "error" } | null>(null);
 
+  // Warm the route (and keep the seed fresh) so the most common "Chat Now"
+  // click navigates instantly.
+  useEffect(() => {
+    const seed = readChatNowSeed(celebrityId);
+    if (seed?.conversationId) {
+      router.prefetch(`/chat/${seed.conversationId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebrityId]);
+
+  /**
+   * Write everything needed to render the chat room instantly on arrival:
+   * the navigation seed (find-or-create shortcut) and the room's meta cache
+   * (celebrity name/photo/badge so the header is complete before any network).
+   */
+  const persistSeed = (conversationId: string) => {
+    if (!celebrity?.id) return;
+    const seed: ChatNowSeed = {
+      conversationId,
+      celebrityId: celebrity.id,
+      celebritySlug: celebrity.slug,
+      celebrityName: celebrity.name,
+      profileImage: celebrity.profileImage || "",
+      isVerified: Boolean(celebrity.isVerified),
+      savedAt: new Date().toISOString(),
+    };
+    writeChatNowSeed(celebrityId, seed);
+    writeMetaCache(conversationId, {
+      conversation: {
+        id: conversationId,
+        celebrityId,
+        status: "ACTIVE",
+        muted: false,
+        pinned: false,
+      },
+      celebrity: {
+        id: celebrity.id,
+        slug: celebrity.slug,
+        name: celebrity.name,
+        profession: "",
+        profileImage: celebrity.profileImage || "",
+        isVerified: Boolean(celebrity.isVerified),
+        chatAccountType: "",
+        chatAccountLabel: null,
+        online: false,
+      },
+      readState: EMPTY_READ_STATE,
+    });
+  };
+
   const start = async () => {
     if (loading) return;
+
+    // INSTANT PATH — this conversation was opened before, so navigate right
+    // away from cache with zero network. Sync happens in the chat room.
+    const cached = readChatNowSeed(celebrityId);
+    if (cached?.conversationId) {
+      if (celebrity) persistSeed(cached.conversationId);
+      router.push(`/chat/${cached.conversationId}`);
+      // Background reconcile: keep the conversation fresh / touch presence.
+      void fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ celebrityId }),
+        cache: "no-store",
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = (await res.json().catch(() => null)) as {
+            conversation?: { id?: string };
+          } | null;
+          const freshId = data?.conversation?.id;
+          if (freshId && freshId !== cached.conversationId && celebrity) {
+            persistSeed(freshId);
+            router.replace(`/chat/${freshId}`);
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
+    // First-ever open: no cached conversation id yet, so this one needs the
+    // find-or-create round trip. Afterwards every "Chat Now" is instant.
     setLoading(true);
     setNotice(null);
     try {
@@ -42,7 +142,10 @@ export default function ChatNowButton({
       }
       const data = (await res.json()) as { conversation?: { id?: string } };
       const id = data.conversation?.id;
-      if (id) router.push(`/chat/${id}`);
+      if (id) {
+        if (celebrity) persistSeed(id);
+        router.push(`/chat/${id}`);
+      }
     } catch {
       setNotice({ kind: "error" });
     } finally {
@@ -71,7 +174,9 @@ export default function ChatNowButton({
             d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.42-4.03 8-9 8a9.86 9.86 0 01-4.26-.95L3 20l1.26-3.7A7.96 7.96 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"
           />
         </svg>
-        <span className="min-w-0 text-center leading-snug">{loading ? "Opening..." : "Chat Now"}</span>
+        <span className="min-w-0 text-center leading-snug">
+          {loading ? "Opening..." : "Chat Now"}
+        </span>
       </button>
 
       {notice?.kind === "blocked" && (

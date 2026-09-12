@@ -1,40 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChatRealtime } from "@/hooks/useChatRealtime";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import {
+  readMetaCache,
+  readMessagesCache,
+  writeChatNowSeed,
+  writeMetaCache,
+  writeMessagesCache,
+  type CachedMeta,
+} from "@/lib/chat/local-cache";
 import MessageBubble from "./MessageBubble";
 import AttachmentLightbox, { type LightboxAttachment } from "./AttachmentLightbox";
 import CallOverlay from "./CallOverlay";
 import LockedPremium from "./LockedPremium";
 import VerifiedBadge from "@/components/VerifiedBadge";
-
-interface ConversationMeta {
-  id: string;
-  celebrityId: string;
-  status: string;
-  muted: boolean;
-  pinned: boolean;
-}
-
-interface Celebrity {
-  id: string;
-  slug: string;
-  name: string;
-  profession: string;
-  profileImage: string;
-  isVerified: boolean;
-  chatAccountType: string;
-  chatAccountLabel: string | null;
-  online: boolean;
-}
-
-interface ReadState {
-  fanLastReadAt: string | null;
-  teamLastReadAt: string | null;
-}
 
 interface ReplyTo {
   id: string;
@@ -122,6 +105,7 @@ interface ComposerProps {
   onSendVoice: (blob: Blob) => void;
   onTyping: () => void;
   disabled: boolean;
+  unavailable: boolean;
 }
 
 function pickRecorderMime(): string | null {
@@ -136,7 +120,7 @@ function pickRecorderMime(): string | null {
   return null;
 }
 
-function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: ComposerProps) {
+function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
@@ -343,7 +327,11 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
               onKeyDown={handleKeyDown}
               onInput={handleInput}
               disabled={disabled}
-              placeholder={disabled ? "Chat unavailable" : "Message..."}
+              placeholder={
+                disabled && unavailable
+                  ? "Chat unavailable"
+                  : "Message..."
+              }
               rows={1}
               className="max-h-[120px] min-h-[48px] flex-1 resize-none rounded-xl bg-white/10 px-3.5 py-2.5 text-sm leading-6 text-zinc-200 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
             />
@@ -401,17 +389,13 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
 }
 
 export default function ChatRoom({ conversationId }: { conversationId: string }) {
-  const [meta, setMeta] = useState<{
-    conversation: ConversationMeta;
-    celebrity: Celebrity;
-    readState: ReadState;
-  } | null>(null);
+  const [meta, setMeta] = useState<CachedMeta | null>(null);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [isStuckToBottom, setIsStuckToBottom] = useState(true);
-  const [metaStatus, setMetaStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [metaStatus, setMetaStatus] = useState<"ready" | "unavailable">("ready");
   const [metaTransient, setMetaTransient] = useState(false);
   const [messagesFailed, setMessagesFailed] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -428,12 +412,38 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
-  const metaStatusRef = useRef<"loading" | "ready" | "unavailable">("loading");
+  const metaStatusRef = useRef<"ready" | "unavailable">("ready");
   useEffect(() => {
     metaStatusRef.current = metaStatus;
   }, [metaStatus]);
   const { state: pushState, enable: enablePush, disable: disablePush } = usePushNotifications();
   const router = useRouter();
+
+  // INSTANT OPEN — hydrate conversation + messages from local cache BEFORE the
+  // first paint. The full chat UI (header, composer, cached messages) shows
+  // immediately; network sync happens below in the background and refreshes
+  // the cache. Corrupt/missing cache is simply ignored and the server fills in.
+  useLayoutEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const cachedMeta = readMetaCache(conversationId);
+    if (cachedMeta) {
+      setMeta(cachedMeta);
+      setMetaStatus("ready");
+      setOnline(cachedMeta.celebrity?.online ?? false);
+      setPremiumUnlocked(true);
+    }
+    const cachedMessages = readMessagesCache(conversationId);
+    if (cachedMessages.length > 0) {
+      const list: Msg[] = cachedMessages
+        .map((m) => normalizeMessage(m as Record<string, unknown>))
+        .filter((m): m is Msg => m !== null);
+      if (list.length > 0) {
+        setMessages((prev) => (list.length > prev.length ? list : prev));
+        setHasMore(true);
+      }
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [conversationId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -524,10 +534,23 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         setOnline(Boolean(data.celebrity?.online));
         setPremiumUnlocked(Boolean(data.premium?.unlocked ?? true));
         setBlocked(false);
+        // Persist so the NEXT open (incl. offline) renders instantly.
+        writeMetaCache(conversationId, data);
+        const c = data.celebrity;
+        if (c?.id) {
+          writeChatNowSeed(c.id, {
+            conversationId,
+            celebrityId: c.id,
+            celebritySlug: String(c.slug ?? ""),
+            celebrityName: String(c.name ?? ""),
+            profileImage: String(c.profileImage ?? ""),
+            isVerified: Boolean(c.isVerified),
+            savedAt: new Date().toISOString(),
+          });
+        }
       } catch {
         if (!cancelled) {
           setMetaTransient(true);
-          setMetaStatus((s) => (s === "ready" ? "ready" : "loading"));
         }
       }
     })();
@@ -561,6 +584,13 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       disposed = true;
     };
   }, [meta, metaStatus, retryTick, conversationId]);
+
+  // Persist whatever we currently hold so the next open is instant/offline.
+  // Runs after hydration, realtime receives, optimistic sends, read/delivered
+  // confirmations and load-older merges — always the latest known state.
+  useEffect(() => {
+    writeMessagesCache(conversationId, messages);
+  }, [messages, conversationId]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -1041,7 +1071,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                     ? "You're offline — reconnecting…"
                     : metaTransient
                       ? "Reconnecting…"
-                      : "Loading conversation…"}
+                      : ""}
               </span>
             </div>
             {headerControls}
@@ -1070,69 +1100,51 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
             </div>
           )}
 
-          {metaStatus !== "unavailable" && !meta && (
-            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-              {metaTransient ? (
-                <>
-                  <p className="text-sm text-zinc-300">
-                    {isOnline
-                      ? "Couldn't load this conversation. Check your connection."
-                      : "You're currently offline."}
-                  </p>
-                  <button
-                    onClick={retry}
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-primary-400 transition-colors hover:bg-white/10"
-                  >
-                    Try again
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-zinc-400">Loading conversation…</p>
-              )}
-            </div>
-          )}
-
-          {meta && metaStatus !== "unavailable" && (
+          {metaStatus !== "unavailable" && (
             <>
-              {!isOnline && (
-                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                  You&apos;re offline — cached messages still showing
-                </div>
-              )}
-              {isOnline && metaStatus === "ready" && !rtConnected && (
-                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                  Reconnecting…
-                </div>
-              )}
-              {((metaTransient && meta) || messagesFailed) && (
-                <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
-                  <span>Couldn&apos;t refresh — showing what we have.</span>
-                  <button
-                    onClick={retry}
-                    className="shrink-0 text-primary-400 hover:text-primary-300"
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
-              {blocked && (
-                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
-                  You blocked this user.
-                </div>
-              )}
-              {conversation && conversation.status !== "ACTIVE" && (
-                <div className="mb-3 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-400">
-                  This conversation is not active.
-                </div>
-              )}
+              <div className="flex flex-col gap-2">
+                {!isOnline && (
+                  <div className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                    {messages.length > 0
+                      ? "You're offline — showing saved messages"
+                      : "You're offline — messages will sync when you're back online"}
+                  </div>
+                )}
+                {isOnline && !rtConnected && meta && (
+                  <div className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                    Reconnecting…
+                  </div>
+                )}
+                {(metaTransient || messagesFailed) && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                    <span>Couldn&apos;t refresh — showing what we have.</span>
+                    <button
+                      onClick={retry}
+                      className="shrink-0 text-primary-400 hover:text-primary-300"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {blocked && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+                    You blocked this user.
+                  </div>
+                )}
+                {conversation && conversation.status !== "ACTIVE" && (
+                  <div className="rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-400">
+                    This conversation is not active.
+                  </div>
+                )}
+              </div>
 
               {hasMore && (
                 <button
                   onClick={loadOlder}
                   disabled={loadingOlder}
-                  className="mx-auto mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
+                  className="mx-auto mb-4 mt-3 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
                 >
                   {loadingOlder ? "Loading..." : "Load earlier messages"}
                 </button>
@@ -1149,7 +1161,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                 />
               ))}
 
-              {messages.length === 0 && metaStatus === "ready" && !messagesFailed && (
+              {messages.length === 0 && !messagesFailed && (
                 <div className="py-16 text-center text-sm text-zinc-500">
                   No messages yet — say hello!
                 </div>
@@ -1167,7 +1179,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           onSendImage={sendImage}
           onSendVoice={sendVoice}
           onTyping={sendTyping}
-          disabled={isDisabled || metaStatus !== "ready"}
+          disabled={isDisabled || metaStatus === "unavailable"}
+          unavailable={metaStatus === "unavailable"}
         />
       </div>
 
