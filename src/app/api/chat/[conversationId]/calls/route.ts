@@ -94,6 +94,26 @@ export async function POST(request: Request, { params }: Ctx) {
   const conversation = await prisma.chatConversation.findUnique({ where: { id: conversationId } });
   if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
+  // Chat itself is free for every logged-in fan; only voice/video calls require a
+  // paid ACTIVE FanCard. Enforce that server-side so the premium gate can't be bypassed.
+  if (resolved.actor.type === "fan") {
+    const premiumCard = await prisma.fanCard.findFirst({
+      where: {
+        fanId: resolved.actor.id,
+        celebrityId: conversation.celebrityId,
+        status: "ACTIVE",
+        membershipLevel: { price: { gt: 0 } },
+      },
+      select: { id: true },
+    });
+    if (!premiumCard) {
+      return NextResponse.json(
+        { error: "Voice and video calls are a premium feature. Get your Fan Card to unlock." },
+        { status: 403 },
+      );
+    }
+  }
+
   const existing = await prisma.chatCall.findFirst({
     where: { conversationId, status: { in: ["RINGING", "ACTIVE"] } },
   });

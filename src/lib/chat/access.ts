@@ -6,24 +6,14 @@ export async function canFanSendMessage(
   fanId: string,
   celebrityId: string,
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const [card, block] = await Promise.all([
-    prisma.fanCard.findFirst({
-      where: {
-        fanId,
-        celebrityId,
-        status: "ACTIVE",
-      },
-    }),
-    prisma.chatBlock.findUnique({
-      where: {
-        fanId_celebrityId: { fanId, celebrityId },
-      },
-    }),
-  ]);
+  const block = await prisma.chatBlock.findUnique({
+    where: {
+      fanId_celebrityId: { fanId, celebrityId },
+    },
+  });
 
-  if (!card) {
-    return { allowed: false, reason: "No active fan card for this celebrity" };
-  }
+  // Chat is free for every logged-in fan. Only blocks (and, upstream, the
+  // celebrity being active) restrict messaging; cards gate the premium call features.
   if (block) {
     return { allowed: false, reason: "Messaging blocked for this celebrity" };
   }

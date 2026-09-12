@@ -400,7 +400,7 @@ export default async function CelebrityPage({ params }: Props) {
             </svg>
             <T k="join.joinCommunity" />
           </Link>
-          <ChatNowButton celebrityId={celebrity.id} celebritySlug={celebrity.slug} />
+          <ChatNowButton celebrityId={celebrity.id} />
         </div>
 
         {/* Body grid */}

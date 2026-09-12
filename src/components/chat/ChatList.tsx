@@ -121,7 +121,7 @@ export default function ChatList({
             <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
               {search
                 ? "Try a different search."
-                : "Find your favorite celebrity, get your Fan Card, and start chatting."}
+                : "Find your favorite celebrity and start chatting — it's free."}
             </p>
             {!search && (
               <Link

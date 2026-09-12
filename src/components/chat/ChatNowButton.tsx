@@ -2,18 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function ChatNowButton({
   celebrityId,
-  celebritySlug,
 }: {
   celebrityId: string;
-  celebritySlug: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState<{ kind: "card" | "blocked" } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "blocked" | "error" } | null>(null);
 
   const start = async () => {
     if (loading) return;
@@ -35,19 +32,19 @@ export default function ChatNowButton({
         setNotice(
           data?.error?.toLowerCase().includes("blocked")
             ? { kind: "blocked" }
-            : { kind: "card" },
+            : { kind: "error" },
         );
         return;
       }
       if (!res.ok) {
-        setNotice({ kind: "card" });
+        setNotice({ kind: "error" });
         return;
       }
       const data = (await res.json()) as { conversation?: { id?: string } };
       const id = data.conversation?.id;
       if (id) router.push(`/chat/${id}`);
     } catch {
-      setNotice({ kind: "card" });
+      setNotice({ kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -76,23 +73,14 @@ export default function ChatNowButton({
         {loading ? "Opening..." : "Chat Now"}
       </button>
 
-      {notice?.kind === "card" && (
-        <div className="mt-3 max-w-sm space-y-2">
-          <p className="text-sm font-medium text-amber-300">
-            A fan card is required to start chatting with this community.
-          </p>
-          <Link
-            href={`/celebrity/${celebritySlug}/join`}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-300 underline-offset-4 hover:underline"
-          >
-            Get a fan card to start chatting
-            <span aria-hidden>›</span>
-          </Link>
-        </div>
-      )}
       {notice?.kind === "blocked" && (
         <p className="mt-3 max-w-sm text-sm font-medium text-zinc-400">
           Messaging is blocked for this celebrity. Contact support if you believe this is a mistake.
+        </p>
+      )}
+      {notice?.kind === "error" && (
+        <p className="mt-3 max-w-sm text-sm font-medium text-zinc-400">
+          Could not open the chat right now. Please try again in a moment.
         </p>
       )}
     </div>
