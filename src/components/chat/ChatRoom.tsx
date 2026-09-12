@@ -9,6 +9,7 @@ import MessageBubble from "./MessageBubble";
 import AttachmentLightbox, { type LightboxAttachment } from "./AttachmentLightbox";
 import CallOverlay from "./CallOverlay";
 import LockedPremium from "./LockedPremium";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface ConversationMeta {
   id: string;
@@ -353,20 +354,6 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
         )}
       </div>
     </div>
-  );
-}
-
-function VerifiedBadge() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="#3b82f6"
-      className="ml-0.5 inline-block shrink-0"
-    >
-      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
   );
 }
 
