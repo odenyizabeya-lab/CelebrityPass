@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import EmptyState from "@/components/EmptyState";
 import { prisma } from "@/lib/db";
 import TicketQrDisplay from "@/components/tickets/TicketQrDisplay";
+import { safeLocalDate } from "@/lib/utils";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -28,33 +30,36 @@ export default async function TicketPage({ params, searchParams }: Props) {
     );
   }
 
-  const order = await prisma.ticketOrder.findUnique({
-    where: { orderRef: ref },
-    select: {
-      id: true,
-      orderRef: true,
-      accessToken: true,
-      status: true,
-      ticketCode: true,
-      customerName: true,
-      customerEmail: true,
-      totalCents: true,
-      currency: true,
-      event: {
-        select: {
-          eventId: true,
-          name: true,
-          startAt: true,
-          endAt: true,
-          timezone: true,
-          venue: true,
-          city: true,
-          country: true,
-          celebrity: { select: { slug: true, name: true } },
+  const order = await safeAsync(async () =>
+    prisma.ticketOrder.findUnique({
+      where: { orderRef: ref },
+      select: {
+        id: true,
+        orderRef: true,
+        accessToken: true,
+        status: true,
+        ticketCode: true,
+        customerName: true,
+        customerEmail: true,
+        totalCents: true,
+        currency: true,
+        event: {
+          select: {
+            eventId: true,
+            name: true,
+            startAt: true,
+            endAt: true,
+            timezone: true,
+            venue: true,
+            city: true,
+            country: true,
+            celebrity: { select: { slug: true, name: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    null,
+  );
 
   if (!order || order.accessToken !== token) notFound();
   if (order.status !== "CONFIRMED") {
@@ -65,11 +70,15 @@ export default async function TicketPage({ params, searchParams }: Props) {
     );
   }
 
-  const registration = order.ticketCode
-    ? await prisma.eventRegistration.findUnique({
-        where: { ticketCode: order.ticketCode },
-        select: { ticketCode: true, checkedIn: true, checkedInAt: true },
-      })
+  const ticketCode = order.ticketCode;
+  const registration = ticketCode
+    ? await safeAsync(async () =>
+        prisma.eventRegistration.findUnique({
+          where: { ticketCode },
+          select: { ticketCode: true, checkedIn: true, checkedInAt: true },
+        }),
+        null,
+      )
     : null;
 
   return (
@@ -93,7 +102,7 @@ export default async function TicketPage({ params, searchParams }: Props) {
 
       {registration?.checkedIn && (
         <p className="mt-4 text-center text-sm text-emerald-300">
-          ✓ Checked in {registration.checkedInAt ? `at ${new Date(registration.checkedInAt).toLocaleString()}` : ""}
+          ✓ Checked in {registration.checkedInAt ? `at ${safeLocalDate(registration.checkedInAt)}` : ""}
         </p>
       )}
 
@@ -105,14 +114,14 @@ export default async function TicketPage({ params, searchParams }: Props) {
           {order.event.celebrity.name}
         </p>
         <p className="text-sm text-zinc-400">
-          {new Date(order.event.startAt).toLocaleDateString(undefined, {
+          {safeLocalDate(order.event.startAt, {
             weekday: "long",
             year: "numeric",
             month: "long",
             day: "numeric",
           })}
           {order.event.startAt && (
-            <> · {new Date(order.event.startAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</>
+            <> · {safeLocalDate(order.event.startAt, { hour: "2-digit", minute: "2-digit" })}</>
           )}
         </p>
         {(order.event.venue || order.event.city) && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 type Prefs = {
   emailVerified: boolean;
@@ -34,7 +35,7 @@ export default function NotificationPreferences({ initial }: { initial: Prefs })
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/account/notifications", {
+      const res = await fetchWithTimeout("/api/account/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

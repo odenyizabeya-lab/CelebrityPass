@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import EventDiscoverySearch from "@/components/EventDiscoverySearch";
 import { prisma } from "@/lib/db";
+import { safeAsync } from "@/lib/safe-data";
 
 export const revalidate = 60;
 
@@ -11,10 +12,16 @@ export const metadata: Metadata = {
 };
 
 export default async function EventDiscoveryPage() {
-  const enabledSources = await prisma.eventSource.findMany({
-    where: { enabled: true, key: { not: "admin" } },
-    select: { key: true, name: true, lastSyncStatus: true, lastSyncAt: true },
-  });
+  // A failed DB read degrades to an empty source list; search itself is a
+  // client-side action, so the page still fully works.
+  const enabledSources = await safeAsync(
+    () =>
+      prisma.eventSource.findMany({
+        where: { enabled: true, key: { not: "admin" } },
+        select: { key: true, name: true, lastSyncStatus: true, lastSyncAt: true },
+      }),
+    [],
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">

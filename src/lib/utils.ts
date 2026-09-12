@@ -11,14 +11,42 @@ export function slugify(input: string): string {
     .replace(/^-|-$/g, "");
 }
 
-/** Format a date string as e.g. "Jan 12, 2026". */
-export function formatDate(value: string | Date): string {
+/**
+ * Format a date as e.g. "Jan 12, 2026".
+ * Defensive: returns "" for null/undefined/invalid dates so "Invalid Date"
+ * can never be rendered to a visitor.
+ */
+export function formatDate(value: string | Date | null | undefined): string {
+  if (value === null || value === undefined) return "";
   const d = typeof value === "string" ? new Date(value) : value;
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Safely render a date-like value for humans. Never throws and never prints
+ * "Invalid Date"/"NaN:NaN" — returns "" for missing/malformed input.
+ */
+export function safeLocalDate(
+  value: string | Date | number | null | undefined,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
+  if (value === null || value === undefined) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return d.toLocaleString("en-US", opts);
+  } catch {
+    return "";
+  }
 }
 
 /** Pad a number into FC-000001 style fan numbers. */

@@ -2,8 +2,10 @@
 import crypto from "crypto";
 
 /** Format a cents amount as currency, e.g. 4999 USD -> "$49.99". */
-export function formatTicketPrice(cents: number, currency = "USD"): string {
-  const amount = cents / 100;
+export function formatTicketPrice(cents: number | null | undefined, currency = "USD"): string {
+  // Defensive: a non-finite or missing amount renders as "$0.00" — never "NaN".
+  const safeCents = typeof cents === "number" && Number.isFinite(cents) ? cents : 0;
+  const amount = safeCents / 100;
   try {
     return new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(amount);
   } catch {
@@ -26,8 +28,16 @@ type HistoryEntry = { status: string; at: string; note?: string };
 export function parseStatusHistory(raw: string | null | undefined): HistoryEntry[] {
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    // Drop any malformed entries defensively so a bad row can never crash a page.
+    return parsed.filter(
+      (e): e is HistoryEntry =>
+        !!e &&
+        typeof e === "object" &&
+        typeof (e as HistoryEntry).status === "string" &&
+        typeof (e as HistoryEntry).at === "string",
+    );
   } catch {
     return [];
   }
@@ -41,7 +51,9 @@ export function pushStatusHistory(raw: string | null | undefined, entry: History
 /** Estimated next-sync label for a source (derived from last sync + interval). */
 export function nextSyncLabel(lastSyncAt: Date | string | null | undefined, intervalMinutes: number): string | null {
   if (!lastSyncAt) return null;
-  const next = new Date(new Date(lastSyncAt).getTime() + intervalMinutes * 60_000);
+  const last = new Date(lastSyncAt);
+  if (Number.isNaN(last.getTime()) || typeof intervalMinutes !== "number" || !Number.isFinite(intervalMinutes)) return null;
+  const next = new Date(last.getTime() + intervalMinutes * 60_000);
   const deltaMs = next.getTime() - Date.now();
   if (deltaMs <= 0) return "Due now";
   const mins = Math.round(deltaMs / 60_000);

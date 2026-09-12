@@ -72,6 +72,7 @@ export default function ChatNowButton({
         name: celebrity.name,
         profession: "",
         profileImage: celebrity.profileImage || "",
+        profileImageUrl: "",
         isVerified: Boolean(celebrity.isVerified),
         chatAccountType: "",
         chatAccountLabel: null,

@@ -6,6 +6,7 @@ import { getCurrentFanId } from "@/lib/auth";
 import UniversalCheckout from "@/components/payments/UniversalCheckout";
 import T from "@/components/T";
 import { buildPaymentMethods } from "@/lib/ticketing/universal";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,19 +21,23 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const fanId = await getCurrentFanId();
   if (!fanId) redirect(`/login?next=/checkout/${id}`);
 
-  const payment = await prisma.payment.findUnique({
-    where: { id },
-    include: {
-      celebrity: { select: { name: true, slug: true, accentColor: true } },
-      membershipLevel: { select: { name: true } },
-    },
-  });
+  const payment = await safeAsync(async () =>
+    prisma.payment.findUnique({
+      where: { id },
+      include: {
+        celebrity: { select: { name: true, slug: true, accentColor: true } },
+        membershipLevel: { select: { name: true } },
+      },
+    }),
+    null,
+  );
   if (!payment || payment.fanId !== fanId) notFound();
   const celebrity = payment.celebrity;
   if (!celebrity) notFound();
 
   if (payment.status === "PAID" && payment.cardId) {
-    const card = await prisma.fanCard.findUnique({ where: { id: payment.cardId } });
+    const cardId = payment.cardId;
+    const card = await safeAsync(async () => prisma.fanCard.findUnique({ where: { id: cardId } }), null);
     if (card) {
       redirect(`/celebrity/${celebrity.slug}/fan/${card.fanNumber}`);
     }
@@ -47,14 +52,20 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     amountCents: Math.round(payment.amount * 100),
     currency: payment.currency || "USD",
   };
-  const { methods, defaultMethod } = await buildPaymentMethods(plan);
+  const { methods, defaultMethod } = await safeAsync(async () => buildPaymentMethods(plan), {
+    methods: [],
+    defaultMethod: null,
+  });
 
   // If the customer already has an unverified Bank Transfer proof, show it
   // instead of letting them pay again.
-  const pendingProof = await prisma.bankTransferProof.findFirst({
-    where: { paymentId: payment.id, status: "PENDING_VERIFICATION" },
-    orderBy: { createdAt: "desc" },
-  });
+  const pendingProof = await safeAsync(async () =>
+    prisma.bankTransferProof.findFirst({
+      where: { paymentId: payment.id, status: "PENDING_VERIFICATION" },
+      orderBy: { createdAt: "desc" },
+    }),
+    null,
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">

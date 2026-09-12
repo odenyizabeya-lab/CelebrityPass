@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
 import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
+import { profileImageUrl } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,13 @@ export async function GET(_request: Request, { params }: Ctx) {
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   const online = !!(celebrity.chatLastSeenAt && celebrity.chatLastSeenAt > fiveMinAgo);
 
+  // Keep the raw base64 ONLY when it's small enough to be worth caching for
+  // offline instant-open; larger avatars go through the cacheable route. The
+  // client renders `profileImage ?? profileImageUrl`, so a missing blob here is
+  // never a blank avatar.
+  const rawImage = celebrity.profileImage ?? "";
+  const blobTooBig = rawImage.startsWith("data:") && rawImage.length > 200_000;
+
   const readState = await prisma.chatReadState.findUnique({
     where: { conversationId },
   });
@@ -82,7 +90,8 @@ export async function GET(_request: Request, { params }: Ctx) {
       slug: celebrity.slug,
       name: celebrity.name,
       profession: celebrity.profession,
-      profileImage: celebrity.profileImage,
+      profileImage: blobTooBig ? "" : rawImage,
+      profileImageUrl: profileImageUrl(celebrity.slug, celebrity.profileImage),
       isVerified: celebrity.isVerified,
       chatAccountType: celebrity.chatAccountType,
       chatAccountLabel: celebrity.chatAccountLabel,

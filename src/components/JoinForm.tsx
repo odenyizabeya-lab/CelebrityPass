@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import type { MembershipLevelType } from "@/lib/utils";
 import { formatMoney } from "@/lib/payments";
+import { fetchWithTimeout } from "@/lib/client-http";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
 
@@ -130,7 +131,7 @@ export default function JoinForm({
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/register", {
+      const res = await fetchWithTimeout("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ celebritySlug: slug, name, email, password, country, membershipLevelId: level }),
@@ -141,6 +142,7 @@ export default function JoinForm({
         setLoading(false);
         return;
       }
+      setLoading(false);
       if (data.requiresLogin) {
         router.push(`/login?next=/celebrity/${encodeURIComponent(slug)}/join`);
         return;

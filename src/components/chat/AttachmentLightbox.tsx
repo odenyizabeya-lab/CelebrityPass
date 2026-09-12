@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export interface LightboxAttachment {
   url: string;
@@ -16,6 +16,7 @@ export default function AttachmentLightbox({
   onClose: () => void;
 }) {
   const lastAttachment = attachment ?? null;
+  const [mediaFailed, setMediaFailed] = useState(false);
 
   useEffect(() => {
     if (!lastAttachment) return;
@@ -26,8 +27,17 @@ export default function AttachmentLightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [lastAttachment, onClose]);
 
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setMediaFailed(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [lastAttachment?.url]);
+
   if (!lastAttachment) return null;
   const isImage = (lastAttachment.mime ?? "").startsWith("image/");
+
+  const showFallback =
+    mediaFailed || !lastAttachment.url || !lastAttachment.url.trim();
 
   return (
     <div
@@ -44,12 +54,17 @@ export default function AttachmentLightbox({
         ×
       </button>
       <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-        {isImage ? (
+        {showFallback ? (
+          <div className="grid h-64 w-64 place-items-center rounded-xl bg-white/5 p-4 text-center text-sm text-zinc-400">
+            This media is no longer available.
+          </div>
+        ) : isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={lastAttachment.url}
             alt={lastAttachment.name ?? "Attachment"}
             className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain"
+            onError={() => setMediaFailed(true)}
           />
         ) : (
           <video
@@ -57,6 +72,7 @@ export default function AttachmentLightbox({
             controls
             autoPlay
             className="max-h-[90vh] max-w-[90vw] rounded-xl"
+            onError={() => setMediaFailed(true)}
           />
         )}
         {lastAttachment.name && (

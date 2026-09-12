@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 type Fan = {
   id: string;
@@ -42,7 +43,7 @@ export default function AccountSettingsForm({ initialFan }: { initialFan: Fan })
     setNotice(null);
     setSaving(true);
     try {
-      const res = await fetch("/api/account", {
+      const res = await fetchWithTimeout("/api/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -79,7 +80,7 @@ export default function AccountSettingsForm({ initialFan }: { initialFan: Fan })
     setNotice(null);
     setDeleting(true);
     try {
-      const res = await fetch("/api/account", {
+      const res = await fetchWithTimeout("/api/account", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword }),

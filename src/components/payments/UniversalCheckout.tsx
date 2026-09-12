@@ -67,6 +67,7 @@ type Props = {
   redirectUrl: string;
   purchaseId?: string;
   orderRef?: string;
+  orderAccessToken?: string;
 };
 
 const inputCls =
@@ -121,7 +122,8 @@ export default function UniversalCheckout(props: Props) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(defaultBankAccount?.id ?? null);
   const selectedBankAccount = bankAccounts.find((a) => a.id === selectedBankId) ?? defaultBankAccount ?? bankAccounts[0] ?? null;
 
-  const [amountSent, setAmountSent] = useState<string>((props.amountCents / 100).toFixed(2));
+  const amountCents = typeof props.amountCents === "number" && Number.isFinite(props.amountCents) ? props.amountCents : 0;
+  const [amountSent, setAmountSent] = useState<string>((amountCents / 100).toFixed(2));
 
   // Bank transfer fields
   const [senderName, setSenderName] = useState("");
@@ -138,7 +140,7 @@ export default function UniversalCheckout(props: Props) {
 
   const [refCopied, setRefCopied] = useState(false);
 
-  const total = useMemo(() => formatMoney(props.amountCents / 100, props.currency), [props.amountCents, props.currency]);
+  const total = useMemo(() => formatMoney(amountCents / 100, props.currency), [amountCents, props.currency]);
 
   const bankAccount = selectedBankAccount;
   const cardAvailable = props.methods.find((m) => m.method === "atm-card")?.available ?? false;
@@ -220,7 +222,13 @@ export default function UniversalCheckout(props: Props) {
           : `/api/tickets/orders/${props.orderRef}/bank-transfer`;
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(45_000),
+        headers: {
+          "Content-Type": "application/json",
+          ...(props.kind === "TICKET" && props.orderAccessToken
+            ? { "x-order-token": props.orderAccessToken }
+            : {}),
+        },
         body: JSON.stringify({
           senderName,
           reference,
@@ -261,7 +269,13 @@ export default function UniversalCheckout(props: Props) {
     try {
       const res = await fetch("/api/universal/atm-card", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(45_000),
+        headers: {
+          "Content-Type": "application/json",
+          ...(props.kind === "TICKET" && props.orderAccessToken
+            ? { "x-order-token": props.orderAccessToken }
+            : {}),
+        },
         body: JSON.stringify({
           kind: "TICKET",
           orderRef: props.orderRef,
@@ -293,6 +307,7 @@ export default function UniversalCheckout(props: Props) {
     try {
       const res = await fetch(`/api/payments/${props.purchaseId}/flutterwave`, {
         method: "POST",
+        signal: AbortSignal.timeout(45_000),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();

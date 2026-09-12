@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { profileImageUrl } from "@/lib/images";
 
 export interface AdminConversationView {
   id: string;
@@ -98,7 +99,7 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
       name: c.celebrity.name,
       profession: c.celebrity.profession,
       accentColor: c.celebrity.accentColor,
-      profileImage: c.celebrity.profileImage,
+      profileImage: profileImageUrl(c.celebrity.slug, c.celebrity.profileImage),
     },
     lastMessage: c.messages[0]
       ? {

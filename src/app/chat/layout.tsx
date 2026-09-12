@@ -1,4 +1,5 @@
 import type { Viewport } from "next";
+import GlobalOutboxFlusher from "@/components/chat/GlobalOutboxFlusher";
 
 export const viewport: Viewport = {
   themeColor: "#7c3aed",
@@ -18,6 +19,7 @@ export default function ChatLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-aurora">
+      <GlobalOutboxFlusher />
       {children}
     </div>
   );

@@ -33,11 +33,22 @@ export default function AdminLoginForm({
 
     setLoading(true);
     const supabase = createBrowserSupabase();
+    // The Supabase SDK has no built-in timeout — guard manually so a dead
+    // network can't leave the button stuck on "Signing in…" forever.
+    let settled = false;
+    const fallback = setTimeout(() => {
+      if (!settled) {
+        setLoading(false);
+        setError("The sign-in request is taking too long. Please try again.");
+      }
+    }, 25_000);
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
+      settled = true;
+      clearTimeout(fallback);
       if (signInError) {
         setError(mapAuthError(signInError.message));
         setLoading(false);
@@ -54,9 +65,11 @@ export default function AdminLoginForm({
         return;
       }
 
+      setLoading(false);
       router.push("/admin/overview");
       router.refresh();
     } catch {
+      clearTimeout(fallback);
       setError("Network error. Please try again.");
       setLoading(false);
     }

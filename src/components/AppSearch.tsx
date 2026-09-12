@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 type SearchItem = {
   id: string;
@@ -295,10 +296,11 @@ export default function AppSearch() {
       try {
         const small = await downscaleImage(preview);
         setVisual({ open: true, preview: small, busy: true, status: "Identifying the person in this photo…", name: null });
-        const res = await fetch("/api/celebrities/visual-search", {
+        const res = await fetchWithTimeout("/api/celebrities/visual-search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: small }),
+          timeoutMs: 30_000,
         });
         const data = (await res.json().catch(() => null)) as {
           outcome?: {

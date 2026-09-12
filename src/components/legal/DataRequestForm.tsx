@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 const TYPES = [
   { value: "ACCESS", label: "Request access to my data" },
@@ -31,7 +32,7 @@ export default function DataRequestForm() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/rights", {
+      const res = await fetchWithTimeout("/api/rights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentFanId } from "@/lib/auth";
+import { safeAsync } from "@/lib/safe-data";
 import CelebrityPicker from "@/components/onboarding/CelebrityPicker";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default async function OnboardingCelebritiesPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/onboarding/celebrities");
 
-  const existing = await prisma.fanCelebritySelection.count({ where: { fanId } });
+  // A count failure just shows the picker (the client re-fetches on mount);
+  // never a crash.
+  const existing = await safeAsync(async () => prisma.fanCelebritySelection.count({ where: { fanId } }), 0);
   if (existing > 0) redirect("/dashboard");
 
   return (

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatTicketPrice } from "@/lib/ticketing/helpers";
 import type { TicketOptionPublic } from "@/lib/ticketing/service";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 export type CheckoutSelection = { inventoryId: string; quantity: number };
 
@@ -51,7 +52,7 @@ export default function CheckoutForm({
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/tickets/orders", {
+      const res = await fetchWithTimeout("/api/tickets/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

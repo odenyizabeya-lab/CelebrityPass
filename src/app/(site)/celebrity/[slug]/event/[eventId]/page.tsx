@@ -7,6 +7,7 @@ import EventActions from "@/components/events/EventActions";
 import TicketsSection from "@/components/tickets/TicketsSection";
 import { getEventById } from "@/lib/events/service";
 import { formatEventTime, friendlyTimezone, formatEventDate } from "@/lib/events/helpers";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ type Props = { params: Promise<{ slug: string; eventId: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { eventId } = await params;
-  const event = await getEventById(eventId);
+  const event = await safeAsync(async () => getEventById(eventId), null);
   return {
     title: event ? `${event.name} — ${event.celebrityName}` : "Event not found",
     description: event?.description ?? undefined,
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EventDetailsPage({ params }: Props) {
   const { slug, eventId } = await params;
-  const event = await getEventById(eventId);
+  const event = await safeAsync(async () => getEventById(eventId), null);
   if (!event || event.celebritySlug !== slug) notFound();
 
   const { date, weekday, time } = formatEventDate(event.startAt, event.timezone);

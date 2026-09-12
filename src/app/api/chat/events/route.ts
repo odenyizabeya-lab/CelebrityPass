@@ -68,22 +68,48 @@ export async function GET(request: Request) {
 
       send({ type: "heartbeat" });
 
+      // Cursor over the poll stream. `gte` (not `gt`) + a set of already-emitted
+      // message ids for the boundary timestamp guarantees a same-millisecond
+      // message can never be skipped and lost forever.
+      let cursor: Date = since;
+      let cursorIds = new Set<string>();
+
       async function poll() {
         if (closed) return;
         try {
           const messages = await prisma.chatMessage.findMany({
             where: {
               conversationId,
-              createdAt: { gt: since },
+              createdAt: { gte: cursor },
               deletedAt: null,
             },
-            orderBy: { createdAt: "asc" },
-            take: 50,
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: 200,
           });
 
+          let streamCursor = cursor;
+          let streamCursorIds = new Set<string>();
+          let emitted = 0;
+
           for (const msg of messages) {
+            const boundary =
+              msg.createdAt.getTime() === cursor.getTime() &&
+              cursorIds.has(msg.id);
+            if (boundary) continue;
             send({ type: "message", message: msg });
-            if (msg.createdAt > since) since = msg.createdAt;
+            emitted += 1;
+            const t = msg.createdAt.getTime();
+            if (t > streamCursor.getTime()) {
+              streamCursor = msg.createdAt;
+              streamCursorIds = new Set([msg.id]);
+            } else if (t === streamCursor.getTime()) {
+              streamCursorIds.add(msg.id);
+            }
+          }
+
+          if (emitted > 0) {
+            cursor = streamCursor;
+            cursorIds = streamCursorIds;
           }
 
           if (fanId) {

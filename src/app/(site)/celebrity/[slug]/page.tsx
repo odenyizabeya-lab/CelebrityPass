@@ -16,6 +16,7 @@ import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
 import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
 import { canonicalSocialLinks, type CanonicalSocialLinks } from "@/lib/social/resolve";
+import { safeAsync } from "@/lib/safe-data";
 import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import QRCode from "qrcode";
@@ -141,12 +142,14 @@ type Props = { params: Promise<{ slug: string }> };
 
 /** Pre-render every public community so navigation is instant (prefetched, no server roundtrip on click). */
 export async function generateStaticParams() {
-  return listActiveCelebritySlugs();
+  // Best-effort: if the DB is unreachable during build, fall back to no static
+  // params (the page is dynamic elsewhere anyway) rather than failing the build.
+  return safeAsync(async () => listActiveCelebritySlugs(), []);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const c = await getCelebrityBySlug(slug);
+  const c = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!c) return { title: "Not Found" };
 
   const url = `${APP_URL}/celebrity/${c.slug}`;
@@ -183,7 +186,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CelebrityPage({ params }: Props) {
   const { slug } = await params;
-  const celebrity = await getCelebrityBySlug(slug);
+  const celebrity = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!celebrity) notFound();
 
   // Guarantee the Google-style knowledge panel for EVERY celebrity, forever.

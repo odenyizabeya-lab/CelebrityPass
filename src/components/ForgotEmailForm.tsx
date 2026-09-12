@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 export default function ForgotEmailForm() {
   const { t } = useLanguage();
@@ -21,7 +22,7 @@ export default function ForgotEmailForm() {
     e.preventDefault();
     setStatus("loading");
     try {
-      const res = await fetch("/api/auth/forgot-email", {
+      const res = await fetchWithTimeout("/api/auth/forgot-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, country }),

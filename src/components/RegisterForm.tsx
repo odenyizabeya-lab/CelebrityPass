@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 export default function RegisterForm() {
   const { t } = useLanguage();
@@ -40,7 +41,7 @@ export default function RegisterForm() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetchWithTimeout("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, country }),
@@ -51,6 +52,7 @@ export default function RegisterForm() {
         setLoading(false);
         return;
       }
+      setLoading(false);
       router.push(redirectTo);
       router.refresh();
     } catch {

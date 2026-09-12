@@ -7,6 +7,7 @@ import TicketPicker from "@/components/tickets/TicketPicker";
 import { getEventById } from "@/lib/events/service";
 import { getEventTicketView } from "@/lib/ticketing/service";
 import { formatEventDate } from "@/lib/events/helpers";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,16 +15,16 @@ type Props = { params: Promise<{ slug: string; eventId: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, eventId } = await params;
-  const event = await getEventById(eventId);
+  const event = await safeAsync(async () => getEventById(eventId), null);
   return { title: event && event.celebritySlug === slug ? `Tickets — ${event.name}` : "Tickets not found" };
 }
 
 export default async function TicketSelectionPage({ params }: Props) {
   const { slug, eventId } = await params;
-  const event = await getEventById(eventId);
+  const event = await safeAsync(async () => getEventById(eventId), null);
   if (!event || event.celebritySlug !== slug) notFound();
 
-  const view = await getEventTicketView(eventId);
+  const view = await safeAsync(async () => getEventTicketView(eventId), null);
   if (!view) notFound();
   const { date, weekday } = formatEventDate(event.startAt, event.timezone);
   const location = [event.venue, event.city, event.country].filter(Boolean).join(", ");

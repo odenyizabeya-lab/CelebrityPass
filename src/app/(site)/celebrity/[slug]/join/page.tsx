@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import JoinForm from "@/components/JoinForm";
 import T from "@/components/T";
 import { getCelebrityBySlug } from "@/lib/services";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: "Get a Fan Card" };
 
 export default async function JoinPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const celebrity = await getCelebrityBySlug(slug);
+  const celebrity = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!celebrity) notFound();
 
   return (

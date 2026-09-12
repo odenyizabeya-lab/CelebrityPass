@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import FanCardView, { type CardViewData } from "@/components/FanCardView";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import T from "@/components/T";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FanCardPage({ params }: Props) {
   const { slug, fanId } = await params;
   const { getFanCardByNumber } = await import("@/lib/services");
-  const card = await getFanCardByNumber(fanId);
+  const card = await safeAsync(async () => getFanCardByNumber(fanId), null);
 
   // A card always belongs to exactly one celebrity. If the URL slug does not
   // match the card's actual celebrity, we do not serve it.

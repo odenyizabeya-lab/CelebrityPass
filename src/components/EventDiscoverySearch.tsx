@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 type SearchResult = {
   id?: string;
@@ -51,7 +52,7 @@ export default function EventDiscoverySearch() {
       const params = new URLSearchParams({ q });
       if (country.trim()) params.set("country", country.trim());
       if (city.trim()) params.set("city", city.trim());
-      const res = await fetch(`/api/events/search?${params.toString()}`);
+      const res = await fetchWithTimeout(`/api/events/search?${params.toString()}`, { timeoutMs: 30_000 });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Search failed");
       setData(json);

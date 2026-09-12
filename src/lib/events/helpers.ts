@@ -23,6 +23,9 @@ export function computeEventStatus(input: StatusInput): ComputedEventStatus {
 
   const now = (input.now ?? new Date()).getTime();
   const start = new Date(input.startAt).getTime();
+  // Missing/invalid start times can't be compared — never let NaN comparisons
+  // mislabel an event; treat it as upcoming so it can never read COMPLETED.
+  if (Number.isNaN(start)) return "UPCOMING";
   const end = input.endAt ? new Date(input.endAt).getTime() : null;
 
   // An all-day event is "happening" on its calendar day (any time that day).
@@ -46,7 +49,9 @@ export function computeEventStatus(input: StatusInput): ComputedEventStatus {
  * event has started (or is not upcoming).
  */
 export function countdownTo(starAt: string | Date | number, now?: Date) {
-  const target = new Date(starAt).getTime();
+  const targetMs = new Date(starAt).getTime();
+  if (Number.isNaN(targetMs)) return null;
+  const target = targetMs;
   const diff = target - (now ?? new Date()).getTime();
   if (diff <= 0) return null;
   const totalSec = Math.floor(diff / 1000);
@@ -76,36 +81,58 @@ function zeroPad(n: number, len = 2) {
   return String(n).padStart(len, "0");
 }
 
-/** Compact date like "Mar 12" and weekday "Thursday". */
-export function formatEventDate(iso: string | Date, tz?: string | null): { date: string; weekday: string; time: string } {
+/** Compact date like "Mar 12" and weekday "Thursday". Empty strings when invalid. */
+export function formatEventDate(
+  iso: string | Date | null | undefined,
+  tz?: string | null,
+): { date: string; weekday: string; time: string } {
+  const empty = { date: "", weekday: "", time: "" };
+  if (iso === null || iso === undefined) return empty;
   const d = new Date(iso);
-  const fmt = (opts: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("en-US", { timeZone: tz || undefined, ...opts });
-  const dateStr = fmt({ month: "short", day: "numeric", year: "numeric" }).format(d);
-  const weekday = fmt({ weekday: "long" }).format(d);
-  const timeStr = fmt({ hour: "numeric", minute: "2-digit" }).format(d);
-  return { date: dateStr, weekday, time: timeStr };
+  if (Number.isNaN(d.getTime())) return empty;
+  try {
+    const fmt = (opts: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat("en-US", { timeZone: tz || undefined, ...opts });
+    return {
+      date: fmt({ month: "short", day: "numeric", year: "numeric" }).format(d),
+      weekday: fmt({ weekday: "long" }).format(d),
+      time: fmt({ hour: "numeric", minute: "2-digit" }).format(d),
+    };
+  } catch {
+    return empty;
+  }
 }
 
-/** Full date-time label for an event details page. */
-export function formatEventFull(iso: string | Date, tz?: string | null): string {
+/** Full date-time label for an event details page. Empty string when invalid. */
+export function formatEventFull(iso: string | Date | null | undefined, tz?: string | null): string {
+  if (iso === null || iso === undefined) return "";
   const d = new Date(iso);
-  const o = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz || undefined,
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return o.format(d);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: tz || undefined,
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return "";
+  }
 }
 
-/** Time-only label (e.g. "6:30 PM") in the event's timezone. */
-export function formatEventTime(iso: string | Date, tz?: string | null): string {
+/** Time-only label (e.g. "6:30 PM") in the event's timezone. Empty string when invalid. */
+export function formatEventTime(iso: string | Date | null | undefined, tz?: string | null): string {
+  if (iso === null || iso === undefined) return "";
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-US", { timeZone: tz || undefined, hour: "numeric", minute: "2-digit" }).format(d);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz || undefined, hour: "numeric", minute: "2-digit" }).format(d);
+  } catch {
+    return "";
+  }
 }
 
 /** IANA timezone hint label (friendly), e.g. "America/New_York". */
@@ -133,6 +160,8 @@ export function eventIcs(params: {
   endAt?: string | Date | null;
   url?: string | null;
 }): string {
+  const startMs = new Date(params.startAt).getTime();
+  if (Number.isNaN(startMs)) return ""; // never emit a broken calendar entry
   const fmtUtc = (d: string | Date) => {
     const dt = new Date(d);
     return `${dt.getUTCFullYear()}${zeroPad(dt.getUTCMonth() + 1)}${zeroPad(dt.getUTCDate())}T${zeroPad(

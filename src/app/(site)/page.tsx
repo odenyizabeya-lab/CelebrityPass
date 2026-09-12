@@ -6,6 +6,7 @@ import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
 import WelcomeScreen from "@/components/welcome/WelcomeScreen";
 import { getCelebritySummaries, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
+import { safeAsync } from "@/lib/safe-data";
 import { formatMoney } from "@/lib/payments";
 import { isOnboarded } from "@/lib/onboarding";
 
@@ -16,8 +17,13 @@ const PREMIUM_PRICE = 1000;
 const VIP_PRICE = 1700;
 
 export default async function HomePage() {
-  const onboarded = await isOnboarded();
-  const [representedCountries, celebrities] = await Promise.all([getRepresentedCountries(), getCelebritySummaries()]);
+  // Data fetching never crashes the page: a DB/network failure resolves to empty
+  // fallbacks and the shell (hero, membership, FAQ…) still renders.
+  const onboarded = await safeAsync(async () => isOnboarded(), false);
+  const [representedCountries, celebrities] = await Promise.all([
+    safeAsync(async () => getRepresentedCountries(), []),
+    safeAsync(async () => getCelebritySummaries(), []),
+  ]);
 
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
   const featuredIds = new Set(featured.map((c) => c.id));

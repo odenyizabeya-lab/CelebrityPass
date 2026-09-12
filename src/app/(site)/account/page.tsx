@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import RecoveryPanel from "@/components/RecoveryPanel";
 import { getCurrentFanId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { safeAsync } from "@/lib/safe-data";
 import AccountSettingsForm from "@/components/AccountSettingsForm";
 import NotificationPreferences from "@/components/NotificationPreferences";
 import ResendVerificationButton from "@/components/ResendVerificationButton";
@@ -19,8 +21,16 @@ export default async function AccountPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/account");
 
-  const fan = await prisma.fan.findUnique({ where: { id: fanId } });
-  if (!fan || !fan.isActive) redirect("/login?next=/account");
+  // DB failure shows the shell with a recovery panel instead of a crash.
+  const fan = await safeAsync(async () => prisma.fan.findUnique({ where: { id: fanId } }), null);
+  if (!fan || !fan.isActive) {
+    if (fan && !fan.isActive) redirect("/login?next=/account");
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <RecoveryPanel message="We couldn't load your account right now. Check your connection and try again." />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">

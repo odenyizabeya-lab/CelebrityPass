@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { verifyToken } from "@/lib/utils";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -25,16 +26,19 @@ export default async function UnsubscribePage({
   let ok = false;
 
   if (fan && t && verifyToken(t) === fan) {
-    const updated = await prisma.fan.updateMany({
-      where: { id: fan },
-      data: {
-        notifyNewCelebrities: false,
-        notifyUpdates: false,
-        notifyCommunity: false,
-        notifyPromotions: false,
-        unsubscribedAt: new Date(),
-      },
-    });
+    const updated = await safeAsync(async () =>
+      prisma.fan.updateMany({
+        where: { id: fan },
+        data: {
+          notifyNewCelebrities: false,
+          notifyUpdates: false,
+          notifyCommunity: false,
+          notifyPromotions: false,
+          unsubscribedAt: new Date(),
+        },
+      }),
+      { count: 0 },
+    );
     ok = updated.count > 0;
   }
 

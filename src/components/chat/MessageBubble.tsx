@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface ReplyTo {
   id: string;
@@ -49,6 +49,8 @@ interface MessageBubbleProps {
   onDelete?: (message: Msg) => void;
   onEdit?: (message: Msg, newBody: string) => void;
   onMediaClick?: (attachment: Attachment, message: Msg) => void;
+  onRetrySend?: () => void;
+  onDeleteLocal?: () => void;
   isFirstInGroup?: boolean;
   isLastInGroup?: boolean;
 }
@@ -73,14 +75,21 @@ function formatTime(dateStr: string | null | undefined): string {
 }
 
 function StatusTicks({ status, deliveredAt, readAt }: { status: string; deliveredAt: string | null; readAt: string | null }) {
-  if (status === "PENDING" || status === "FAILED") {
-    // Accepted and saved locally, still waiting for the server — ONE check.
-    // FAILED is never surfaced as a hard error: the outbox keeps retrying and
-    // the message stays in the local queue until the server acknowledges it.
+  if (status === "FAILED") {
+    return (
+      <span
+        className="text-[10px] text-red-400"
+        title="Couldn't send — tap Retry below"
+      >
+        !
+      </span>
+    );
+  }
+  if (status === "PENDING") {
     return (
       <span
         className="text-[10px] text-zinc-400"
-        title={status === "PENDING" ? "Queued — waiting to sync" : "Queued — will retry automatically"}
+        title="Queued — waiting to sync"
       >
         ✓
       </span>
@@ -141,10 +150,21 @@ export default function MessageBubble({
   onDelete,
   onEdit,
   onMediaClick,
+  onRetrySend,
+  onDeleteLocal,
   isFirstInGroup = true,
   isLastInGroup = true,
 }: MessageBubbleProps) {
   const [hovered, setHovered] = useState(false);
+  const [mediaFailed, setMediaFailed] = useState(false);
+
+  const attachment = parseAttachment(message.attachmentJson);
+  const mediaUrl = attachment?.url ?? "";
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setMediaFailed(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [mediaUrl]);
 
   if (message.type === "system") {
     return (
@@ -165,37 +185,52 @@ export default function MessageBubble({
     );
   }
 
-  const attachment = parseAttachment(message.attachmentJson);
-
   const bubbleContent = () => {
     switch (message.type) {
       case "image":
-        return attachment ? (
+        if (!attachment?.url || mediaFailed) {
+          return (
+            <div className="grid h-40 w-40 place-items-center rounded-lg bg-white/5 p-2 text-center text-xs text-zinc-500">
+              Photo unavailable
+            </div>
+          );
+        }
+        return (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={attachment.url}
             alt={attachment.name}
             className="max-h-64 max-w-64 cursor-zoom-in rounded-lg object-cover"
             onClick={() => onMediaClick?.(attachment, message)}
-          />
-        ) : null;
-
-      case "voice":
-        return (
-          <audio
-            controls
-            src={attachment?.url}
-            className="h-9 w-52 max-w-full"
+            onError={() => setMediaFailed(true)}
           />
         );
 
+      case "voice":
+        return attachment?.url ? (
+          <audio
+            controls
+            src={attachment.url}
+            className="h-9 w-52 max-w-full"
+          />
+        ) : (
+          <div className="grid h-9 w-52 max-w-full place-items-center rounded-lg bg-white/5 text-xs text-zinc-500">
+            Voice note unavailable
+          </div>
+        );
+
       case "video":
-        return (
+        return attachment?.url ? (
           <video
             controls
-            src={attachment?.url}
+            src={attachment.url}
             className="max-h-64 max-w-64 rounded-lg"
+            onError={() => setMediaFailed(true)}
           />
+        ) : (
+          <div className="grid h-32 w-56 place-items-center rounded-lg bg-white/5 text-xs text-zinc-500">
+            Video unavailable
+          </div>
         );
 
       case "call":
@@ -275,6 +310,30 @@ export default function MessageBubble({
             />
           )}
         </div>
+
+        {isOwn && message.status === "FAILED" && (onRetrySend || onDeleteLocal) && (
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            <span className="text-[10px] text-red-400/80">
+              Couldn&apos;t send
+            </span>
+            {onRetrySend && (
+              <button
+                onClick={onRetrySend}
+                className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-zinc-200 transition hover:bg-white/10"
+              >
+                Retry
+              </button>
+            )}
+            {onDeleteLocal && (
+              <button
+                onClick={onDeleteLocal}
+                className="rounded-full border border-red-400/30 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-300 transition hover:bg-red-500/20"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        )}
 
         {hovered && (
           <div

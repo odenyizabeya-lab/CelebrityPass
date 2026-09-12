@@ -6,9 +6,13 @@ import Link from "next/link";
 import { useChatRealtime } from "@/hooks/useChatRealtime";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
+  clearDraftCache,
+  draftImageToFile,
+  readDraftCache,
   readMetaCache,
   readMessagesCache,
   writeChatNowSeed,
+  writeDraftCache,
   writeMetaCache,
   writeMessagesCache,
   type CachedMeta,
@@ -103,6 +107,7 @@ function unwrapMessage(payload: unknown): Record<string, unknown> | null {
 }
 
 interface ComposerProps {
+  conversationId: string;
   onSendText: (text: string) => void;
   onSendImage: (file: File, caption: string) => void;
   onSendVoice: (blob: Blob) => void;
@@ -123,9 +128,10 @@ function pickRecorderMime(): string | null {
   return null;
 }
 
-function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
+function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
   const [text, setText] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const [draftImage, setDraftImage] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -133,6 +139,67 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Restore a saved draft (composed but never sent) so switching screens or
+  // relaunching never loses it. Drafts live per-conversation in localStorage.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const draft = readDraftCache(conversationId);
+    if (!draft) return;
+    if (draft.text) {
+      setText(draft.text);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (el) {
+          el.style.height = "auto";
+          el.style.height = Math.min(el.scrollHeight, 144) + "px";
+        }
+      });
+    }
+    if (draft.image) {
+      const file = draftImageToFile(draft.image.name, draft.image.type, draft.image.dataUrl);
+      if (file) {
+        setPendingImage({ file, preview: URL.createObjectURL(file) });
+        setDraftImage(draft.image);
+      }
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [conversationId]);
+
+  // Persist the current text + (small) image draft on every change, debounced.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      writeDraftCache(conversationId, text, draftImage);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [text, draftImage, conversationId]);
+
+  // Keep a serializable copy of the selected image for draft persistence.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const img = pendingImage;
+    if (!img) {
+      setDraftImage(null);
+      return;
+    }
+    let cancelled = false;
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (cancelled) return;
+        const dataUrl = String(reader.result ?? "");
+        setDraftImage({ name: img.file.name, type: img.file.type, dataUrl });
+      };
+      reader.onerror = () => {};
+      reader.readAsDataURL(img.file);
+      return () => {
+        cancelled = true;
+      };
+} catch {
+      return undefined;
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [pendingImage]);
 
   const handleSend = () => {
     if (disabled) return;
@@ -143,6 +210,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
         return null;
       });
       setText("");
+      clearDraftCache(conversationId);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
       return;
     }
@@ -150,6 +218,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
     if (!trimmed) return;
     onSendText(trimmed);
     setText("");
+    clearDraftCache(conversationId);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -397,6 +466,9 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     messagesRef.current = messages;
   }, [messages]);
   const inFlightRef = useRef<Set<string>>(new Set());
+  // Original uploaded File refs keyed by clientId — lets the outbox re-upload a
+  // failed image/voice whose attachmentJson was never persisted server-side.
+  const inMemoryFilesRef = useRef<Map<string, File>>(new Map());
   const metaStatusRef = useRef<"ready" | "unavailable">("ready");
   useEffect(() => {
     metaStatusRef.current = metaStatus;
@@ -476,22 +548,62 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   // Offline outbox: messages that were accepted locally but never acked by the
   // server are re-sent automatically when the network returns. The server's
   // (conversationId, clientId) unique constraint makes retries idempotent, so
-  // a re-send can never create a duplicate row on the wire.
+  // a re-send can never create a duplicate row on the wire. Image/voice sends
+  // whose upload never reached the server are re-uploaded from the in-memory
+  // file (or the persisted image draft) before the message POST.
   const flushOutbox = useCallback(async () => {
     const queued = messagesRef.current.filter(
       (m) =>
         m.senderType === "fan" &&
         (m.status === "PENDING" || m.status === "FAILED") &&
-        m.id.startsWith("temp-") &&
-        (m.type === "text" || m.attachmentJson != null)
+        m.id.startsWith("temp-")
     );
     for (const msg of queued) {
       if (inFlightRef.current.has(msg.clientId)) continue;
       inFlightRef.current.add(msg.clientId);
       try {
-        const attachmentJson = msg.attachmentJson
-          ? JSON.parse(msg.attachmentJson)
-          : undefined;
+        let attachmentJson: unknown;
+        if (msg.attachmentJson) {
+          try {
+            attachmentJson = JSON.parse(msg.attachmentJson);
+          } catch {
+            attachmentJson = msg.attachmentJson;
+          }
+        } else if (msg.type !== "text") {
+          let file: File | null = inMemoryFilesRef.current.get(msg.clientId) ?? null;
+          if (!file) {
+            const draft = readDraftCache(conversationId);
+            const dImg = draft?.image;
+            if (dImg) file = draftImageToFile(dImg.name, dImg.type, dImg.dataUrl);
+          }
+          if (!file) {
+            // Attachment bytes are gone (app reloaded) and the draft can't
+            // restore them — this queued media can never be delivered. Keep it
+            // FAILED so the user can delete it instead of silently losing it.
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.clientId === msg.clientId ? { ...m, status: "FAILED" } : m
+              )
+            );
+            continue;
+          }
+          const form = new FormData();
+          form.append("file", file);
+          const up = await fetch(`/api/chat/${conversationId}/attachments`, {
+            method: "POST",
+            body: form,
+          });
+          if (!up.ok) throw new Error("Re-upload failed");
+          const upload = await up.json();
+          attachmentJson = upload.attachment;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientId === msg.clientId
+                ? { ...m, attachmentJson: JSON.stringify(upload.attachment) }
+                : m
+            )
+          );
+        }
         const res = await fetch(`/api/chat/${conversationId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -503,6 +615,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           }),
         });
         if (res.ok) {
+          inMemoryFilesRef.current.delete(msg.clientId);
+          clearDraftCache(conversationId);
           reconcileSent(msg.clientId, await res.json().catch(() => null));
         }
       } catch {
@@ -589,7 +703,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
             celebrityId: c.id,
             celebritySlug: String(c.slug ?? ""),
             celebrityName: String(c.name ?? ""),
-            profileImage: String(c.profileImage ?? ""),
+            profileImage: String(c.profileImage || c.profileImageUrl || ""),
             isVerified: Boolean(c.isVerified),
             savedAt: new Date().toISOString(),
           });
@@ -619,6 +733,22 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           : [];
         setMessages(list);
         setHasMore(Boolean(data.hasMore));
+        setMessages((prev) => {
+          // NEVER drop locally-queued sends that the server hasn't acked yet.
+          // Replacing wholesale here would wipe a just-sent offline message the
+          // moment the history fetch lands; instead keep any un-acked temp sends
+          // that don't already exist on the server and re-sort chronologically.
+          const keptTemps = prev.filter(
+            (m) =>
+              m.senderType === "fan" &&
+              m.id.startsWith("temp-") &&
+              (m.status === "PENDING" || m.status === "FAILED") &&
+              !list.some((l) => l.clientId && l.clientId === m.clientId)
+          );
+          return [...list, ...keptTemps].sort((a, b) =>
+            String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? ""))
+          );
+        });
         const latest = list[list.length - 1];
         if (latest?.createdAt) setSince(latest.createdAt);
         setMessagesFailed(false);
@@ -819,6 +949,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         );
         return;
       }
+      clearDraftCache(conversationId);
       reconcileSent(clientId, await res.json().catch(() => null));
     } catch {
       // Network failure: keep the message locally, queued for the outbox.
@@ -867,6 +998,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    inMemoryFilesRef.current.set(clientId, file);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -897,6 +1029,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         }),
       });
       if (!res.ok) throw new Error("Send failed");
+      inMemoryFilesRef.current.delete(clientId);
+      clearDraftCache(conversationId);
       reconcileSent(clientId, await res.json().catch(() => null));
     } catch {
       setMessages((prev) =>
@@ -928,6 +1062,31 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     });
     void sendAttachmentMessage(crypto.randomUUID(), "voice", "", file);
   };
+
+  // Re-attempt every locally-queued failed send immediately (used by the
+  // "Couldn't send" retry affordance on a message bubble).
+  const retryLocalMessage = useCallback(() => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.senderType === "fan" && m.id.startsWith("temp-") && m.status === "FAILED"
+          ? { ...m, status: "PENDING" }
+          : m
+      )
+    );
+    void flushOutbox();
+  }, [flushOutbox]);
+
+  // Delete a locally-queued send the user chose not to keep. Only safe for
+  // messages that were never acked (temp- ids) — real messages can't be
+  // removed without a server-side delete API.
+  const deleteLocalMessage = useCallback((clientId: string) => {
+    setMessages((prev) =>
+      prev.filter(
+        (m) => !(m.clientId === clientId && m.id.startsWith("temp-"))
+      )
+    );
+    inMemoryFilesRef.current.delete(clientId);
+  }, []);
 
   const handleBlock = async () => {
     if (!meta) return;
@@ -1134,16 +1293,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
         {celebrity ? (
           <>
-            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
-              {celebrity.profileImage && (
-                // eslint-disable-next-line @next/next/no-img-element
+            {(celebrity.profileImage || celebrity.profileImageUrl) && (
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={celebrity.profileImage}
+                  src={celebrity.profileImage || celebrity.profileImageUrl}
                   alt={celebrity.name}
                   className="h-full w-full object-cover"
                 />
-              )}
-            </div>
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
                 <span className="truncate text-sm font-semibold text-zinc-100">
@@ -1268,6 +1427,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   isFirstInGroup={isFirstInGroup}
                   isLastInGroup={isLastInGroup}
                   onMediaClick={(attachment) => setLightboxAttachment(attachment)}
+                  onRetrySend={
+                    msg.senderType === "fan" && msg.status === "FAILED"
+                      ? retryLocalMessage
+                      : undefined
+                  }
+                  onDeleteLocal={
+                    msg.senderType === "fan" && msg.status === "FAILED"
+                      ? () => deleteLocalMessage(msg.clientId)
+                      : undefined
+                  }
                 />
               ))}
 
@@ -1285,6 +1454,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
       <div className="shrink-0 border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
         <Composer
+          conversationId={conversationId}
           onSendText={sendText}
           onSendImage={sendImage}
           onSendVoice={sendVoice}
@@ -1307,7 +1477,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         open={callOpen}
         mode={callMode}
         contactName={celebrity?.name ?? ""}
-        contactAvatar={celebrity?.profileImage ?? null}
+        contactAvatar={celebrity?.profileImage ?? celebrity?.profileImageUrl ?? null}
         onClose={() => setCallOpen(false)}
       />
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentFanId } from "@/lib/auth";
 import { listFanConversations } from "@/lib/chat/list";
+import { safeAsync } from "@/lib/safe-data";
 import ChatList from "@/components/chat/ChatList";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,10 @@ export default async function ChatPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/chat");
 
-  const conversations = await listFanConversations(fanId);
+  // A failed read resolves to an empty list (the chat list already shows an
+  // inline "couldn't load" state and retries client-side) rather than crashing
+  // the full-screen chat shell.
+  const conversations = await safeAsync(async () => listFanConversations(fanId), []);
   const unreadCount = conversations.reduce((acc, c) => acc + (c.unread || 0), 0);
 
   return (

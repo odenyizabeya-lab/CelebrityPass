@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { profileImageUrl } from "@/lib/images";
 
 /** Total unread message count across all of a fan's conversations. */
 export async function getFanUnreadTotal(fanId: string): Promise<number> {
@@ -112,7 +113,8 @@ export async function listFanConversations(
       slug: c.celebrity.slug,
       name: c.celebrity.name,
       profession: c.celebrity.profession,
-      profileImage: c.celebrity.profileImage,
+      // URL (never the raw base64 blob), served from the cacheable endpoint.
+      profileImage: profileImageUrl(c.celebrity.slug, c.celebrity.profileImage),
       chatAccountType: c.celebrity.chatAccountType,
       chatAccountLabel: c.celebrity.chatAccountLabel,
       online: !!(c.celebrity.chatLastSeenAt && c.celebrity.chatLastSeenAt > fiveMinAgo),

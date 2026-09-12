@@ -4,6 +4,7 @@ import DirectoryFilters from "@/components/DirectoryFilters";
 import CelebrityCard from "@/components/CelebrityCard";
 import EmptyState from "@/components/EmptyState";
 import { getCelebritySummaries, getSearchOptions, toCardCelebrity } from "@/lib/services";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +20,24 @@ export default async function CelebritiesPage({
   searchParams: Promise<{ search?: string; category?: string; country?: string; profession?: string }>;
 }) {
   const sp = await searchParams;
+  // Failures degrade to an empty directory (plus empty filter options), keeping
+  // the page shell alive and letting the empty-state explain itself.
   const [celebrities, options] = await Promise.all([
-    getCelebritySummaries({
-      search: sp.search,
-      category: sp.category,
-      country: sp.country,
-      profession: sp.profession,
-    }),
-    getSearchOptions(),
+    safeAsync(
+      () =>
+        getCelebritySummaries({
+          search: sp.search,
+          category: sp.category,
+          country: sp.country,
+          profession: sp.profession,
+        }),
+      [],
+    ),
+    safeAsync(
+      () =>
+        getSearchOptions().then((o) => ({ categories: o.categories, countries: o.countries, professions: o.professions })),
+      { categories: [], countries: [], professions: [] },
+    ),
   ]);
 
   const filterCount =

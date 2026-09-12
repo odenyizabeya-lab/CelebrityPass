@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import RecoveryPanel from "@/components/RecoveryPanel";
 import { getCurrentFanId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { celebrityImageFlags } from "@/lib/images";
+import { safeAsync } from "@/lib/safe-data";
 import { formatMoney } from "@/lib/payments";
 import FanCardView, { type CardViewData } from "@/components/FanCardView";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -14,29 +16,42 @@ export default async function DashboardPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/dashboard");
 
+  // A DB/network failure resolves to nulls instead of throwing, so the page
+  // keeps the site shell and shows a recovery panel rather than a blank or
+  // error screen.
   const [fan, imageFlags, selectionCount] = await Promise.all([
-    prisma.fan.findUnique({
-      where: { id: fanId },
-      include: {
-        cards: {
+    safeAsync(
+      () =>
+        prisma.fan.findUnique({
+          where: { id: fanId },
           include: {
-            celebrity: {
-              select: { id: true, slug: true, name: true, accentColor: true, cardDesign: true, isVerified: true },
+            cards: {
+              include: {
+                celebrity: {
+                  select: { id: true, slug: true, name: true, accentColor: true, cardDesign: true, isVerified: true },
+                },
+                membershipLevel: true,
+              },
+              orderBy: { createdAt: "desc" },
             },
-            membershipLevel: true,
+            payments: {
+              include: { celebrity: { select: { name: true, slug: true, accentColor: true } }, membershipLevel: { select: { name: true } } },
+              orderBy: { createdAt: "desc" },
+            },
           },
-          orderBy: { createdAt: "desc" },
-        },
-        payments: {
-          include: { celebrity: { select: { name: true, slug: true, accentColor: true } }, membershipLevel: { select: { name: true } } },
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    }),
-    celebrityImageFlags(),
-    prisma.fanCelebritySelection.count({ where: { fanId } }),
+        }),
+      null,
+    ),
+    safeAsync(async () => celebrityImageFlags(), new Map()),
+    safeAsync(async () => prisma.fanCelebritySelection.count({ where: { fanId } }), 0),
   ]);
-  if (!fan) redirect("/login?next=/dashboard");
+  if (!fan) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        <RecoveryPanel message="We couldn't load your dashboard right now. Check your connection and try again." />
+      </div>
+    );
+  }
 
   const pending = fan.payments.filter((p) => p.status === "PENDING");
 

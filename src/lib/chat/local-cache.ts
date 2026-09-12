@@ -26,6 +26,7 @@ export interface CachedCelebrity {
   name: string;
   profession: string;
   profileImage: string;
+  profileImageUrl: string;
   isVerified: boolean;
   chatAccountType: string;
   chatAccountLabel: string | null;
@@ -98,6 +99,7 @@ export function sanitizeMeta(value: unknown): CachedMeta | null {
     name: cel ? asText(cel.name) : "",
     profession: cel ? asText(cel.profession) : "",
     profileImage: cel ? asText(cel.profileImage) : "",
+    profileImageUrl: cel ? asText(cel.profileImageUrl) : "",
     isVerified: Boolean(cel?.isVerified),
     chatAccountType: cel ? asText(cel.chatAccountType) : "",
     chatAccountLabel:
@@ -214,4 +216,142 @@ export function writeChatNowSeed(key: string, seed: ChatNowSeed): void {
   } catch {
     // Storage full/blocked — handled silently.
   }
+}
+
+const DRAFT_PREFIX = "cp.chat.draft.v1.";
+
+/**
+ * A persisted composer draft. Only image drafts are stored (as a data URL)
+ * because a `File` cannot be serialized; text uses the plain string.
+ * Image drafts over ~2.5 MB are skipped so a single photo can't blow the
+ * localStorage quota and wipe out the message + meta caches.
+ */
+export interface ChatDraft {
+  text: string;
+  image: { name: string; type: string; dataUrl: string } | null;
+  updatedAt: string;
+}
+
+const DRAFT_IMAGE_MAX = 2_500_000;
+
+/** Reads the saved draft for a conversation (null/absent if none). */
+export function readDraftCache(conversationId: string): ChatDraft | null {
+  const st = storage();
+  if (!st) return null;
+  try {
+    const raw = st.getItem(DRAFT_PREFIX + conversationId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const d = parsed as Record<string, unknown>;
+    const image =
+      d.image && typeof d.image === "object"
+        ? ({
+            name: asText((d.image as Record<string, unknown>).name),
+            type: asText((d.image as Record<string, unknown>).type),
+            dataUrl: asText((d.image as Record<string, unknown>).dataUrl),
+          } as ChatDraft["image"])
+        : null;
+    if (image && (!image.dataUrl || image.dataUrl.length > DRAFT_IMAGE_MAX)) {
+      return { text: asText(d.text), image: null, updatedAt: asText(d.updatedAt) };
+    }
+    return {
+      text: asText(d.text),
+      image,
+      updatedAt: asText(d.updatedAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Persists the composer draft; oversized images are dropped, never stored. */
+export function writeDraftCache(
+  conversationId: string,
+  text: string,
+  image: { name: string; type: string; dataUrl: string } | null
+): void {
+  const st = storage();
+  if (!st) return;
+  try {
+    const safeImage =
+      image && image.dataUrl && image.dataUrl.length <= DRAFT_IMAGE_MAX
+        ? image
+        : null;
+    st.setItem(
+      DRAFT_PREFIX + conversationId,
+      JSON.stringify({
+        text,
+        image: safeImage,
+        updatedAt: new Date().toISOString(),
+      } satisfies ChatDraft)
+    );
+  } catch {
+    // Storage full/blocked — the draft just isn't persisted across reloads.
+  }
+}
+
+/** Clears the saved draft after a successful send. */
+export function clearDraftCache(conversationId: string): void {
+  const st = storage();
+  if (!st) return;
+  try {
+    st.removeItem(DRAFT_PREFIX + conversationId);
+  } catch {
+    // Ignore.
+  }
+}
+
+/** Converts a persisted draft image back into a usable File (null if broken). */
+export function draftImageToFile(
+  name: string,
+  type: string,
+  dataUrl: string
+): File | null {
+  try {
+    const idx = dataUrl.indexOf(",");
+    if (idx < 0) return null;
+    const meta = dataUrl.slice(5, idx);
+    const mime = /^[a-z]+\/[a-z0-9.+-]+/i.exec(meta)?.[0] ?? type;
+    const b64 = dataUrl.slice(idx + 1);
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], name || "draft-image", { type: mime });
+  } catch {
+    return null;
+  }
+}
+
+/** All conversation ids that have a cached message list (for the outbox). */
+export function listCachedConversationIds(): string[] {
+  const st = storage();
+  if (!st) return [];
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < st.length; i += 1) {
+      const key = st.key(i);
+      if (key && key.startsWith(MSGS_PREFIX)) {
+        ids.push(key.slice(MSGS_PREFIX.length));
+      }
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reads every cached conversation's messages so the app-wide outbox can retry
+ * messages that were accepted locally (queued) but never acknowledged — even
+ * for conversations the user hasn't reopened after reconnecting.
+ */
+export function readCachedMessageLists(): Array<{
+  conversationId: string;
+  messages: unknown[];
+}> {
+  return listCachedConversationIds().map((conversationId) => ({
+    conversationId,
+    messages: readMessagesCache(conversationId),
+  }));
 }

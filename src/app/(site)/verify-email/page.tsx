@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -26,24 +27,29 @@ export default async function VerifyEmailPage({
 
   if (token) {
     const tokenHash = hashToken(token);
-    const row = await prisma.emailVerificationToken.findUnique({
-      where: { tokenHash },
-      include: { fan: true },
-    });
-    if (row && !row.usedAt && row.expiresAt > new Date()) {
-      await prisma.emailVerificationToken.update({
-        where: { id: row.id },
-        data: { usedAt: new Date() },
-      });
-      await prisma.fan.update({
-        where: { id: row.fanId },
-        data: { emailVerified: true, emailVerifiedAt: new Date() },
-      });
-      state = "verified";
-      email = row.fan.email;
-    } else {
-      state = "invalid";
-    }
+    const result = await safeAsync(
+      async () => {
+        const row = await prisma.emailVerificationToken.findUnique({
+          where: { tokenHash },
+          include: { fan: true },
+        });
+        if (row && !row.usedAt && row.expiresAt > new Date()) {
+          await prisma.emailVerificationToken.update({
+            where: { id: row.id },
+            data: { usedAt: new Date() },
+          });
+          await prisma.fan.update({
+            where: { id: row.fanId },
+            data: { emailVerified: true, emailVerifiedAt: new Date() },
+          });
+          return { state: "verified" as const, email: row.fan.email };
+        }
+        return { state: "invalid" as const, email: "" };
+      },
+      { state: "invalid" as const, email: "" },
+    );
+    state = result.state;
+    email = result.email;
   }
 
   return (

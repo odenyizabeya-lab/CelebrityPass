@@ -6,6 +6,7 @@ import CheckoutForm from "@/components/tickets/CheckoutForm";
 import { getEventById } from "@/lib/events/service";
 import { getEventTicketView } from "@/lib/ticketing/service";
 import { prisma } from "@/lib/db";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ type Props = { searchParams: Promise<{ eventId?: string; sel?: string }> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { eventId } = await searchParams;
-  const event = eventId ? await getEventById(eventId) : null;
+  const event = eventId ? await safeAsync(async () => getEventById(eventId), null) : null;
   return { title: event ? `Checkout — ${event.name}` : "Checkout", robots: { index: false, follow: false } };
 }
 
@@ -21,10 +22,10 @@ export default async function CheckoutPage({ searchParams }: Props) {
   const { eventId, sel } = await searchParams;
   if (!eventId) notFound();
 
-  const event = await getEventById(eventId);
+  const event = await safeAsync(async () => getEventById(eventId), null);
   if (!event) notFound();
 
-  const view = await getEventTicketView(eventId);
+  const view = await safeAsync(async () => getEventTicketView(eventId), null);
   if (!view || view.eventStatus !== "UPCOMING") notFound();
 
   const selection = parseSelection(sel ?? "");
@@ -32,11 +33,14 @@ export default async function CheckoutPage({ searchParams }: Props) {
   const validSelection = selection.filter((s) => view.tickets.some((t) => t.inventoryId === s.inventoryId && t.sellable));
   if (validSelection.length === 0) notFound();
 
-  const paymentMethods = await prisma.paymentMethod.findMany({
-    where: { isEnabled: true, hasCredentials: true },
-    select: { id: true, name: true, kind: true, isDefault: true },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-  });
+  const paymentMethods = await safeAsync(async () =>
+    prisma.paymentMethod.findMany({
+      where: { isEnabled: true, hasCredentials: true },
+      select: { id: true, name: true, kind: true, isDefault: true },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    }),
+    [],
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24 pt-10 sm:px-6">

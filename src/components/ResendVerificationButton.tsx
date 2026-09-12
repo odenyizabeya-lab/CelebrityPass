@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 export default function ResendVerificationButton() {
   const [sending, setSending] = useState(false);
@@ -12,7 +13,7 @@ export default function ResendVerificationButton() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/account/verify", { method: "POST" });
+      const res = await fetchWithTimeout("/api/account/verify", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Could not send the verification email.");

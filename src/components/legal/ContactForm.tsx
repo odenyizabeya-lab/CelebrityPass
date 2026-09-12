@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 const CATEGORIES = [
   "General",
@@ -39,7 +40,7 @@ export default function ContactForm() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/contact", {
+      const res = await fetchWithTimeout("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, category, subject, reference, message }),

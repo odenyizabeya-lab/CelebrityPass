@@ -9,6 +9,8 @@ import { formatTicketPrice, parseStatusHistory } from "@/lib/ticketing/helpers";
 import { orderStatusLabel, paymentStatusLabel, deliveryMethodLabel } from "@/lib/ticketing/types";
 import { prisma } from "@/lib/db";
 import { buildPaymentMethods, type UniversalMethods } from "@/lib/ticketing/universal";
+import { safeLocalDate } from "@/lib/utils";
+import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +25,8 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const { ref } = await params;
   const { t: token, created } = await searchParams;
 
-  const order = token ? await getOrderForHolder(ref, token) : null;
-  const safe = order ? null : await getOrderSafe(ref);
+  const order = token ? await safeAsync(async () => getOrderForHolder(ref, token), null) : null;
+  const safe = order ? null : await safeAsync(async () => getOrderSafe(ref), null);
   if (!order && !safe) notFound();
 
   let pay: UniversalMethods | null = null;
@@ -34,24 +36,31 @@ export default async function OrderPage({ params, searchParams }: Props) {
       order.status === "PAYMENT_PROCESSING" ||
       order.status === "FAILED")
   ) {
-    pay = await buildPaymentMethods({
-      kind: "TICKET",
-      id: order.id,
-      ref: order.orderRef,
-      title: `Tickets — ${order.event.name}`,
-      amountCents: order.totalCents,
-      currency: order.currency || "USD",
-    });
+    pay = await safeAsync(
+      () =>
+        buildPaymentMethods({
+          kind: "TICKET",
+          id: order.id,
+          ref: order.orderRef,
+          title: `Tickets — ${order.event.name}`,
+          amountCents: order.totalCents,
+          currency: order.currency || "USD",
+        }),
+      null,
+    );
   }
 
   // If the customer already has an unverified bank proof, show pending state.
   let pendingProof: { id: string; reference: string | null } | null = null;
   if (order) {
-    pendingProof = await prisma.bankTransferProof.findFirst({
-      where: { ticketOrderId: order.id, status: "PENDING_VERIFICATION" },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, reference: true },
-    });
+    pendingProof = await safeAsync(async () =>
+      prisma.bankTransferProof.findFirst({
+        where: { ticketOrderId: order.id, status: "PENDING_VERIFICATION" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, reference: true },
+      }),
+      null,
+    );
   }
 
   return (
@@ -105,7 +114,7 @@ function OrderBody({
         </div>
         <p className="mt-1 text-zinc-400">
           Payment: {paymentStatusLabel(order.paymentStatus)}
-          {order.paidAt ? ` · paid ${new Date(order.paidAt).toLocaleString()}` : ""}
+          {order.paidAt ? ` · paid ${safeLocalDate(order.paidAt)}` : ""}
         </p>
 
         {created && !confirmed && (
@@ -126,7 +135,7 @@ function OrderBody({
           <p className="mt-3 text-sm leading-relaxed text-zinc-300">
             Amount paid: <strong className="text-white">{formatTicketPrice(order.amountPaidCents ?? order.totalCents, order.currency)}</strong>
             {order.paymentRef ? <> · payment ref <span className="font-mono text-white">{order.paymentRef}</span></> : null}
-            {order.paidAt ? <> · {new Date(order.paidAt).toLocaleString()}</> : null}
+            {order.paidAt ? <> · {safeLocalDate(order.paidAt)}</> : null}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-zinc-400">
             Delivery: {deliveryMethodLabel(order.deliveryMethod)}
@@ -155,7 +164,8 @@ function OrderBody({
         <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Event</p>
         <p className="mt-1 text-lg font-bold text-white">{order.event.name}</p>
         <p className="text-sm text-zinc-400">
-          {order.event.celebrity.name} · {new Date(order.event.startAt).toLocaleString()}
+          {order.event.celebrity.name}
+          {safeLocalDate(order.event.startAt) ? <> · {safeLocalDate(order.event.startAt)}</> : null}
         </p>
         <Link
           href={`/celebrity/${order.event.celebrity.slug}/event/${order.event.eventId}`}
@@ -219,6 +229,7 @@ function OrderBody({
                 accent="#10b981"
                 redirectUrl={`/order/${order.orderRef}?t=${order.accessToken}`}
                 orderRef={order.orderRef}
+                orderAccessToken={order.accessToken}
               />
               <div className="mt-6 border-t border-white/10 pt-4">
                 <OrderActions orderRef={order.orderRef} token={order.accessToken} />
@@ -251,7 +262,7 @@ function OrderBody({
                     <span className="font-semibold text-zinc-300">initiated</span>
                   )}
                 </span>
-                <span className="text-zinc-500">{new Date(tx.createdAt).toLocaleString()}</span>
+                <span className="text-zinc-500">{safeLocalDate(tx.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -278,7 +289,7 @@ function OrderBody({
                   <span className="font-semibold text-zinc-300">{orderStatusLabel(h.status)}</span>
                   {h.note ? ` — ${h.note}` : ""}
                 </span>
-                <span className="text-xs text-zinc-600">{new Date(h.at).toLocaleString()}</span>
+                <span className="text-xs text-zinc-600">{safeLocalDate(h.at)}</span>
               </li>
             ))}
           </ul>

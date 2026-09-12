@@ -4,6 +4,7 @@ import AdminOrderActions from "@/components/tickets/AdminOrderActions";
 import { getAdminOrder } from "@/lib/ticketing/service";
 import { formatTicketPrice, parseStatusHistory } from "@/lib/ticketing/helpers";
 import { orderStatusLabel, paymentStatusLabel, deliveryMethodLabel } from "@/lib/ticketing/types";
+import { safeLocalDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Event</p>
           <p className="mt-1 text-lg font-bold text-white">{order.event.name}</p>
           <p className="text-sm text-zinc-400">
-            {order.event.celebrity.name} · {new Date(order.event.startAt).toLocaleString()}
+            {order.event.celebrity.name} · {safeLocalDate(order.event.startAt)}
           </p>
           {order.event.ticketUrl && (
             <a href={order.event.ticketUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-semibold text-zinc-300 underline hover:text-white">
@@ -98,7 +99,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <li key={tx.id} className="rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/10">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-white">{tx.kind === "PAYMENT" ? "Payment" : "Refund"} · {tx.status}</span>
-                  <span className="text-xs text-zinc-500">{formatTicketPrice(tx.amountCents, tx.currency)} · {new Date(tx.createdAt).toLocaleString()}</span>
+                  <span className="text-xs text-zinc-500">{formatTicketPrice(tx.amountCents, tx.currency)} · {safeLocalDate(tx.createdAt)}</span>
                 </div>
                 {tx.message && <p className="mt-1 text-xs text-zinc-400">{tx.message}</p>}
                 {tx.providerRef && <p className="mt-1 text-xs text-zinc-500">Ref: <span className="font-mono">{tx.providerRef}</span></p>}
@@ -115,7 +116,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             {[...history].reverse().map((h, i) => (
               <li key={i} className="flex flex-wrap items-center justify-between gap-2">
                 <span>{orderStatusLabel(h.status)}{h.note ? ` — ${h.note}` : ""}</span>
-                <span className="text-xs text-zinc-600">{new Date(h.at).toLocaleString()}</span>
+                <span className="text-xs text-zinc-600">{safeLocalDate(h.at)}</span>
               </li>
             ))}
           </ul>

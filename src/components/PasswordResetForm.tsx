@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/client-http";
 
 export default function PasswordResetForm() {
   const router = useRouter();
@@ -26,14 +27,14 @@ export default function PasswordResetForm() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/reset-password/request", {
+      const res = await fetchWithTimeout("/api/auth/reset-password/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      setNotice(data.message ?? "If an account exists for that email, a reset link has been sent.");
       setLoading(false);
+      setNotice(data.message ?? "If an account exists for that email, a reset link has been sent.");
       if (data.emailUnconfigured) {
         // Be transparent that email delivery isn't configured yet.
         setNotice("A reset link could not be emailed right now because email delivery has not been configured. Please contact support for help resetting your password.");
@@ -58,7 +59,7 @@ export default function PasswordResetForm() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/reset-password/confirm", {
+      const res = await fetchWithTimeout("/api/auth/reset-password/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password: newPassword }),
@@ -69,6 +70,7 @@ export default function PasswordResetForm() {
         setLoading(false);
         return;
       }
+      setLoading(false);
       setError(null);
       setNotice("Your password has been reset. You're now signed in.");
       setTimeout(() => router.push("/dashboard"), 1200);
