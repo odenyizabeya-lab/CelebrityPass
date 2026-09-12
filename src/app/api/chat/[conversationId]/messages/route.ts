@@ -74,7 +74,11 @@ export async function POST(request: Request, { params }: Ctx) {
 
   const type = String(body.type ?? "text");
   const text = String(body.body ?? "");
-  const attachmentJson = body.attachmentJson ? JSON.stringify(body.attachmentJson) : undefined;
+  const attachmentJson = body.attachmentJson
+    ? typeof body.attachmentJson === "string"
+      ? body.attachmentJson
+      : JSON.stringify(body.attachmentJson)
+    : undefined;
   const repliedToId = body.repliedToId ? String(body.repliedToId) : undefined;
 
   if (!["text", "image", "voice", "video", "call", "system"].includes(type)) {

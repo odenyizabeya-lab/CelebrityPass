@@ -90,6 +90,18 @@ function normalizeMessage(raw: Record<string, unknown> | null | undefined): Msg 
   };
 }
 
+// The messages API returns the created message wrapped as { message: {...} }.
+// Unwrap that (or accept a bare message object) so callers always hold a flat
+// ChatMessage shape — passing a nested payload through as a Msg would render a
+// bodyless bubble with an undefined id and a NaN-parsing createdAt.
+function unwrapMessage(payload: unknown): Record<string, unknown> | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  const inner = obj.message;
+  if (inner && typeof inner === "object") return inner as Record<string, unknown>;
+  return obj.message === undefined ? obj : null;
+}
+
 const EMOJIS = [
   "😀","😄","😁","😂","🤣","😊","😍","🥰","😘","😎",
   "🤩","🥳","🙂","😉","😢","😭","😡","🥺","😴","🤔",
@@ -412,6 +424,13 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
+  // Live mirror of `messages` so the outbox flusher can read the latest list
+  // from an effect/interval without a stale closure.
+  const messagesRef = useRef<Msg[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  const inFlightRef = useRef<Set<string>>(new Set());
   const metaStatusRef = useRef<"ready" | "unavailable">("ready");
   useEffect(() => {
     metaStatusRef.current = metaStatus;
@@ -466,6 +485,67 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   }, []);
 
   const retry = useCallback(() => setRetryTick((t) => t + 1), []);
+
+  // Atomically replace the optimistic copy of a just-acknowledged send with the
+  // server's flat message (matched by clientId). Degenerate/nested payloads are
+  // dropped — the optimistic copy stays put (and queued) until a real ack.
+  const reconcileSent = useCallback((clientId: string, payload: unknown) => {
+    const raw = unwrapMessage(payload);
+    if (!raw) return;
+    const normalized = normalizeMessage(raw);
+    if (!normalized) return;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.clientId === clientId
+          ? {
+              ...normalized,
+              id: normalized.id || m.id,
+              createdAt: normalized.createdAt || m.createdAt,
+            }
+          : m
+      )
+    );
+  }, []);
+
+  // Offline outbox: messages that were accepted locally but never acked by the
+  // server are re-sent automatically when the network returns. The server's
+  // (conversationId, clientId) unique constraint makes retries idempotent, so
+  // a re-send can never create a duplicate row on the wire.
+  const flushOutbox = useCallback(async () => {
+    const queued = messagesRef.current.filter(
+      (m) =>
+        m.senderType === "fan" &&
+        (m.status === "PENDING" || m.status === "FAILED") &&
+        m.id.startsWith("temp-") &&
+        (m.type === "text" || m.attachmentJson != null)
+    );
+    for (const msg of queued) {
+      if (inFlightRef.current.has(msg.clientId)) continue;
+      inFlightRef.current.add(msg.clientId);
+      try {
+        const attachmentJson = msg.attachmentJson
+          ? JSON.parse(msg.attachmentJson)
+          : undefined;
+        const res = await fetch(`/api/chat/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: msg.clientId,
+            type: msg.type,
+            body: msg.body,
+            ...(attachmentJson ? { attachmentJson } : {}),
+          }),
+        });
+        if (res.ok) {
+          reconcileSent(msg.clientId, await res.json().catch(() => null));
+        }
+      } catch {
+        // Still queued; the next sync attempt retries it.
+      } finally {
+        inFlightRef.current.delete(msg.clientId);
+      }
+    }
+  }, [conversationId, reconcileSent]);
 
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({
@@ -611,11 +691,23 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     onMessage: (message: import("@/hooks/useChatRealtime").RealtimeMessage) => {
       const normalized = normalizeMessage(message as unknown as Record<string, unknown>);
       if (!normalized) return;
-      setMessages((prev) =>
-        prev.some((m) => m.id === normalized.id)
-          ? prev
-          : [...prev, normalized]
-      );
+      setMessages((prev) => {
+        // Our own sent message echoes back through SSE with the same clientId —
+        // reconcile it over the optimistic copy instead of appending a duplicate.
+        if (normalized.clientId && prev.some((m) => m.clientId === normalized.clientId)) {
+          return prev.map((m) =>
+            m.clientId === normalized.clientId
+              ? {
+                  ...normalized,
+                  id: normalized.id || m.id,
+                  createdAt: normalized.createdAt || m.createdAt,
+                }
+              : m
+          );
+        }
+        if (prev.some((m) => m.id === normalized.id)) return prev;
+        return [...prev, normalized];
+      });
       if (normalized.createdAt) setSince(normalized.createdAt);
     },
     onRead: (event: {
@@ -650,9 +742,30 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   // messages catch up with everything that happened while disconnected.
   const wasRtConnectedRef = useRef(rtConnected);
   useEffect(() => {
-    if (rtConnected && !wasRtConnectedRef.current) retry();
+    if (rtConnected && !wasRtConnectedRef.current) {
+      void flushOutbox();
+      retry();
+    }
     wasRtConnectedRef.current = rtConnected;
-  }, [rtConnected, retry]);
+  }, [rtConnected, retry, flushOutbox]);
+
+  // Auto-flush the offline outbox: on the browser "online" event, on focus or
+  // on a fixed cadence while any message is still waiting for a server ack.
+  useEffect(() => {
+    const tryFlush = () => {
+      if (navigator.onLine !== false) void flushOutbox();
+    };
+    const id = setInterval(tryFlush, 15000);
+    window.addEventListener("online", tryFlush);
+    window.addEventListener("focus", tryFlush);
+    document.addEventListener("visibilitychange", tryFlush);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", tryFlush);
+      window.removeEventListener("focus", tryFlush);
+      document.removeEventListener("visibilitychange", tryFlush);
+    };
+  }, [flushOutbox]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -713,12 +826,17 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, type: "text", body }),
       });
-      if (!res.ok) throw new Error("Send failed");
-      const serverMsg: Msg = await res.json();
-      setMessages((prev) =>
-        prev.map((m) => (m.clientId === clientId ? serverMsg : m))
-      );
+      if (!res.ok) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.clientId === clientId ? { ...m, status: "FAILED" } : m
+          )
+        );
+        return;
+      }
+      reconcileSent(clientId, await res.json().catch(() => null));
     } catch {
+      // Network failure: keep the message locally, queued for the outbox.
       setMessages((prev) =>
         prev.map((m) =>
           m.clientId === clientId ? { ...m, status: "FAILED" } : m
@@ -773,6 +891,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       });
       if (!up.ok) throw new Error("Upload failed");
       const upload = await up.json();
+      const attachmentJson = JSON.stringify(upload.attachment);
+      // Keep the uploaded reference on the optimistic copy so the bubble can
+      // render it and the queued send survives a refresh if the POST below
+      // fails. The messages payload takes the OBJECT (not the stringified
+      // version) so the API stores a single-encoded attachmentJson value.
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.clientId === clientId ? { ...m, attachmentJson } : m
+        )
+      );
       const res = await fetch(`/api/chat/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -780,14 +908,11 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           clientId,
           type,
           body,
-          attachmentJson: JSON.stringify(upload.attachment),
+          attachmentJson: upload.attachment,
         }),
       });
       if (!res.ok) throw new Error("Send failed");
-      const serverMsg: Msg = await res.json();
-      setMessages((prev) =>
-        prev.map((m) => (m.clientId === clientId ? serverMsg : m))
-      );
+      reconcileSent(clientId, await res.json().catch(() => null));
     } catch {
       setMessages((prev) =>
         prev.map((m) =>

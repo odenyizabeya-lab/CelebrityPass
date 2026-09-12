@@ -73,17 +73,16 @@ function formatTime(dateStr: string | null | undefined): string {
 }
 
 function StatusTicks({ status, deliveredAt, readAt }: { status: string; deliveredAt: string | null; readAt: string | null }) {
-  if (status === "PENDING") {
+  if (status === "PENDING" || status === "FAILED") {
+    // Accepted and saved locally, still waiting for the server — ONE check.
+    // FAILED is never surfaced as a hard error: the outbox keeps retrying and
+    // the message stays in the local queue until the server acknowledges it.
     return (
-      <span className="text-[10px] text-zinc-400" title="Sending">
-        ◷
-      </span>
-    );
-  }
-  if (status === "FAILED") {
-    return (
-      <span className="text-[10px] text-red-400" title="Failed">
-        ✕
+      <span
+        className="text-[10px] text-zinc-400"
+        title={status === "PENDING" ? "Queued — waiting to sync" : "Queued — will retry automatically"}
+      >
+        ✓
       </span>
     );
   }
