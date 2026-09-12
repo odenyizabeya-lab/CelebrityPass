@@ -102,15 +102,6 @@ function unwrapMessage(payload: unknown): Record<string, unknown> | null {
   return obj.message === undefined ? obj : null;
 }
 
-const EMOJIS = [
-  "😀","😄","😁","😂","🤣","😊","😍","🥰","😘","😎",
-  "🤩","🥳","🙂","😉","😢","😭","😡","🥺","😴","🤔",
-  "👍","👎","👏","🙏","💪","🤝","👋","✌️","🤞","❤️",
-  "💔","💯","🔥","✨","🎉","🎊","🥂","🍕","🍔","☕",
-  "🏆","⚽","🎵","🎶","🌹","🌞","😈","👀","💎","💰",
-  "📸","🎁","⭐","🌈","😇","🥶","🤯","🫡","🙌","🤲",
-];
-
 interface ComposerProps {
   onSendText: (text: string) => void;
   onSendImage: (file: File, caption: string) => void;
@@ -134,7 +125,6 @@ function pickRecorderMime(): string | null {
 
 function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
   const [text, setText] = useState("");
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -153,7 +143,6 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
         return null;
       });
       setText("");
-      setEmojiOpen(false);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
       return;
     }
@@ -161,7 +150,6 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
     if (!trimmed) return;
     onSendText(trimmed);
     setText("");
-    setEmojiOpen(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -176,7 +164,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    el.style.height = Math.min(el.scrollHeight, 144) + "px";
     onTyping();
   };
 
@@ -292,7 +280,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-end gap-1.5 rounded-[28px] bg-white/10 p-1.5">
             <button
               onClick={async () => {
                 const { isNativePlatform } = await import("@/lib/native");
@@ -310,27 +298,17 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
                 fileRef.current?.click();
               }}
               disabled={disabled}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
+              className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
               title="Attach photo"
               aria-label="Attach photo"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
+                <path d="M21 15l-5-5L5 21" />
               </svg>
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
-
-            <button
-              onClick={() => setEmojiOpen((v) => !v)}
-              disabled={disabled}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
-              title="Emoji"
-              aria-label="Emoji"
-            >
-              🙂
-            </button>
 
             <textarea
               ref={textareaRef}
@@ -339,60 +317,48 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled, un
               onKeyDown={handleKeyDown}
               onInput={handleInput}
               disabled={disabled}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="send"
               placeholder={
                 disabled && unavailable
                   ? "Chat unavailable"
                   : "Message..."
               }
               rows={1}
-              className="max-h-[120px] min-h-[48px] flex-1 resize-none rounded-xl bg-white/10 px-3.5 py-2.5 text-sm leading-6 text-zinc-200 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+              className="max-h-[144px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-[17px] leading-6 text-zinc-100 placeholder-zinc-500 caret-primary-400 outline-none disabled:opacity-50"
             />
 
-            <button
-              onClick={handleSend}
-              disabled={disabled || (!text.trim() && !pendingImage)}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-600 text-white transition-colors hover:bg-primary-500 disabled:opacity-40"
-              title="Send"
-              aria-label="Send"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </button>
-
-            <button
-              onClick={() => void startRecording()}
-              disabled={disabled}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
-              title="Record voice note"
-              aria-label="Record voice note"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
-                <path d="M19 10v2a7 7 0 01-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {emojiOpen && (
-          <div className="absolute bottom-full left-0 right-0 z-40 mx-auto mb-1 grid max-w-3xl grid-cols-10 gap-0.5 rounded-xl border border-white/10 bg-ink-800 p-2 shadow-xl">
-            {EMOJIS.map((e) => (
+            {text.trim() || pendingImage ? (
               <button
-                key={e}
-                onClick={() => {
-                  setText((prev) => prev + e);
-                  textareaRef.current?.focus();
-                  onTyping();
-                }}
-                className="grid h-8 w-full place-items-center rounded-md text-lg transition hover:bg-white/10"
+                onClick={handleSend}
+                disabled={disabled}
+                className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full bg-primary-600 text-white transition-all hover:bg-primary-500 active:scale-90 disabled:opacity-40"
+                title="Send"
+                aria-label="Send"
               >
-                {e}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
               </button>
-            ))}
+            ) : (
+              <button
+                onClick={() => void startRecording()}
+                disabled={disabled}
+                className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
+                title="Record voice note"
+                aria-label="Record voice note"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                  <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -686,6 +652,25 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       scrollToBottom(true);
     }
   }, [messages, isStuckToBottom, scrollToBottom]);
+
+  // Stay pinned to the latest message whenever the chat viewport resizes
+  // (Android keyboard opening/closing, composer growing taller) — exactly like
+  // a mobile messaging app.
+  const stuckRef = useRef(isStuckToBottom);
+  useEffect(() => {
+    stuckRef.current = isStuckToBottom;
+  }, [isStuckToBottom]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (stuckRef.current && el.scrollHeight > el.clientHeight) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const { connected: rtConnected } = useChatRealtime(conversationId, since, {
     onMessage: (message: import("@/hooks/useChatRealtime").RealtimeMessage) => {

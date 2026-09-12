@@ -220,7 +220,7 @@ export default function MessageBubble({
 
       default:
         return (
-          <p className="break-words whitespace-pre-wrap text-sm">
+          <p className="break-words whitespace-pre-wrap text-base leading-6">
             {message.body}
             {message.editedAt && (
               <span className="ml-1 text-[10px] opacity-70">(edited)</span>
