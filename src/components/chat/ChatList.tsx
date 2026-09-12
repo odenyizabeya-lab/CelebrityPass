@@ -87,8 +87,8 @@ export default function ChatList({
     );
 
   return (
-    <div className="mt-8">
-      <div className="relative mb-4">
+    <div>
+      <div className="relative mb-3">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

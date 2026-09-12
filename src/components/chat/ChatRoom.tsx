@@ -252,7 +252,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-1.5">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={async () => {
                 const { isNativePlatform } = await import("@/lib/native");
@@ -270,7 +270,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
                 fileRef.current?.click();
               }}
               disabled={disabled}
-              className="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
               title="Attach photo"
               aria-label="Attach photo"
             >
@@ -285,7 +285,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
             <button
               onClick={() => setEmojiOpen((v) => !v)}
               disabled={disabled}
-              className="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
               title="Emoji"
               aria-label="Emoji"
             >
@@ -301,13 +301,13 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
               disabled={disabled}
               placeholder={disabled ? "Chat unavailable" : "Message..."}
               rows={1}
-              className="max-h-[120px] min-h-[40px] flex-1 resize-none rounded-xl bg-white/10 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+              className="max-h-[120px] min-h-[48px] flex-1 resize-none rounded-xl bg-white/10 px-3.5 py-2.5 text-sm leading-6 text-zinc-200 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
             />
 
             <button
               onClick={handleSend}
               disabled={disabled || (!text.trim() && !pendingImage)}
-              className="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-600 text-white transition-colors hover:bg-primary-500 disabled:opacity-40"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-600 text-white transition-colors hover:bg-primary-500 disabled:opacity-40"
               title="Send"
               aria-label="Send"
             >
@@ -320,7 +320,7 @@ function Composer({ onSendText, onSendImage, onSendVoice, onTyping, disabled }: 
             <button
               onClick={() => void startRecording()}
               disabled={disabled}
-              className="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200 disabled:opacity-40"
               title="Record voice note"
               aria-label="Record voice note"
             >
@@ -400,6 +400,22 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [since, setSince] = useState<string | null>(null);
+
+  // Tracks the visual viewport height so the composer stays pinned above the
+  // Android keyboard while it is open and returns to the bottom when closed.
+  const [visualHeight, setVisualHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setVisualHeight(vv.height);
+    update();
+    vv.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({
@@ -700,7 +716,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
   if (error === "unavailable") {
     return (
-      <main className="flex h-[calc(100dvh-7rem)] flex-col items-center justify-center px-4">
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
         <p className="text-zinc-400">Conversation unavailable</p>
         <Link
           href="/chat"
@@ -738,7 +754,10 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   });
 
   return (
-    <main className="mx-auto flex h-[calc(100dvh-7rem)] max-w-3xl flex-col">
+    <main
+      className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden"
+      style={visualHeight !== null ? { height: `${visualHeight}px` } : undefined}
+    >
       <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-white/10 bg-ink-900/95 px-4 backdrop-blur">
         <Link
           href="/chat"
@@ -916,7 +935,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-6"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6"
       >
         <div className="mx-auto flex flex-col">
           {hasMore && (
@@ -945,13 +964,15 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       </div>
 
       {celebrity && (
-        <Composer
-          onSendText={sendText}
-          onSendImage={sendImage}
-          onSendVoice={sendVoice}
-          onTyping={sendTyping}
-          disabled={isDisabled}
-        />
+        <div className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+          <Composer
+            onSendText={sendText}
+            onSendImage={sendImage}
+            onSendVoice={sendVoice}
+            onTyping={sendTyping}
+            disabled={isDisabled}
+          />
+        </div>
       )}
 
       {lightboxAttachment && (

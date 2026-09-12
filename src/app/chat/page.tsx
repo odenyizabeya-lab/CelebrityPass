@@ -14,13 +14,13 @@ export default async function ChatPage() {
   const unreadCount = conversations.reduce((acc, c) => acc + (c.unread || 0), 0);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-ink-900/95 px-4 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/"
             aria-label="Back to home"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-zinc-300 ring-1 ring-white/10 transition hover:text-white hover:ring-white/25"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:text-white"
           >
             <svg
               className="h-5 w-5"
@@ -33,27 +33,26 @@ export default async function ChatPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </Link>
-          <div>
-            <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
-              Messages
-              {unreadCount > 0 && (
-                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary-500 px-2 text-xs font-bold text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </h1>
-            <p className="mt-1 text-sm text-zinc-400">Chat with your favorite celebrities</p>
-          </div>
+          <h1 className="flex items-center gap-2 text-lg font-bold text-white">
+            Messages
+            {unreadCount > 0 && (
+              <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary-500 px-2 text-xs font-bold text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </h1>
         </div>
         <Link
           href="/celebrities"
-          className="btn-grad rounded-full px-5 py-2.5 text-sm font-bold text-white"
+          className="btn-grad rounded-full px-4 py-2 text-sm font-bold text-white"
         >
           New
         </Link>
-      </div>
+      </header>
 
-      <ChatList initialConversations={conversations} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+        <ChatList initialConversations={conversations} />
+      </div>
     </div>
   );
 }

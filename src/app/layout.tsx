@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import NativeIntegration from "@/components/NativeIntegration";
 import LanguageProvider from "@/lib/i18n/language-context";
 import {
@@ -99,9 +97,7 @@ export default async function RootLayout({
           }}
         />
         <LanguageProvider initialLocale={initialLocale} serverCountry={serverCountry}>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          {children}
           <NativeIntegration />
         </LanguageProvider>
       </body>
