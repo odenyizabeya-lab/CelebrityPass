@@ -12,6 +12,7 @@ export default function LoginForm() {
   const rawNext = searchParams.get("next");
   const redirectTo =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\") ? rawNext : "/dashboard";
+  const nextQuery = rawNext ? `?next=${encodeURIComponent(redirectTo)}` : "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -85,14 +86,14 @@ export default function LoginForm() {
       </div>
 
       <p className="mt-3 text-center text-xs text-zinc-500">
-        <a href="/reset-password" className="text-zinc-400 underline hover:text-white">{t("auth.forgotPassword")}</a>
+        <a href="/reset-password" className="text-zinc-400 underline hover:text-white">{t("auth.forgotPassword")}</a>{" "}
+        ·{" "}
+        <a href={`/forgot-email${nextQuery}`} className="text-zinc-400 underline hover:text-white">{t("auth.forgotEmail")}</a>
       </p>
 
       <p className="mt-4 text-center text-xs text-zinc-500">
         {t("auth.noAccount")}{" "}
-        <a href="/register" className="text-primary-400 hover:text-primary-300">{t("auth.createOne")}</a>,{" "}
-        {t("auth.or")}{" "}
-        <a href="/celebrities" className="text-primary-400 hover:text-primary-300">{t("auth.joinAnyCommunity")}</a>.
+        <a href={`/register${nextQuery}`} className="text-primary-400 hover:text-primary-300">{t("auth.createOne")}</a>.
       </p>
     </form>
   );

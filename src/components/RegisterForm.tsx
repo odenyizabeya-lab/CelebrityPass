@@ -1,12 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
 
 export default function RegisterForm() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const redirectTo =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")
+      ? rawNext
+      : "/onboarding/celebrities";
+  const nextQuery = rawNext ? `?next=${encodeURIComponent(redirectTo)}` : "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +51,7 @@ export default function RegisterForm() {
         setLoading(false);
         return;
       }
-      router.push("/onboarding/celebrities");
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError(t("common.networkError"));
@@ -116,7 +123,7 @@ export default function RegisterForm() {
 
       <p className="mt-5 text-center text-xs text-zinc-500">
         {t("auth.hasAccount")}{" "}
-        <a href="/login" className="text-primary-400 hover:text-primary-300">{t("auth.signIn")}</a>
+        <a href={`/login${nextQuery}`} className="text-primary-400 hover:text-primary-300">{t("auth.signIn")}</a>
       </p>
       <p className="mt-3 text-center text-xs text-zinc-600">
         {t("auth.agree")}{" "}

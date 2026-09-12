@@ -1,63 +1,99 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import crypto from "node:crypto";
+
+const FAN_COOKIE = "fc_fan";
 
 /**
- * Next.js 16 Proxy (formerly Middleware).
- *
- * Refreshes the Supabase session cookie on every matched request so that the
- * server-side client (Server Components, Route Handlers) always sees a current
- * access token. Without this proxy, the access token expires after ~1 hour and
- * the SDK cannot persist refreshed cookies from Server Components, which
- * manifests as random admin logouts / early session termination.
- *
- * Only touches Supabase auth cookies; fan sessions (fc_fan) are untouched.
+ * Paths a logged-out visitor may open: the auth screens themselves, password
+ * reset / email verification / unsubscribe links (sent by email while logged
+ * out), the admin console (it has its own Supabase-auth gate), the legal pages
+ * the auth screens link to, all API routes (each guards itself), and static
+ * assets. Every other page — home, celebrities, celebrity profiles, chat,
+ * events, checkout, onboarding — requires a valid fan session.
  */
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+const PUBLIC_PREFIXES = [
+  "/_next",
+  "/api",
+  "/admin",
+  "/login",
+  "/register",
+  "/forgot-email",
+  "/reset-password",
+  "/verify-email",
+  "/unsubscribe",
+  "/legal",
+];
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const PUBLIC_FILE_NAMES = new Set([
+  "favicon.ico",
+  "icon.svg",
+  "apple-icon.png",
+  "manifest.webmanifest",
+  "sw.js",
+  "robots.txt",
+  "sitemap.xml",
+  "opengraph-image.png",
+  "twitter-image.png",
+  "og.png",
+  "file.svg",
+  "globe.svg",
+  "next.svg",
+  "vercel.svg",
+  "window.svg",
+]);
 
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    });
-
-    // IMPORTANT: do not run code between createServerClient and getUser().
-    // This refreshes the session and persists the refreshed cookies.
-    const { error } = await supabase.auth.getUser();
-
-    // When a Supabase session cookie exists but the session is invalid
-    // (expired/revoked and not refreshable), remove it so guards fail closed
-    // on the next request instead of surfacing odd auth errors.
-    if (error && supabaseResponse.cookies.getAll().some((c) => c.name.includes("auth-token"))) {
-      for (const name of request.cookies.getAll().map((c) => c.name)) {
-        if (name.includes("auth-token")) {
-          request.cookies.delete(name);
-          supabaseResponse.cookies.delete(name);
-        }
-      }
-    }
-  }
-
-  return supabaseResponse;
+function cookieSecret(): string {
+  const secret = process.env.COOKIE_SECRET;
+  if (secret) return secret;
+  throw new Error("COOKIE_SECRET is not set.");
 }
 
-export const config = {
-  // Only admin pages read the Supabase session on the server. Fan sessions use
-  // the legacy fc_fan cookie and are unaffected. Route Handlers refresh their
-  // own cookies during isAdminAuthed(); Server Components cannot, hence the
-  // proxy scoped to admin pages is what keeps the session alive.
-  matcher: ["/admin/:path*"],
-};
+/** Verifies the HMAC signature of the fan session cookie (no DB lookup). */
+function isFanSessionValid(token: string | undefined): boolean {
+  if (!token) return false;
+  try {
+    const secret = cookieSecret();
+    const idx = token.lastIndexOf(".");
+    if (idx < 0) return false;
+    const payload = token.slice(0, idx);
+    const sig = token.slice(idx + 1);
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex");
+    const a = Buffer.from(sig, "hex");
+    const b = Buffer.from(expected, "hex");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_FILE_NAMES.has(pathname)) return true;
+  if (PUBLIC_FILE_NAMES.has(pathname.split("/").filter(Boolean).pop() ?? "")) {
+    return true;
+  }
+  return PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isFanSessionValid(request.cookies.get(FAN_COOKIE)?.value)) {
+    return NextResponse.next();
+  }
+
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.search = new URLSearchParams({
+    next: pathname + request.nextUrl.search,
+  }).toString();
+  return NextResponse.redirect(loginUrl);
+}
