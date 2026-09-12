@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { MembershipLevel } from "@prisma/client";
 
@@ -10,6 +11,7 @@ export default function MembershipsManager({
   celebrityId: string;
   initial: MembershipLevel[];
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<MembershipLevel[]>(initial);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -19,6 +21,33 @@ export default function MembershipsManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [ladderBusy, setLadderBusy] = useState(false);
+  const [ladderResult, setLadderResult] = useState<string | null>(null);
+  const [ladderError, setLadderError] = useState<string | null>(null);
+
+  /** Apply the shared premium "Experience" ladder ($2,500 – $15M), idempotent. */
+  const applyLadder = async () => {
+    setLadderBusy(true);
+    setLadderResult(null);
+    setLadderError(null);
+    try {
+      const res = await fetch(`/api/celebrities/${celebrityId}/memberships/premium`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setLadderError(typeof data?.error === "string" ? data.error : "Failed to apply the premium ladder.");
+        setLadderBusy(false);
+        return;
+      }
+      const r = data?.result as { created?: number; updated?: number } | undefined;
+      setLadderResult(
+        `✓ Premium Experience ladder synced${typeof r?.created === "number" ? ` (${r.created} added, ${r.updated ?? 0} updated)` : ""}.`,
+      );
+      router.refresh();
+    } catch {
+      setLadderError("Network error.");
+    }
+    setLadderBusy(false);
+  };
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +99,7 @@ export default function MembershipsManager({
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this membership level? Existing cards will keep their level reference.")) return;
+    if (!confirm("Delete this level? Any fan card currently using it keeps the card but loses this level reference (cards remain valid).")) return;
     const res = await fetch(`/api/memberships/${id}`, { method: "DELETE" });
     if (res.ok) setItems((prev) => prev.filter((m) => m.id !== id));
   };
@@ -127,6 +156,32 @@ export default function MembershipsManager({
           ))}
         </ul>
       )}
+
+      {/* Premium Experience Ladder */}
+      <div className="mt-5 rounded-2xl border border-amber-500/25 bg-amber-500/[0.04] p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-black uppercase tracking-[0.15em] text-amber-300">Premium Experience Ladder</h3>
+            <p className="mt-1 max-w-xl text-xs leading-5 text-zinc-400">
+              The shared premium tier ladder ($2,500 – $15,000,000) that every community shares. Idempotent — safe to
+              reapply at any time; existing tiers are updated in place, missing ones are added.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void applyLadder()}
+            disabled={ladderBusy}
+            className="shrink-0 rounded-full bg-amber-500 px-5 py-2 text-xs font-bold text-ink-900 transition hover:bg-amber-400 disabled:opacity-60"
+          >
+            {ladderBusy ? "Applying…" : "Apply Premium Ladder"}
+          </button>
+        </div>
+        {ladderResult && <p className="mt-2 text-xs font-semibold text-emerald-300">{ladderResult}</p>}
+        {ladderError && <p className="mt-2 text-xs text-rose-300">{ladderError}</p>}
+        <p className="mt-2 text-[11px] text-zinc-500">
+          Tiers priced <strong>$2,500+</strong> show as premium &quot;Signature Experience&quot; cards on the community page.
+        </p>
+      </div>
 
       <form onSubmit={add} className="mt-5 grid gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-2 lg:grid-cols-3">
         <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Level name (e.g. VIP)" />

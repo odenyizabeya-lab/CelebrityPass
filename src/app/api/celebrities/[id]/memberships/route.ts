@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
+import { clearReadCache } from "@/lib/services";
+import { revalidateCelebrityPages } from "@/lib/revalidate";
 
 export const dynamic = "force-dynamic";
 
@@ -40,5 +42,11 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       isActive: Boolean(body.isActive ?? true),
     },
   });
+  // The community page lists these tiers — revalidate it right away.
+  const celebrity = await prisma.celebrity.findUnique({ where: { id }, select: { slug: true } });
+  if (celebrity) {
+    clearReadCache();
+    revalidateCelebrityPages(celebrity.slug);
+  }
   return NextResponse.json({ membership }, { status: 201 });
 }

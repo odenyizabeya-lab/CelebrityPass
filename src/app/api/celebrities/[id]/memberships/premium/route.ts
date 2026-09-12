@@ -5,6 +5,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
+import { clearReadCache } from "@/lib/services";
+import { revalidateCelebrityPages } from "@/lib/revalidate";
 import { upsertPremiumLevels } from "../../../../../../../prisma/premium-levels.mjs";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +25,8 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
   if (!celebrity) return NextResponse.json({ error: "Celebrity not found" }, { status: 404 });
 
   const result = await upsertPremiumLevels(prisma, celebrity);
+  // The public community page shows these tiers — revalidate it right away.
+  clearReadCache();
+  revalidateCelebrityPages(celebrity.slug);
   return NextResponse.json({ result });
 }

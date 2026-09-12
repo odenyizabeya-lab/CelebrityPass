@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 import { isAdminAuthed } from "@/lib/auth";
-import { getCelebrityBySlug } from "@/lib/services";
+import { getCelebrityBySlug, clearReadCache } from "@/lib/services";
+import { invalidateCelebrityMedia } from "@/lib/images";
+import { revalidateCelebrityPages } from "@/lib/revalidate";
 import {
   normalizeNameKey,
   imageSha256,
@@ -19,11 +21,22 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: Ctx) {
   const { id } = await params;
+  // Raw base64 image columns must never cross the server→client boundary
+  // (multi-megabyte JSON payloads); only the cacheable image routes are public.
   const bySlug = await getCelebrityBySlug(id);
-  if (bySlug) return NextResponse.json({ celebrity: bySlug });
+  if (bySlug) {
+    const { profileImage, coverImage, ...publicCelebrity } = bySlug;
+    void profileImage;
+    void coverImage;
+    return NextResponse.json({ celebrity: publicCelebrity });
+  }
 
   const byId = await prisma.celebrity.findUnique({ where: { id } });
-  return NextResponse.json({ celebrity: byId }, byId ? { status: 200 } : { status: 404 });
+  if (!byId) return NextResponse.json({ celebrity: null }, { status: 404 });
+  const { profileImage, coverImage, ...publicById } = byId;
+  void profileImage;
+  void coverImage;
+  return NextResponse.json({ celebrity: publicById }, { status: 200 });
 }
 
 /** 409 duplicate response shared by all branches of PATCH. */
@@ -133,6 +146,10 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   for (const field of stringFields) {
     if (body[field] !== undefined) data[field] = body[field] === null ? null : String(body[field]);
   }
+  // Admin-written biography paragraph (shown at the top of the public page).
+  if (body.bio !== undefined) {
+    data.bio = body.bio === null || String(body.bio).trim() === "" ? null : String(body.bio).trim();
+  }
   // The four permanent verified platform URLs. Only fields the client explicitly
   // sent are updated — a stale/empty payload can never wipe verified links —
   // and every value is normalized so junk/placeholder/guessed links are stored
@@ -167,6 +184,13 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   // ── Database-enforced atomicity: turn any P2002 race into a clean 409 ───
   try {
     const updated = await prisma.celebrity.update({ where: { id }, data });
+    // The edit must be live on the very next request: clear in-process read and
+    // image caches, then revalidate every page that could list this celebrity —
+    // the old slug too, in case the edit changed the URL.
+    clearReadCache();
+    invalidateCelebrityMedia();
+    revalidateCelebrityPages(celebrity.slug);
+    if (data.slug && String(data.slug) !== celebrity.slug) revalidateCelebrityPages(String(data.slug));
     return NextResponse.json({ celebrity: updated });
   } catch (e) {
     if (isUniqueViolation(e)) {
@@ -209,8 +233,66 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const existing = await prisma.celebrity.findUnique({ where: { id } });
+  const existing = await prisma.celebrity.findUnique({
+    where: { id },
+    select: { id: true, slug: true, name: true },
+  });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await prisma.celebrity.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+
+  // ── Safety check before any destructive action (related-data review) ─────
+  // Every child table cascades (levels, fan cards, selections, events, chat) or
+  // nulls its reference (payments, announcements, social articles) EXCEPT one:
+  // TicketOrder.event is ON DELETE RESTRICT because real bookings must stay on
+  // record. So a community with paid event bookings can never be deleted.
+  const [membershipCount, fanCardCount, eventCount, ticketOrderCount] = await Promise.all([
+    prisma.membershipLevel.count({ where: { celebrityId: id } }),
+    prisma.fanCard.count({ where: { celebrityId: id } }),
+    prisma.celebrityEvent.count({ where: { celebrityId: id } }),
+    prisma.ticketOrder.count({ where: { event: { celebrityId: id } } }),
+  ]);
+
+  if (ticketOrderCount > 0) {
+    return NextResponse.json(
+      {
+        error:
+          `${existing.name} cannot be deleted: this community has ${ticketOrderCount} paid event booking(s). ` +
+          "Real ticket orders must stay on record, so the community (and its events) are kept.",
+        code: "BLOCKED_BY_TICKET_ORDERS",
+        related: { memberships: membershipCount, fanCards: fanCardCount, events: eventCount, ticketOrders: ticketOrderCount },
+      },
+      { status: 409 },
+    );
+  }
+
+  // A booking could race in between the count above and the delete — the FK
+  // violation then turns into the same clean, honest 409 instead of a 500.
+  try {
+    await prisma.celebrity.delete({ where: { id } });
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2003") {
+      return NextResponse.json(
+        {
+          error:
+            `${existing.name} cannot be deleted: related ticket/event records exist. ` +
+            "These must stay on record, so the community is kept.",
+          code: "BLOCKED_BY_RELATED_RECORDS",
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
+
+  // The removal must be live immediately: clear in-process read/image caches
+  // and revalidate every page that could still reference this slug — its own
+  // profile must 404 on the next request, not after up to 60s of ISR staleness.
+  clearReadCache();
+  invalidateCelebrityMedia();
+  revalidateCelebrityPages(existing.slug);
+
+  return NextResponse.json({
+    ok: true,
+    deleted: existing,
+    removed: { memberships: membershipCount, fanCards: fanCardCount, events: eventCount, ticketOrders: ticketOrderCount },
+  });
 }

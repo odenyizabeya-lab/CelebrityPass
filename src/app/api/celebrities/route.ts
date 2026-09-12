@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { slugify, avatarDataUri, coverDataUri } from "@/lib/utils";
 import { defaultFollowerCounts } from "@/lib/followers";
-import { getCelebritySummaries } from "@/lib/services";
+import { getCelebritySummaries, toCardCelebrity, clearReadCache } from "@/lib/services";
 import { isAdminAuthed } from "@/lib/auth";
+import { invalidateCelebrityMedia } from "@/lib/images";
+import { revalidateCelebrityPages } from "@/lib/revalidate";
 import { fetchGoogleInfo } from "@/lib/google-info";
 import { assignFanNumber, fameTier, maxFollowers } from "@/lib/fame";
 import { FANS_BIG_MIN } from "@/lib/display";
@@ -31,7 +33,9 @@ export async function GET(request: NextRequest) {
     profession: sp.get("profession") ?? undefined,
     includeInactive: sp.get("includeInactive") === "true",
   };
-  const celebrities = await getCelebritySummaries(filters);
+  // Base64 image columns never cross the server→client boundary — clients get
+  // the same stripped CelebrityCardData shape used by the fan app's card APIs.
+  const celebrities = (await getCelebritySummaries(filters)).map(toCardCelebrity);
   return NextResponse.json({ celebrities });
 }
 
@@ -143,6 +147,7 @@ export async function POST(request: NextRequest) {
         country: String(body.country ?? ""),
         city: body.city ? String(body.city) : null,
         profession: String(body.profession ?? ""),
+        bio: typeof body.bio === "string" && body.bio.trim() ? body.bio.trim() : null,
         profileImage,
         profileImageHash,
         coverImage,
@@ -219,6 +224,13 @@ export async function POST(request: NextRequest) {
     }
     console.error("[create celebrity] premium ladder retry failed attempt 1:", err);
   }
+
+  // The new community must be visible on the very next request: drop the
+  // in-process read/image caches and revalidate every ISR page that could list
+  // it (home, celebrities, discovery, and its own profile page).
+  clearReadCache();
+  invalidateCelebrityMedia();
+  revalidateCelebrityPages(celebrity.slug);
 
   // Notify fans who opted into "New celebrity added" updates. A real, curated
   // customer-facing announcement — never fires for ordinary edits.

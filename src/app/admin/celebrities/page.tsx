@@ -1,6 +1,4 @@
-import Image from "next/image";
 import Link from "next/link";
-import VerifiedBadge from "@/components/VerifiedBadge";
 import AdminCelebrityRow from "@/components/admin/AdminCelebrityRow";
 import { prisma } from "@/lib/db";
 import { celebrityImageFlags } from "@/lib/images";
@@ -123,55 +121,21 @@ export default async function AdminCelebritiesPage({
         ) : (
           <ul className="divide-y divide-white/[0.05]">
             {celebrities.map((c) => (
-              <AdminCelebrityRow key={c.id} id={c.id}>
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink-900 p-1">
-                  {imageFlags.get(c.slug)?.hasProfile ? (
-                    <Image src={`/images/${c.slug}/profile`} alt="" width={48} height={60} className="h-full w-full rounded-md object-cover object-top" />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center rounded-md text-sm font-bold text-white" style={{ backgroundColor: c.accentColor }}>
-                      {c.name[0]}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="flex items-center gap-1 font-bold text-white">
-                      {c.name}
-                      {c.isVerified && <VerifiedBadge className="h-4 w-4" />}
-                    </p>
-                    {c.isFeatured && <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-bold text-gold-400">★ Featured</span>}
-                  </div>
-                  <p className="truncate text-xs text-zinc-500">
-                    /celebrity/{c.slug} · {c.profession} · {c.country}
-                  </p>
-                </div>
-                <div className="flex items-center gap-5 text-xs text-zinc-400">
-                  <span title="Fans">{c._count.fans} fans</span>
-                  <span title="Membership levels">{c._count.memberships} levels</span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 font-bold ${c.isActive ? "bg-emerald-500/15 text-emerald-300" : "bg-zinc-600/20 text-zinc-400"}`}
-                  >
-                    {c.isActive ? "Active" : "Hidden"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/admin/celebrities/${c.id}`}
-                    prefetch
-                    onClick={(e) => e.stopPropagation()}
-                    className="rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-white/15 transition hover:bg-white/5"
-                  >
-                    Edit
-                  </Link>
-                  <Link
-                    href={`/celebrity/${c.slug}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="hidden rounded-full px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:text-white sm:inline-flex"
-                  >
-                    View →
-                  </Link>
-                </div>
-              </AdminCelebrityRow>
+              <AdminCelebrityRow
+                key={c.id}
+                id={c.id}
+                slug={c.slug}
+                name={c.name}
+                country={c.country}
+                profession={c.profession}
+                accentColor={c.accentColor}
+                isVerified={c.isVerified}
+                isFeatured={c.isFeatured}
+                isActive={c.isActive}
+                fans={c._count.fans}
+                levels={c._count.memberships}
+                hasProfile={Boolean(imageFlags.get(c.slug)?.hasProfile)}
+              />
             ))}
           </ul>
         )}

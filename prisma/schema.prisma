@@ -25,6 +25,7 @@ model Celebrity {
   country        String
   city           String?
   profession     String
+  bio            String?           // admin-written biography paragraph shown at the top of the public community page
   googleInfo     String?            // cached JSON from Wikipedia/Wikidata (age, works, overview, images — the Google-style knowledge panel)
   profileImage   String?           // URL or data URI
   // SHA-256 of the uploaded profile/cover image bytes. Unique so the exact same

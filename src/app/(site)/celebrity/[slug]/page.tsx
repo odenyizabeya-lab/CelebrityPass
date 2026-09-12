@@ -154,7 +154,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const url = `${APP_URL}/celebrity/${c.slug}`;
   const description =
-    c.tagline || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
+    c.tagline || c.bio || `${c.name} — ${c.profession}${c.country ? ` · ${c.country}` : ""} | Official CelebrityPass profile.`;
   // Only a hosted image is usable by social crawlers (data: URIs are ignored
   // by WhatsApp/Facebook/X). Each celebrity's own photo is used — never a
   // shared generic image when a real profile photo exists.
@@ -412,6 +412,9 @@ export default async function CelebrityPage({ params }: Props) {
           <div className="space-y-14">
             <section>
               <h2 className="text-2xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
+              {celebrity.bio && (
+                <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-200">{celebrity.bio}</p>
+              )}
               <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-500">
                 CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
                 each community and do not represent contracts with, or endorsement by, the celebrity.

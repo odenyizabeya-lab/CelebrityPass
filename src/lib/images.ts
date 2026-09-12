@@ -7,6 +7,52 @@ const DIMS_CACHE_LIMIT = 128;
 const dimsCache = new Map<string, { w: number; h: number }>();
 let imageFlagsCache: { flags: Map<string, { hasProfile: boolean; hasCover: boolean }>; expires: number } | null = null;
 
+// In-process byte caches for the /images/[slug]/profile|cover routes. They live
+// here (not inside the route files) so admin write routes can invalidate a
+// changed/deleted photo immediately — the old bytes must never outlive an edit.
+const MEDIA_CACHE_TTL_MS = 2 * 60 * 1000;
+const MEDIA_CACHE_LIMIT = 64;
+export type CelebrityMediaEntry = { mime: string; buf: Buffer; etag: string; lastAccess: number };
+
+export const profileImageMemory = new Map<string, CelebrityMediaEntry>();
+export const coverImageMemory = new Map<string, CelebrityMediaEntry>();
+
+/** Stores a decoded image byte entry, evicting the oldest when over the limit. */
+export function cacheMedia(cache: Map<string, CelebrityMediaEntry>, slug: string, entry: CelebrityMediaEntry) {
+  if (cache.size >= MEDIA_CACHE_LIMIT) {
+    let oldestKey: string | null = null;
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [k, v] of cache) {
+      if (v.lastAccess < oldestAt) {
+        oldestAt = v.lastAccess;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) cache.delete(oldestKey);
+  }
+  cache.set(slug, entry);
+}
+
+export function mediaCacheHits(cache: Map<string, CelebrityMediaEntry>, slug: string, now: number): CelebrityMediaEntry | null {
+  const hit = cache.get(slug);
+  if (hit && now - hit.lastAccess < MEDIA_CACHE_TTL_MS) {
+    hit.lastAccess = now;
+    return hit;
+  }
+  return null;
+}
+
+/**
+ * Drops every in-process celebrity media cache so an admin edit/delete is
+ * visible on the very next request (no stale photos or presence flags).
+ */
+export function invalidateCelebrityMedia() {
+  profileImageMemory.clear();
+  coverImageMemory.clear();
+  dimsCache.clear();
+  imageFlagsCache = null;
+}
+
 import { prisma } from "./db";
 
 function dimsKey(uri: string): string {

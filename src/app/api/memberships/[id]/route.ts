@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthed } from "@/lib/auth";
+import { clearReadCache } from "@/lib/services";
+import { revalidateCelebrityPages } from "@/lib/revalidate";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (body.displayOrder !== undefined) data.displayOrder = Number(body.displayOrder);
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
 
-  const updated = await prisma.membershipLevel.update({ where: { id }, data });
+  const [updated, celebrity] = await Promise.all([
+    prisma.membershipLevel.update({ where: { id }, data }),
+    prisma.celebrity.findUnique({ where: { id: level.celebrityId }, select: { slug: true } }),
+  ]);
+  if (celebrity) {
+    clearReadCache();
+    revalidateCelebrityPages(celebrity.slug);
+  }
   return NextResponse.json({ membership: updated });
 }
 
@@ -36,6 +45,11 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const level = await prisma.membershipLevel.findUnique({ where: { id } });
   if (!level) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const celebrity = await prisma.celebrity.findUnique({ where: { id: level.celebrityId }, select: { slug: true } });
   await prisma.membershipLevel.delete({ where: { id } });
+  if (celebrity) {
+    clearReadCache();
+    revalidateCelebrityPages(celebrity.slug);
+  }
   return NextResponse.json({ ok: true });
 }

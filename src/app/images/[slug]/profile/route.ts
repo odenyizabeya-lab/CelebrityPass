@@ -1,39 +1,19 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
-import { dataUriBuffer } from "@/lib/images";
+import { dataUriBuffer, profileImageMemory, cacheMedia, mediaCacheHits, type CelebrityMediaEntry } from "@/lib/images";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CACHE_TTL_MS = 2 * 60 * 1000;
-const CACHE_LIMIT = 64;
-
-type CacheEntry = { mime: string; buf: Buffer; etag: string; lastAccess: number };
-
-const imageCache = new Map<string, CacheEntry>();
-
-function evictIfNeeded() {
-  if (imageCache.size < CACHE_LIMIT) return;
-  const oldest = imageCache.values().next().value as CacheEntry | undefined;
-  if (oldest) {
-    for (const [k, v] of imageCache) {
-      if (v === oldest) imageCache.delete(k);
-    }
-  }
-}
-
 async function getProfileImage(slug: string): Promise<
-  | { kind: "bytes"; entry: CacheEntry }
+  | { kind: "bytes"; entry: CelebrityMediaEntry }
   | { kind: "redirect"; url: string }
   | null
 > {
   const now = Date.now();
-  const hit = imageCache.get(slug);
-  if (hit && now - hit.lastAccess < CACHE_TTL_MS) {
-    hit.lastAccess = now;
-    return { kind: "bytes", entry: hit };
-  }
+  const hit = mediaCacheHits(profileImageMemory, slug, now);
+  if (hit) return { kind: "bytes", entry: hit };
 
   const celebrity = await prisma.celebrity.findUnique({
     where: { slug },
@@ -48,9 +28,8 @@ async function getProfileImage(slug: string): Promise<
   if (!parsed) return null;
 
   const etag = createHash("sha1").update(parsed.buffer).digest("hex").slice(0, 24);
-  const entry: CacheEntry = { mime: parsed.mime, buf: parsed.buffer, etag, lastAccess: now };
-  evictIfNeeded();
-  imageCache.set(slug, entry);
+  const entry: CelebrityMediaEntry = { mime: parsed.mime, buf: parsed.buffer, etag, lastAccess: now };
+  cacheMedia(profileImageMemory, slug, entry);
   return { kind: "bytes", entry };
 }
 

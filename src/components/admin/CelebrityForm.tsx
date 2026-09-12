@@ -21,6 +21,7 @@ type CelebrityLike = Partial<
     | "country"
     | "city"
     | "profession"
+    | "bio"
     | "accentColor"
     | "socialLinks"
     | "cardDesign"
@@ -56,6 +57,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [slug, setSlug] = useState(celebrity?.slug ?? "");
   const [category, setCategory] = useState(celebrity?.category ?? "Public Figure");
   const [profession, setProfession] = useState(celebrity?.profession ?? "");
+  const [bio, setBio] = useState(celebrity?.bio ?? "");
   const [country, setCountry] = useState(celebrity?.country ?? "");
   const [city, setCity] = useState(celebrity?.city ?? "");
   const [accent, setAccent] = useState(celebrity?.accentColor ?? "#8b5cf6");
@@ -112,6 +114,7 @@ const submit = async (e: React.FormEvent) => {
       slug: slug || undefined,
       category,
       profession,
+      bio: bio.trim() === "" ? null : bio.trim(),
       country,
       city,
       website,
@@ -460,6 +463,22 @@ const submit = async (e: React.FormEvent) => {
             <input value={accent} onChange={(e) => setAccent(e.target.value)} className={inputCls} placeholder="#8b5cf6" />
           </div>
         </div>
+      </div>
+
+      {/* Biography */}
+      <div className="mt-5">
+        <label className={labelCls}>Biography</label>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          className={`${inputCls} resize-y`}
+          rows={4}
+          placeholder="A short paragraph about this person, shown at the top of the public community page. Leave empty to show none."
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          Shown as the intro on /celebrity/{slug || "…"} · used for the page&apos;s meta description when there is no
+          knowledge-panel tagline.
+        </p>
       </div>
 
       {/* Images */}

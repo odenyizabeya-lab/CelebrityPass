@@ -40,6 +40,15 @@ function cachedRead<V>(key: string, loader: () => Promise<V>): Promise<V> {
   });
 }
 
+/**
+ * Drops every cached read (represented countries, celebrity summaries,
+ * platform stats, search options). Called after admin celebrity writes so the
+ * very next request reflects the change instead of up to 45s of stale data.
+ */
+export function clearReadCache() {
+  readCache.clear();
+}
+
 /** The live represented-country list (celebrity countries + active fan countries, curated base included). */
 export async function getRepresentedCountries(): Promise<string[]> {
   return cachedRead("representedCountries", async () => {
@@ -80,6 +89,7 @@ export type CelebritySummary = {
   country: string;
   city: string | null;
   profession: string;
+  bio: string | null; // admin-written biography paragraph
   tagline: string | null; // factual one-liner from the Wikipedia/Wikidata panel (e.g. "American actor (born 1963)")
   profileImage: string | null;
   coverImage: string | null;
@@ -141,6 +151,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
         city: true,
         profession: true,
         googleInfo: true,
+        bio: true,
         accentColor: true,
         isFeatured: true,
         isActive: true,
@@ -178,7 +189,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       country: c.country,
       city: c.city,
       profession: c.profession,
-      tagline: panelTagline(c.googleInfo),
+      bio: c.bio,
+      tagline: panelTagline(c.googleInfo) ?? c.bio,
       profileImage: hasProfile ? `/images/${c.slug}/profile` : null,
       coverImage: hasCover ? `/images/${c.slug}/cover` : null,
       profileImageUrl: hasProfile ? `/images/${c.slug}/profile` : null,
@@ -201,6 +213,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
 }
 
 export type CelebrityDetail = CelebritySummary & {
+  bio: string | null;
   googleInfo: GoogleInfo | null;
   // Permanent verified official platform links (source of truth).
   facebookUrl: string | null;
@@ -242,6 +255,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     country: celebrity.country,
     city: celebrity.city,
     profession: celebrity.profession,
+    bio: celebrity.bio,
     tagline: panelTagline(celebrity.googleInfo),
     googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
     profileImage: celebrity.profileImage,
