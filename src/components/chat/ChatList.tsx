@@ -6,7 +6,9 @@ import type { FanConversationView } from "@/lib/chat/list";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  const d = new Date(ms);
   const now = new Date();
   const sameDay =
     d.getFullYear() === now.getFullYear() &&

@@ -62,10 +62,13 @@ function parseAttachment(json: string | null): Attachment | null {
   }
 }
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = d.getMinutes().toString().padStart(2, "0");
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const ms = Date.parse(dateStr);
+  if (Number.isNaN(ms)) return "";
+  const d = new Date(ms);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
 }
 
@@ -258,7 +261,7 @@ export default function MessageBubble({
         </div>
 
         <div
-          className={`mt-0.5 flex items-center gap-1.5 ${
+          className={`mt-0.5 flex select-none items-center gap-1.5 ${
             isOwn ? "justify-end" : "justify-start"
           }`}
         >

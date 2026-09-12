@@ -64,6 +64,49 @@ interface Msg {
   createdAt: string;
 }
 
+function asText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeMessage(raw: Record<string, unknown> | null | undefined): Msg | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw;
+  const id = asText(s.id) || asText(s.clientId);
+  if (!id) return null;
+  const repliedToRaw =
+    s.repliedTo && typeof s.repliedTo === "object"
+      ? (s.repliedTo as Record<string, unknown>)
+      : null;
+  return {
+    id,
+    conversationId: asText(s.conversationId),
+    senderType:
+      s.senderType === "fan" || s.senderType === "system" ? s.senderType : "team",
+    fanId: typeof s.fanId === "string" ? s.fanId : null,
+    teamEmail: typeof s.teamEmail === "string" ? s.teamEmail : null,
+    clientId: asText(s.clientId),
+    type: asText(s.type) || "text",
+    body: typeof s.body === "string" ? s.body : "",
+    attachmentJson: typeof s.attachmentJson === "string" ? s.attachmentJson : null,
+    status: asText(s.status) || "PENDING",
+    deliveredAt: asText(s.deliveredAt) || null,
+    readAt: asText(s.readAt) || null,
+    repliedToId: asText(s.repliedToId) || null,
+    repliedTo: repliedToRaw
+      ? {
+          id: asText(repliedToRaw.id),
+          senderType: typeof repliedToRaw.senderType === "string" ? repliedToRaw.senderType : "team",
+          type: asText(repliedToRaw.type),
+          body: typeof repliedToRaw.body === "string" ? repliedToRaw.body : "",
+          deletedAt: asText(repliedToRaw.deletedAt) || null,
+        }
+      : null,
+    editedAt: asText(s.editedAt) || null,
+    deletedAt: asText(s.deletedAt) || null,
+    createdAt: asText(s.createdAt),
+  };
+}
+
 const EMOJIS = [
   "😀","😄","😁","😂","🤣","😊","😍","🥰","😘","😎",
   "🤩","🥳","🙂","😉","😢","😭","😡","🥺","😴","🤔",
@@ -368,7 +411,11 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [isStuckToBottom, setIsStuckToBottom] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [metaStatus, setMetaStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [metaTransient, setMetaTransient] = useState(false);
+  const [messagesFailed, setMessagesFailed] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [retryTick, setRetryTick] = useState(0);
   const [online, setOnline] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
@@ -381,6 +428,10 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
+  const metaStatusRef = useRef<"loading" | "ready" | "unavailable">("loading");
+  useEffect(() => {
+    metaStatusRef.current = metaStatus;
+  }, [metaStatus]);
   const { state: pushState, enable: enablePush, disable: disablePush } = usePushNotifications();
   const router = useRouter();
 
@@ -394,7 +445,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () => setVisualHeight(vv.height);
+    const update = () => setVisualHeight(vv.height > 0 ? vv.height : null);
     update();
     vv.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
@@ -404,61 +455,112 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     };
   }, []);
 
+  const retry = useCallback(() => setRetryTick((t) => t + 1), []);
+
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({
       behavior: smooth ? "smooth" : "instant",
     });
   }, []);
 
+  // Browser online/offline — the chat shell stays open either way. When the
+  // network comes back (or the tab regains focus) we automatically refetch.
+  const wasOnlineRef = useRef(isOnline);
   useEffect(() => {
+    if (isOnline && !wasOnlineRef.current) retry();
+    wasOnlineRef.current = isOnline;
+  }, [isOnline, retry]);
+
+  useEffect(() => {
+    const update = () =>
+      setIsOnline(document.visibilityState !== "hidden" && navigator.onLine !== false);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+
+  // Gentle background retry while a load is failing so recovery happens
+  // automatically even without an explicit network event.
+  useEffect(() => {
+    if (!metaTransient && !messagesFailed) return;
+    const id = setInterval(() => {
+      if (navigator.onLine !== false) retry();
+    }, 15000);
+    return () => clearInterval(id);
+  }, [metaTransient, messagesFailed, retry]);
+
+  // Conversation meta. A 403/404 from the server is a DEFINITE "does not
+  // exist" — only that shows "Conversation unavailable". Any other failure
+  // (no network, server down) keeps the shell standing and retries.
+  useEffect(() => {
+    if (metaStatusRef.current === "unavailable") return;
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/chat/${conversationId}`);
-        if (res.status === 404 || res.status === 403) {
-          if (!cancelled) setError("unavailable");
+        if (cancelled) return;
+        if (res.status === 401) {
+          window.location.replace(`/login?next=${encodeURIComponent(`/chat/${conversationId}`)}`);
           return;
         }
-        if (!res.ok) throw new Error("Failed to load conversation");
-        const data = await res.json();
-        if (!cancelled) {
-          setMeta(data);
-          setOnline(data.celebrity?.online ?? false);
-          setPremiumUnlocked(data.premium?.unlocked ?? true);
+        if (res.status === 403 || res.status === 404) {
+          setMetaStatus("unavailable");
+          setMetaTransient(false);
+          return;
         }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setMeta(data);
+        setMetaStatus("ready");
+        setMetaTransient(false);
+        setOnline(Boolean(data.celebrity?.online));
+        setPremiumUnlocked(Boolean(data.premium?.unlocked ?? true));
+        setBlocked(false);
       } catch {
-        if (!cancelled) setError("unavailable");
+        if (!cancelled) {
+          setMetaTransient(true);
+          setMetaStatus((s) => (s === "ready" ? "ready" : "loading"));
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, retryTick]);
 
   useEffect(() => {
-    if (!meta) return;
-    let cancelled = false;
+    if (!meta || metaStatus === "unavailable") return;
+    let disposed = false;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/chat/${conversationId}/messages?limit=50`
-        );
-        if (!res.ok) throw new Error("Failed to load messages");
+        const res = await fetch(`/api/chat/${conversationId}/messages?limit=50`);
+        if (disposed) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (!cancelled) {
-          setMessages(data.messages ?? []);
-          setHasMore(data.hasMore ?? false);
-          const latest = data.messages?.[data.messages.length - 1];
-          if (latest?.createdAt) setSince(latest.createdAt);
-        }
+        const list: Msg[] = Array.isArray(data.messages)
+          ? (data.messages as unknown[]).map((m) => normalizeMessage(m as Record<string, unknown>)).filter((m): m is Msg => m !== null)
+          : [];
+        setMessages(list);
+        setHasMore(Boolean(data.hasMore));
+        const latest = list[list.length - 1];
+        if (latest?.createdAt) setSince(latest.createdAt);
+        setMessagesFailed(false);
       } catch {
-        if (!cancelled) setError("unavailable");
+        if (!disposed) setMessagesFailed(true);
       }
     })();
     return () => {
-      cancelled = true;
+      disposed = true;
     };
-  }, [meta, conversationId]);
+  }, [meta, metaStatus, retryTick, conversationId]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -475,14 +577,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     }
   }, [messages, isStuckToBottom, scrollToBottom]);
 
-  useChatRealtime(conversationId, since, {
+  const { connected: rtConnected } = useChatRealtime(conversationId, since, {
     onMessage: (message: import("@/hooks/useChatRealtime").RealtimeMessage) => {
+      const normalized = normalizeMessage(message as unknown as Record<string, unknown>);
+      if (!normalized) return;
       setMessages((prev) =>
-        prev.some((m) => m.id === message.id)
+        prev.some((m) => m.id === normalized.id)
           ? prev
-          : [...prev, { ...message, repliedTo: message.repliedTo ?? null } as Msg]
+          : [...prev, normalized]
       );
-      setSince(message.createdAt);
+      if (normalized.createdAt) setSince(normalized.createdAt);
     },
     onRead: (event: {
       conversationId: string;
@@ -512,6 +616,14 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     },
   });
 
+  // When the realtime stream reconnects, refetch history so cached (offline)
+  // messages catch up with everything that happened while disconnected.
+  const wasRtConnectedRef = useRef(rtConnected);
+  useEffect(() => {
+    if (rtConnected && !wasRtConnectedRef.current) retry();
+    wasRtConnectedRef.current = rtConnected;
+  }, [rtConnected, retry]);
+
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -529,7 +641,9 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       );
       if (!res.ok) return;
       const data = await res.json();
-      const older: Msg[] = data.messages ?? [];
+      const older: Msg[] = Array.isArray(data.messages)
+        ? (data.messages as unknown[]).map((m) => normalizeMessage(m as Record<string, unknown>)).filter((m): m is Msg => m !== null)
+        : [];
       setMessages((prev) => [
         ...older.filter((m) => !prev.some((p) => p.id === m.id)),
         ...prev,
@@ -701,26 +815,13 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     setMenuOpen(false);
   };
 
-  if (error === "unavailable") {
-    return (
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-        <p className="text-zinc-400">Conversation unavailable</p>
-        <Link
-          href="/chat"
-          className="mt-3 text-sm text-primary-400 hover:text-primary-300"
-        >
-          Back to chat
-        </Link>
-      </main>
-    );
-  }
-
   const celebrity = meta?.celebrity;
   const conversation = meta?.conversation;
   const isDisabled =
     !conversation || conversation.status !== "ACTIVE" || blocked;
 
   const startCall = (mode: "voice" | "video") => {
+    if (!meta || metaStatus !== "ready") return;
     if (!premiumUnlocked) {
       setPremiumGate(mode);
       return;
@@ -739,6 +840,133 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       !next || next.senderType !== msg.senderType;
     return { msg, isFirstInGroup, isLastInGroup };
   });
+
+  const headerControls = (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => {
+          if (pushState === "subscribed") {
+            void disablePush();
+          } else if (pushState === "unsubscribed" || pushState === "unavailable") {
+            void enablePush();
+          }
+        }}
+        disabled={pushState === "unsupported" || pushState === "denied" || pushState === "loading"}
+        className={`rounded-full p-2 transition ${
+          pushState === "subscribed"
+            ? "text-amber-400 hover:bg-white/10"
+            : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+        }`}
+        title={
+          pushState === "subscribed"
+            ? "Push notifications on"
+            : pushState === "denied"
+              ? "Notifications blocked in browser"
+              : "Enable push notifications"
+        }
+        aria-label="Toggle push notifications"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 01-3.46 0" />
+        </svg>
+      </button>
+      <button
+        onClick={() => startCall("voice")}
+        className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+        title="Voice call"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+        </svg>
+      </button>
+      <button
+        onClick={() => startCall("video")}
+        className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+        title="Video call"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polygon points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
+      </button>
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+          title="More options"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <circle cx="12" cy="5" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="19" r="1.5" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-ink-800 py-1 shadow-xl">
+              <button
+                onClick={handleMute}
+                disabled={!meta}
+                className={`flex w-full items-center px-4 py-2.5 text-left text-sm ${
+                  meta ? "text-zinc-200 hover:bg-white/10" : "cursor-default text-zinc-500"
+                }`}
+              >
+                {meta?.conversation.muted
+                  ? "Unmute notifications"
+                  : "Mute notifications"}
+              </button>
+              <button
+                onClick={handleBlock}
+                disabled={!meta}
+                className={`flex w-full items-center px-4 py-2.5 text-left text-sm ${
+                  meta ? "text-red-400 hover:bg-white/10" : "cursor-default text-zinc-500"
+                }`}
+              >
+                Block user
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <main
@@ -764,7 +992,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           </svg>
         </Link>
 
-        {celebrity && (
+        {celebrity ? (
           <>
             <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
               {celebrity.profileImage && (
@@ -797,124 +1025,26 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   ))}
               </p>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  if (pushState === "subscribed") {
-                    void disablePush();
-                  } else if (pushState === "unsubscribed" || pushState === "unavailable") {
-                    void enablePush();
-                  }
-                }}
-                disabled={pushState === "unsupported" || pushState === "denied" || pushState === "loading"}
-                className={`rounded-full p-2 transition ${
-                  pushState === "subscribed"
-                    ? "text-amber-400 hover:bg-white/10"
-                    : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-                }`}
-                title={
-                  pushState === "subscribed"
-                    ? "Push notifications on"
-                    : pushState === "denied"
-                    ? "Notifications blocked in browser"
-                    : "Enable push notifications"
-                }
-                aria-label="Toggle push notifications"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 01-3.46 0" />
-                </svg>
-              </button>
-              <button
-                onClick={() => startCall("voice")}
-                className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-                title="Voice call"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => startCall("video")}
-                className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-                title="Video call"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polygon points="23 7 16 12 23 17 23 7" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setMenuOpen((v) => !v)}
-                  className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-                  title="More options"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <circle cx="12" cy="5" r="1.5" />
-                    <circle cx="12" cy="12" r="1.5" />
-                    <circle cx="12" cy="19" r="1.5" />
-                  </svg>
-                </button>
-                {menuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-30"
-                      onClick={() => setMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-ink-800 py-1 shadow-xl">
-                      <button
-                        onClick={handleMute}
-                        className="flex w-full items-center px-4 py-2.5 text-left text-sm text-zinc-200 hover:bg-white/10"
-                      >
-                        {meta?.conversation.muted
-                          ? "Unmute notifications"
-                          : "Mute notifications"}
-                      </button>
-                      <button
-                        onClick={handleBlock}
-                        className="flex w-full items-center px-4 py-2.5 text-left text-sm text-red-400 hover:bg-white/10"
-                      >
-                        Block user
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+            {headerControls}
+          </>
+        ) : (
+          <>
+            <div className="h-9 w-9 shrink-0 rounded-full border border-white/10 bg-white/10" />
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-zinc-100">
+                {metaStatus === "unavailable" ? "Conversation unavailable" : "Chat"}
+              </span>
+              <span className="text-xs text-zinc-400">
+                {metaStatus === "unavailable"
+                  ? "This conversation is no longer available"
+                  : !isOnline
+                    ? "You're offline — reconnecting…"
+                    : metaTransient
+                      ? "Reconnecting…"
+                      : "Loading conversation…"}
+              </span>
             </div>
+            {headerControls}
           </>
         )}
       </header>
@@ -925,42 +1055,121 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6"
       >
         <div className="mx-auto flex flex-col">
-          {hasMore && (
-            <button
-              onClick={loadOlder}
-              disabled={loadingOlder}
-              className="mx-auto mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
-            >
-              {loadingOlder ? "Loading..." : "Load earlier messages"}
-            </button>
+          {metaStatus === "unavailable" && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-zinc-200">Conversation unavailable</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                This conversation doesn&apos;t exist or is no longer accessible.
+              </p>
+              <Link
+                href="/chat"
+                className="mt-4 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-primary-400 transition-colors hover:bg-white/10"
+              >
+                Back to chat
+              </Link>
+            </div>
           )}
 
-          {groupedMessages.map(({ msg, isFirstInGroup, isLastInGroup }) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              isOwn={msg.senderType === "fan"}
-              isFirstInGroup={isFirstInGroup}
-              isLastInGroup={isLastInGroup}
-              onMediaClick={(attachment) => setLightboxAttachment(attachment)}
-            />
-          ))}
+          {metaStatus !== "unavailable" && !meta && (
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+              {metaTransient ? (
+                <>
+                  <p className="text-sm text-zinc-300">
+                    {isOnline
+                      ? "Couldn't load this conversation. Check your connection."
+                      : "You're currently offline."}
+                  </p>
+                  <button
+                    onClick={retry}
+                    className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-primary-400 transition-colors hover:bg-white/10"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-400">Loading conversation…</p>
+              )}
+            </div>
+          )}
 
-          <div ref={bottomRef} className="h-px" />
+          {meta && metaStatus !== "unavailable" && (
+            <>
+              {!isOnline && (
+                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                  You&apos;re offline — cached messages still showing
+                </div>
+              )}
+              {isOnline && metaStatus === "ready" && !rtConnected && (
+                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                  Reconnecting…
+                </div>
+              )}
+              {((metaTransient && meta) || messagesFailed) && (
+                <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <span>Couldn&apos;t refresh — showing what we have.</span>
+                  <button
+                    onClick={retry}
+                    className="shrink-0 text-primary-400 hover:text-primary-300"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {blocked && (
+                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+                  You blocked this user.
+                </div>
+              )}
+              {conversation && conversation.status !== "ACTIVE" && (
+                <div className="mb-3 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-400">
+                  This conversation is not active.
+                </div>
+              )}
+
+              {hasMore && (
+                <button
+                  onClick={loadOlder}
+                  disabled={loadingOlder}
+                  className="mx-auto mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
+                >
+                  {loadingOlder ? "Loading..." : "Load earlier messages"}
+                </button>
+              )}
+
+              {groupedMessages.map(({ msg, isFirstInGroup, isLastInGroup }) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  isOwn={msg.senderType === "fan"}
+                  isFirstInGroup={isFirstInGroup}
+                  isLastInGroup={isLastInGroup}
+                  onMediaClick={(attachment) => setLightboxAttachment(attachment)}
+                />
+              ))}
+
+              {messages.length === 0 && metaStatus === "ready" && !messagesFailed && (
+                <div className="py-16 text-center text-sm text-zinc-500">
+                  No messages yet — say hello!
+                </div>
+              )}
+
+              <div ref={bottomRef} className="h-px" />
+            </>
+          )}
         </div>
       </div>
 
-      {celebrity && (
-        <div className="shrink-0 pb-[env(safe-area-inset-bottom)]">
-          <Composer
-            onSendText={sendText}
-            onSendImage={sendImage}
-            onSendVoice={sendVoice}
-            onTyping={sendTyping}
-            disabled={isDisabled}
-          />
-        </div>
-      )}
+      <div className="shrink-0 border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+        <Composer
+          onSendText={sendText}
+          onSendImage={sendImage}
+          onSendVoice={sendVoice}
+          onTyping={sendTyping}
+          disabled={isDisabled || metaStatus !== "ready"}
+        />
+      </div>
 
       {lightboxAttachment && (
         <AttachmentLightbox
