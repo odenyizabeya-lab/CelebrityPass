@@ -19,7 +19,6 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
   const payment = await prisma.payment.findUnique({
     where: { id },
     include: {
-      fan: { select: { name: true, email: true } },
       celebrity: { select: { slug: true, name: true } },
       membershipLevel: { select: { name: true } },
     },
@@ -49,16 +48,16 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "Card payments aren't enabled on this site yet. Please use Bank Transfer." }, { status: 400 });
   }
 
-  const txRef = `CP-${payment.id}-${Date.now().toString(36)}`;
-  const redirectUrl = `${appUrl()}/api/payments/flutterwave/callback`;
+  // V4 requires `reference` to match ^[a-zA-Z0-9\-]+$ and be ≤42 chars, and it
+  // must be stable across retries so the webhook can always find this payment.
+  const txRef = `CP-${payment.id}`;
+  const redirectUrl = `${appUrl()}/api/payments/flutterwave/callback?ref=${encodeURIComponent(payment.id)}`;
 
   const label = payment.membershipLevel?.name ?? "Fan Card";
   const init = await initializeFlutterwavePayment({
     txRef,
     amount: payment.amount,
     currency: payment.currency || "USD",
-    email: payment.fan.email,
-    name: payment.fan.name || undefined,
     redirectUrl,
     title: payment.description ?? `${payment.celebrity.name} — ${label}`,
   });

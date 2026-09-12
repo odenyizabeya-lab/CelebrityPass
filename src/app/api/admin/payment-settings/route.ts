@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const clientId = typeof body.clientId === "string" ? body.clientId.trim() : undefined;
   if (clientId !== undefined && clientId && !isPlausibleFlutterwaveKey("client_id", clientId)) {
     return NextResponse.json(
-      { error: "Public key must start with FLWPUBK- (copy it from Settings → API Keys). The v4 'Client ID' UUID like 9543ec71-… won't work." },
+      { error: "That doesn't look like a Flutterwave v4 Client ID (a UUID like 9543ec71-…). Copy it from Settings → API Keys." },
       { status: 400 },
     );
   }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : undefined;
   if (clientSecret !== undefined && clientSecret && !isPlausibleFlutterwaveKey("client_secret", clientSecret)) {
     return NextResponse.json(
-      { error: "Secret key must start with FLWSECK- (copy it from Settings → API Keys). The v4 'Client Secret' UUID won't work." },
+      { error: "That doesn't look like a Flutterwave v4 Client Secret. Copy it from Settings → API Keys." },
       { status: 400 },
     );
   }

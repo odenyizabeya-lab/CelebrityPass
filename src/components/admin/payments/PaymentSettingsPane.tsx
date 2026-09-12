@@ -20,7 +20,8 @@ type Status = {
   webhookHashConfigured: boolean;
   webhookHashLast4: string;
   webhookHashSource: "db" | "env" | "";
-  baseUrl: string;
+  apiBaseUrl: string;
+  webhookUrl: string;
   encryptionEnabled: boolean;
   ready: boolean;
 };
@@ -206,22 +207,20 @@ export default function PaymentSettingsPane() {
       <div className="glass rounded-2xl p-6">
         <h2 className="text-lg font-black text-white">Flutterwave credentials</h2>
         <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-          From your Flutterwave dashboard (<code className="text-zinc-300">Settings → API Keys</code>, the <strong className="text-zinc-200">v3
-          Public Key / Secret Key</strong> view): <strong className="text-zinc-200">Public key</strong> starts with{" "}
-          <code className="text-primary-300">FLWPUBK-…</code>, <strong className="text-zinc-200">Secret key</strong> starts with{" "}
-          <code className="text-primary-300">FLWSECK-…</code>. ⚠️ Don&apos;t paste the v4 dashboard&apos;s{" "}
-          <strong className="text-zinc-200">Client ID / Client Secret</strong> (UUIDs like{" "}
-          <code className="text-zinc-300">9543ec71-…</code>) — those are for the new v4 API and will be rejected here. Secrets are
-          server-side only — never sent back to the browser, never logged, and never included in error messages. Recommended: set{" "}
-          <code className="text-zinc-300">FLUTTERWAVE_CLIENT_SECRET</code> in the server environment so no secret is stored in a
-          database. Keys saved here end up in the database; set <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the
-          environment to encrypt them at rest.
+          From your Flutterwave dashboard (<code className="text-zinc-300">Developers → Settings → API Keys</code>), the{" "}
+          <strong className="text-zinc-200">v4 view</strong>: an <strong className="text-zinc-200">Client ID</strong> (UUID like
+          <code className="text-primary-300"> 9543ec71-…</code>) and a <strong className="text-zinc-200">Client Secret</strong>. This is the new v4 API —
+          the legacy v3 <strong className="text-zinc-200">Public Key / Secret Key</strong> (<code className="text-zinc-300">FLWPUBK-…</code> /{" "}
+          <code className="text-zinc-300">FLWSECK-…</code>) are <em>not</em> accepted here. Secrets are server-side only — never sent back to the
+          browser, never logged, and never included in error messages. Recommended: set{" "}
+          <code className="text-zinc-300">FLUTTERWAVE_CLIENT_SECRET</code> in the server environment so no secret is stored in a database. Keys saved here end
+          up in the database; set <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the environment to encrypt them at rest.
         </p>
 
         <div className="mt-5 space-y-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Public key (FLWPUBK-…)</label>
+              <label className="text-sm font-semibold text-zinc-300">Client ID</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.clientIdSource} />
                 <KeyStatus configured={status?.clientIdConfigured} />
@@ -235,14 +234,14 @@ export default function PaymentSettingsPane() {
               onChange={(e) => setClientId(e.target.value)}
               placeholder={
                 status?.clientIdConfigured
-                  ? `Current public key ends in ${status.clientIdLast4} — paste a new one to replace it`
-                  : "Paste your Flutterwave Public Key (FLWPUBK-…)…"
+                  ? `Current Client ID ends in ${status.clientIdLast4} — paste a new one to replace it`
+                  : "Paste your Flutterwave v4 Client ID (UUID)…"
               }
             />
           </div>
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Secret key (FLWSECK-…)</label>
+              <label className="text-sm font-semibold text-zinc-300">Client Secret</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.clientSecretSource} />
                 <KeyStatus configured={status?.clientSecretConfigured} />
@@ -255,7 +254,7 @@ export default function PaymentSettingsPane() {
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
               placeholder={
-                status?.clientSecretConfigured ? `New secret key — current key ends in ${status.clientSecretLast4}` : "Paste your Flutterwave Secret Key (FLWSECK-…)…"
+                status?.clientSecretConfigured ? `New Client Secret — current key ends in ${status.clientSecretLast4}` : "Paste your Flutterwave v4 Client Secret…"
               }
             />
           </div>
@@ -280,10 +279,12 @@ export default function PaymentSettingsPane() {
               }
             />
             <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-              Set this in the Flutterwave dashboard (<code className="text-zinc-300">Settings → Webhooks</code>) and point the
-              webhook at <code className="text-zinc-300">{status?.baseUrl ?? "https://api.flutterwave.com/v3"}</code> +{" "}
-              <code className="text-zinc-300">/api/payments/flutterwave/webhook</code>. Every webhook is verified against this
-              secret before anything is settled.
+              Set this in the Flutterwave dashboard (<code className="text-zinc-300">Developers → Settings → Webhooks</code>) — it&apos;s the value
+              Flutterwave HMAC-SHA256-signs every payload with (your signature appears in the{" "}
+              <code className="text-zinc-300">flutterwave-signature</code> header). Point the webhook at{" "}
+              <code className="text-zinc-300">{status?.webhookUrl}</code>, and ensure the API base URL matches the environment
+              above (<code className="text-zinc-300">{status?.apiBaseUrl}</code>). Every webhook is signature-verified and then
+              re-checked against <code className="text-zinc-300">{"GET /charges/{id}"}</code> before anything is settled.
             </p>
           </div>
         </div>
