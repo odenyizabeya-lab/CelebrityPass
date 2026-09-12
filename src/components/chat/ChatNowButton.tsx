@@ -55,14 +55,15 @@ export default function ChatNowButton({
       <button
         onClick={start}
         disabled={loading}
-        className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-9 py-4 text-base font-bold text-white shadow-[0_10px_30px_-6px_rgba(16,185,129,0.55)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+        className="inline-flex w-full min-w-0 items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-4 text-sm font-bold text-white shadow-[0_10px_30px_-6px_rgba(16,185,129,0.55)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 sm:px-6 sm:text-base"
       >
         <svg
-          className="h-5 w-5"
+          className="h-5 w-5 shrink-0"
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
           viewBox="0 0 24 24"
+          aria-hidden
         >
           <path
             strokeLinecap="round"
@@ -70,7 +71,7 @@ export default function ChatNowButton({
             d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.42-4.03 8-9 8a9.86 9.86 0 01-4.26-.95L3 20l1.26-3.7A7.96 7.96 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"
           />
         </svg>
-        {loading ? "Opening..." : "Chat Now"}
+        <span className="min-w-0 text-center leading-snug">{loading ? "Opening..." : "Chat Now"}</span>
       </button>
 
       {notice?.kind === "blocked" && (

@@ -380,25 +380,16 @@ export default async function CelebrityPage({ params }: Props) {
           </div>
         </div>
 
-        {/* CTA row */}
-        <div className="mt-10 flex flex-wrap gap-4">
+        {/* CTA row — Get Fan Card | Chat Now, side-by-side, equal width */}
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4">
           <Link
             href={`/celebrity/${celebrity.slug}/join`}
-            className="btn-grad inline-flex items-center gap-2.5 rounded-full px-9 py-4 text-base font-bold text-white transition active:scale-[0.98]"
+            className="btn-grad inline-flex min-w-0 items-center justify-center gap-2.5 rounded-full px-3 py-4 text-sm font-bold text-white transition active:scale-[0.98] sm:px-6 sm:text-base"
           >
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
             </svg>
-            <T k="join.getFanCard" />
-          </Link>
-          <Link
-            href={`/celebrity/${celebrity.slug}/join`}
-            className="inline-flex items-center gap-2.5 rounded-full px-9 py-4 text-base font-bold text-white ring-1 ring-white/20 transition hover:bg-white/5 active:scale-[0.98]"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-6 0M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <T k="join.joinCommunity" />
+            <span className="min-w-0 text-center leading-snug"><T k="join.getFanCard" /></span>
           </Link>
           <ChatNowButton celebrityId={celebrity.id} />
         </div>
