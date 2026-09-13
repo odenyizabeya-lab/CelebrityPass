@@ -29,6 +29,7 @@ const AI_TEAM_EMAIL = process.env.AI_TEAM_EMAIL || "celebrity-ai@celebritypass.a
 const PENDING = new Map<string, number>();
 const PENDING_TTL_MS = 60_000;
 const CATCH_UP_MIN_AGE_MS = 12_000;
+const CATCH_UP_MAX_MS = 25_000;
 let warnedNoKey = false;
 
 async function runAutoReplyWithDbRetry(conversationId: string): Promise<void> {
@@ -79,7 +80,13 @@ export async function catchUpUnansweredFanMessage(conversationId: string): Promi
   // safety net for sends whose background trigger froze or hit a pooler blip.
   if (Date.now() - newest.createdAt.getTime() < CATCH_UP_MIN_AGE_MS) return;
   if (await alreadyAnswered(conversationId).catch(() => true)) return;
-  await maybeAutoReply(conversationId);
+  // The reply can take the compose's full time; never hold a fan's poll open
+  // longer than this. If the cap wins, the compose usually still finishes in
+  // the background and the next poll sees the reply.
+  await Promise.race([
+    maybeAutoReply(conversationId),
+    new Promise((resolve) => setTimeout(resolve, CATCH_UP_MAX_MS)),
+  ]);
 }
 
 function sleep(ms: number) {

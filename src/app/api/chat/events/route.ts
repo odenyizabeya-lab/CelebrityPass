@@ -16,6 +16,10 @@ const HEARTBEAT_MS = 20_000;
 // Sanity cap only — with periodic heartbeats streams stay alive indefinitely,
 // and cleanup still happens when the client disconnects (request.signal).
 const MAX_DURATION_MS = 1_800_000; // 30 minutes
+// How long after a fan message the durable "team typing" bubble stays visible
+// while the AI composes. If no reply lands by then (dropped auto-reply), the
+// writing indicator fades instead of hanging forever.
+const TYPING_FAN_WINDOW_MS = 90_000;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -149,13 +153,6 @@ export async function GET(request: Request) {
             }
           }
 
-          const { fanTyping, teamTyping } = getTyping(conversationId);
-          if (actorType === "fan" && teamTyping) {
-            send({ type: "typing", conversationId, senderType: "team" });
-          } else if (actorType === "team" && fanTyping) {
-            send({ type: "typing", conversationId, senderType: "fan" });
-          }
-
           // Read receipts: whenever a participant's read watermark advances,
           // broadcast it so the other side flips to the blue double-tick instantly.
           const readState = await prisma.chatReadState.findUnique({
@@ -163,11 +160,51 @@ export async function GET(request: Request) {
             select: { teamLastReadAt: true, fanLastReadAt: true },
           });
           const teamReadAt = readState?.teamLastReadAt?.toISOString() ?? null;
-          const fanReadAt = readState?.fanLastReadAt?.toISOString() ?? null;
+
+          const { fanTyping, teamTyping } = getTyping(conversationId);
+          let showTeamTyping = teamTyping;
+          if (actorType === "fan" && !showTeamTyping) {
+            // Durable fallback: in-memory typing lives per serverless instance,
+            // so a slow compose on another instance would look "dead" to the
+            // fan. If the celebrity has read the newest fan message but hasn't
+            // replied yet (and it's recent), the compose is in flight — show
+            // the typing bubble until the reply actually lands (or the window
+            // expires so a dropped auto-reply can't leave a forever bubble).
+            if (teamReadAt) {
+              const newest = await prisma.chatMessage.findFirst({
+                where: { conversationId, deletedAt: null },
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                select: { id: true, senderType: true, createdAt: true },
+              });
+              if (
+                newest?.senderType === "fan" &&
+                teamReadAt >= newest.createdAt.toISOString() &&
+                Date.now() - newest.createdAt.getTime() < TYPING_FAN_WINDOW_MS
+              ) {
+                const reply = await prisma.chatMessage.findFirst({
+                  where: {
+                    conversationId,
+                    senderType: "team",
+                    createdAt: { gt: newest.createdAt },
+                    deletedAt: null,
+                  },
+                  select: { id: true },
+                });
+                if (!reply) showTeamTyping = true;
+              }
+            }
+          }
+          if (actorType === "fan" && showTeamTyping) {
+            send({ type: "typing", conversationId, senderType: "team" });
+          } else if (actorType === "team" && fanTyping) {
+            send({ type: "typing", conversationId, senderType: "fan" });
+          }
+
           if (teamReadAt !== lastTeamReadAt && teamReadAt) {
             lastTeamReadAt = teamReadAt;
             send({ type: "read", conversationId, readerType: "team", at: teamReadAt });
           }
+          const fanReadAt = readState?.fanLastReadAt?.toISOString() ?? null;
           if (fanReadAt !== lastFanReadAt && fanReadAt) {
             lastFanReadAt = fanReadAt;
             send({ type: "read", conversationId, readerType: "fan", at: fanReadAt });

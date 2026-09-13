@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentFanId, getCurrentAdminEmail } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isConversationAccessible, canFanSendMessage, canTeamSendMessage } from "@/lib/chat/access";
-import { sendMessage, getMessages, type MessageWithReply } from "@/lib/chat/messages";
+import { sendMessage, getMessages, markRead, type MessageWithReply } from "@/lib/chat/messages";
+import { setTyping } from "@/lib/chat/typing-store";
 import { withDbRetry } from "@/lib/db/retry";
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
@@ -226,6 +227,12 @@ export async function POST(request: Request, { params }: Ctx) {
   // The celebrity's always-on AI replies on its own when a fan messages.
   // Fire-and-forget — a slow reply must never delay the fan's message landing.
   if (actor.type === "fan" && ["text", "voice", "image", "video"].includes(type)) {
+    // The celebrity "reads" the moment the message lands: flip the blue tick
+    // and the typing bubble instantly (durable + in-memory), independent of
+    // how long the AI's composer takes. Durable read state is what the SSE
+    // stream watches, so this must not wait for the AI.
+    markRead(conversationId, "team").catch(() => {});
+    setTyping(conversationId, "team");
     // Remember what matters about this fan so the AI builds on past chats.
     rememberAsync({ conversationId, latestFanText: type === "text" ? text : `[sent ${type}]` });
     void maybeAutoReply(conversationId).catch((err) => console.error("[autoReply] trigger failed:", err));
