@@ -10,6 +10,7 @@ import {
   readDraftCache,
   readMetaCache,
   readMessagesCache,
+  updateConversationListCache,
   writeChatNowSeed,
   writeDraftCache,
   writeMetaCache,
@@ -101,6 +102,18 @@ function unwrapMessage(payload: unknown): Record<string, unknown> | null {
   const inner = obj.message;
   if (inner && typeof inner === "object") return inner as Record<string, unknown>;
   return obj.message === undefined ? obj : null;
+}
+
+// Mirrors the server's previewFor() in lib/chat/messages.ts so the cached
+// Messages list shows the same "…/You: " preview the server would produce.
+function previewTextForCache(body: string, type: string): string {
+  if (type === "image") return "[Photo]";
+  if (type === "voice") return "[Voice note]";
+  if (type === "video") return "[Video]";
+  if (type === "call") return "[Call]";
+  const single = (body ?? "").replace(/\s+/g, " ").trim();
+  if (!single) return "";
+  return single.length > 80 ? single.slice(0, 80).trimEnd() + "…" : single;
 }
 
 // Merge a server-fetched snapshot (history, older pages, SSE echoes, POST acks)
@@ -614,6 +627,35 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
   const retry = useCallback(() => setRetryTick((t) => t + 1), []);
 
+  // Keep the cached Messages list's preview current while a message lands in
+  // this room (sent or received). Returning to the list then shows the fresh
+  // last message instantly without waiting on the background fetch. Unread is
+  // deliberately left untouched — the fan reading messages in this room has
+  // already cleared them server-side and the next fetch reconciles the list.
+  const syncListPreview = useCallback((msg: Msg) => {
+    if (!msg || !msg.conversationId) return;
+    updateConversationListCache(msg.conversationId, (conv) => {
+      if (!conv) return conv;
+      if (!msg.createdAt) return conv;
+      if (conv.lastMessage?.id === msg.id) return conv;
+      if (conv.lastMessageAt && msg.createdAt < conv.lastMessageAt) return conv;
+      return {
+        ...conv,
+        lastMessageAt: msg.createdAt,
+        lastMessageSender: msg.senderType,
+        lastMessagePreview: previewTextForCache(msg.body, msg.type),
+        lastMessage: {
+          id: msg.id,
+          senderType: msg.senderType,
+          body: typeof msg.body === "string" ? msg.body : "",
+          type: msg.type || "text",
+          createdAt: msg.createdAt,
+          status: msg.status || "SENT",
+        },
+      };
+    });
+  }, []);
+
   // Atomically replace the optimistic copy of a just-acknowledged send with the
   // server's flat message (matched by clientId). If the optimistic copy was
   // already dropped by a racing snapshot, the acked message is merged in from
@@ -623,6 +665,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     if (!raw) return;
     const normalized = normalizeMessage(raw);
     if (!normalized) return;
+    syncListPreview(normalized);
     setMessages((prev) => {
       if (!prev.some((m) => m.clientId === clientId)) {
         return mergeServerMessages(prev, [normalized]);
@@ -637,7 +680,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           : m
       );
     });
-  }, []);
+  }, [syncListPreview]);
 
   // Offline outbox: messages that were accepted locally but never acked by the
   // server are re-sent automatically when the network returns. The server's
@@ -934,6 +977,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     onMessage: (message: import("@/hooks/useChatRealtime").RealtimeMessage) => {
       const normalized = normalizeMessage(message as unknown as Record<string, unknown>);
       if (!normalized) return;
+      syncListPreview(normalized);
       setMessages((prev) => {
         // Our own sent message echoes back through SSE with the same clientId —
         // reconcile it over the optimistic copy instead of appending a duplicate.

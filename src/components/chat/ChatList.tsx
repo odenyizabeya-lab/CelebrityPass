@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FanConversationView } from "@/lib/chat/list";
 
 function formatWhen(iso: string | null): string {
@@ -44,38 +44,23 @@ function previewText(c: FanConversationView): string {
   return prefix + media;
 }
 
+/**
+ * Presentational conversation list. Data + freshness come from ChatShell, which
+ * hydrates from the local cache so this never needs a blocking placeholder.
+ * A loading hint renders ONLY when there is genuinely no data available yet.
+ */
 export default function ChatList({
-  initialConversations = [],
+  conversations,
+  loading = false,
+  error = null,
+  onRetry,
 }: {
-  initialConversations?: FanConversationView[];
+  conversations: FanConversationView[];
+  loading?: boolean;
+  error?: string | null;
+  onRetry: () => void;
 }) {
-  const [conversations, setConversations] = useState<FanConversationView[]>(initialConversations);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/chat/conversations");
-        if (!res.ok) throw new Error("Failed to load conversations");
-        const data = await res.json();
-        if (!cancelled) {
-          setConversations(data.conversations ?? []);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled) setError("Could not load your conversations. Please try again.");
-      }
-    };
-    const timer = window.setInterval(() => {
-      load();
-    }, 30_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
 
   const filtered = conversations
     .filter((c) =>
@@ -111,9 +96,20 @@ export default function ChatList({
       </div>
 
       <div className="space-y-1.5">
-        {error ? (
+        {loading && conversations.length === 0 ? (
+          <div className="glass rounded-2xl px-6 py-14 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-primary-500" />
+            <p className="mt-3 text-sm text-zinc-400">Loading messages…</p>
+          </div>
+        ) : error && conversations.length === 0 ? (
           <div className="glass rounded-2xl px-6 py-10 text-center">
             <p className="text-sm text-zinc-400">{error}</p>
+            <button
+              onClick={onRetry}
+              className="btn-grad mt-4 inline-block rounded-full px-6 py-2.5 text-sm font-bold text-white"
+            >
+              Try again
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="glass rounded-2xl px-6 py-14 text-center">

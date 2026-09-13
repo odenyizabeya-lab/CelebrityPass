@@ -45,92 +45,121 @@ export interface FanConversationView {
   } | null;
 }
 
+interface ConversationRow {
+  id: string;
+  status: string;
+  lastMessagePreview: string | null;
+  lastMessageAt: Date | null;
+  lastMessageSender: string | null;
+  mutedByFan: boolean;
+  pinnedByFan: boolean;
+  celebrityId: string;
+  slug: string;
+  name: string;
+  profession: string;
+  chatAccountType: string;
+  chatAccountLabel: string | null;
+  chatLastSeenAt: Date | null;
+  lastMessageId: string | null;
+  lastMessageType: string | null;
+  lastMessageBody: string | null;
+  lastMessageCreatedAt: Date | null;
+  lastMessageStatus: string | null;
+  lastMessageSenderType: string | null;
+  unread: number;
+}
+
+/**
+ * Fan conversation list in ONE round trip: conversations joined with the
+ * celebrity, the newest non-deleted message and per-conversation unread counts,
+ * plus a LATERAL subquery for the last message. The old implementation ran
+ * three separate queries (conversations+last message, unread counts, then the
+ * global celebrity image-flag query) and multiplied the mobile latency of the
+ * Messages page — this keeps the wire cost to a single trip + the memoized
+ * image-flag lookup.
+ */
 export async function listFanConversations(
   fanId: string,
 ): Promise<FanConversationView[]> {
-  const conversations = await prisma.chatConversation.findMany({
-    where: { fanId },
-    orderBy: [{ pinnedByFan: "desc" }, { lastMessageAt: "desc" }],
-    include: {
-      celebrity: {
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          profession: true,
-          // NOTE: profileImage (a multi-MB base64 blob) is intentionally NOT
-          // selected — presence comes from celebrityImageFlags() instead.
-          chatAccountType: true,
-          chatAccountLabel: true,
-          chatLastSeenAt: true,
-        },
-      },
-      readState: true,
-      messages: {
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          senderType: true,
-          body: true,
-          type: true,
-          createdAt: true,
-          status: true,
-        },
-      },
-    },
-  });
-
-  const unreadRows = await prisma.$queryRaw<{
-    conversationId: string;
-    total: number;
-  }[]>`
-    SELECT m."conversationId", COUNT(*)::int AS total
-    FROM "ChatMessage" m
-    JOIN "ChatConversation" c ON c.id = m."conversationId"
-    LEFT JOIN "ChatReadState" r ON r."conversationId" = c.id
+  const rows = await prisma.$queryRaw<ConversationRow[]>`
+    SELECT
+      c.id,
+      c.status,
+      c."lastMessagePreview",
+      c."lastMessageAt",
+      c."lastMessageSender",
+      c."mutedByFan",
+      c."pinnedByFan",
+      c."celebrityId",
+      cel."slug",
+      cel."name",
+      cel."profession",
+      cel."chatAccountType",
+      cel."chatAccountLabel",
+      cel."chatLastSeenAt",
+      lm.id            AS "lastMessageId",
+      lm.type          AS "lastMessageType",
+      lm.body          AS "lastMessageBody",
+      lm."createdAt"   AS "lastMessageCreatedAt",
+      lm.status        AS "lastMessageStatus",
+      lm."senderType"  AS "lastMessageSenderType",
+      COALESCE((
+        SELECT COUNT(*)::int
+        FROM "ChatMessage" m
+        WHERE m."conversationId" = c.id
+          AND m."deletedAt" IS NULL
+          AND m."senderType" <> 'fan'
+          AND (rs."fanLastReadAt" IS NULL OR m."createdAt" > rs."fanLastReadAt")
+      ), 0)::int AS unread
+    FROM "ChatConversation" c
+    JOIN "Celebrity" cel ON cel.id = c."celebrityId"
+    LEFT JOIN "ChatReadState" rs ON rs."conversationId" = c.id
+    LEFT JOIN LATERAL (
+      SELECT m2."id", m2."senderType", m2."body", m2."type", m2."status", m2."createdAt"
+      FROM "ChatMessage" m2
+      WHERE m2."conversationId" = c.id AND m2."deletedAt" IS NULL
+      ORDER BY m2."createdAt" DESC, m2."id" DESC
+      LIMIT 1
+    ) lm ON TRUE
     WHERE c."fanId" = ${fanId}
-      AND m."deletedAt" IS NULL
-      AND m."senderType" <> 'fan'
-      AND (r."fanLastReadAt" IS NULL OR m."createdAt" > r."fanLastReadAt")
-    GROUP BY m."conversationId"
+    ORDER BY c."pinnedByFan" DESC, c."lastMessageAt" DESC
   `;
-  const unreadMap = new Map(unreadRows.map((r) => [r.conversationId, r.total]));
 
   const imageFlags = await celebrityImageFlags();
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-  return conversations.map((c) => ({
-    id: c.id,
-    status: c.status,
-    lastMessagePreview: c.lastMessagePreview,
-    lastMessageAt: c.lastMessageAt ? c.lastMessageAt.toISOString() : null,
-    lastMessageSender: c.lastMessageSender,
-    muted: c.mutedByFan,
-    pinned: c.pinnedByFan,
-    unread: unreadMap.get(c.id) ?? 0,
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    lastMessagePreview: r.lastMessagePreview,
+    lastMessageAt: r.lastMessageAt ? r.lastMessageAt.toISOString() : null,
+    lastMessageSender: r.lastMessageSender,
+    muted: r.mutedByFan,
+    pinned: r.pinnedByFan,
+    unread: r.unread ?? 0,
     celebrity: {
-      id: c.celebrity.id,
-      slug: c.celebrity.slug,
-      name: c.celebrity.name,
-      profession: c.celebrity.profession,
+      id: r.celebrityId,
+      slug: r.slug,
+      name: r.name,
+      profession: r.profession,
       // URL (never the raw base64 blob), served from the cacheable endpoint.
-      profileImage: imageFlags.get(c.celebrity.slug)?.hasProfile
-        ? `/images/${c.celebrity.slug}/profile`
+      profileImage: imageFlags.get(r.slug)?.hasProfile
+        ? `/images/${r.slug}/profile`
         : null,
-      chatAccountType: c.celebrity.chatAccountType,
-      chatAccountLabel: c.celebrity.chatAccountLabel,
-      online: !!(c.celebrity.chatLastSeenAt && c.celebrity.chatLastSeenAt > fiveMinAgo),
+      chatAccountType: r.chatAccountType,
+      chatAccountLabel: r.chatAccountLabel,
+      online: !!(r.chatLastSeenAt && r.chatLastSeenAt > fiveMinAgo),
     },
-    lastMessage: c.messages[0]
+    lastMessage: r.lastMessageId
       ? {
-          id: c.messages[0].id,
-          senderType: c.messages[0].senderType,
-          body: c.messages[0].body,
-          type: c.messages[0].type,
-          createdAt: c.messages[0].createdAt.toISOString(),
-          status: c.messages[0].status,
+          id: r.lastMessageId,
+          senderType: r.lastMessageSenderType ?? r.lastMessageSender ?? "team",
+          body: r.lastMessageBody ?? "",
+          type: r.lastMessageType ?? "text",
+          createdAt: r.lastMessageCreatedAt
+            ? r.lastMessageCreatedAt.toISOString()
+            : "",
+          status: r.lastMessageStatus ?? "SENT",
         }
       : null,
   }));

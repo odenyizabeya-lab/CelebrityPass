@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * Local (localStorage) cache for chat rooms.
+ * Local (localStorage) cache for chat rooms AND the fan's conversation list.
  *
  * Purpose: the chat UI renders INSTANTLY and stays stable with zero or slow
  * network. Conversation meta + messages are read synchronously on open so the
- * header, composer and message area never wait on an API call. Network sync
- * happens afterward in the background and refreshes this cache.
+ * header, composer and message area never wait on an API call. The Messages
+ * list is cached the same way so returning to it shows the previous list
+ * immediately and network sync happens afterward in the background.
  *
  * Every read is defensively sanitized so corrupt/old/invalid data can never
  * crash the chat — bad entries are simply dropped and the server fills in.
@@ -58,6 +59,7 @@ export interface ChatNowSeed {
 const META_PREFIX = "cp.chat.meta.v1.";
 const MSGS_PREFIX = "cp.chat.msgs.v1.";
 const SEED_PREFIX = "cp.chat.seed.v1.";
+const LIST_KEY = "cp.chat.list.v1";
 
 function asText(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -216,6 +218,157 @@ export function writeChatNowSeed(key: string, seed: ChatNowSeed): void {
   } catch {
     // Storage full/blocked — handled silently.
   }
+}
+
+/**
+ * The fan's Messages list, cached as one localStorage document so the page can
+ * paint the previous conversations instantly on every return. Structurally
+ * mirrors what the `/api/chat/conversations` endpoint returns so the cached
+ * rows are dropped straight into the list. New data is reconciled in the
+ * background and this document is overwritten with the fresh snapshot.
+ */
+export interface CachedConversationCelebrity {
+  id: string;
+  slug: string;
+  name: string;
+  profession: string;
+  profileImage: string | null;
+  chatAccountType: string;
+  chatAccountLabel: string | null;
+  online: boolean;
+}
+
+export interface CachedConversationLastMessage {
+  id: string;
+  senderType: string;
+  body: string;
+  type: string;
+  createdAt: string;
+  status: string;
+}
+
+export interface CachedConversationView {
+  id: string;
+  status: string;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  lastMessageSender: string | null;
+  muted: boolean;
+  pinned: boolean;
+  unread: number;
+  celebrity: CachedConversationCelebrity;
+  lastMessage: CachedConversationLastMessage | null;
+}
+
+function sanitizeConversationView(raw: unknown): CachedConversationView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as Record<string, unknown>;
+  const id = asText(s.id);
+  if (!id) return null;
+  const celRaw = s.celebrity as Record<string, unknown> | null | undefined;
+  if (!celRaw || typeof celRaw !== "object") return null;
+  const name = asText(celRaw.name);
+  if (!name) return null;
+
+  const lmRaw =
+    s.lastMessage && typeof s.lastMessage === "object"
+      ? (s.lastMessage as Record<string, unknown>)
+      : null;
+  const lastMessage =
+    lmRaw && asText(lmRaw.id)
+      ? {
+          id: asText(lmRaw.id),
+          senderType: asText(lmRaw.senderType) || "team",
+          body: typeof lmRaw.body === "string" ? lmRaw.body : "",
+          type: asText(lmRaw.type) || "text",
+          createdAt: asText(lmRaw.createdAt),
+          status: asText(lmRaw.status) || "SENT",
+        }
+      : null;
+
+  return {
+    id,
+    status: asText(s.status) || "ACTIVE",
+    lastMessagePreview:
+      typeof s.lastMessagePreview === "string" ? s.lastMessagePreview : null,
+    lastMessageAt: asText(s.lastMessageAt) || null,
+    lastMessageSender: asText(s.lastMessageSender) || null,
+    muted: Boolean(s.muted),
+    pinned: Boolean(s.pinned),
+    unread:
+      typeof s.unread === "number" && Number.isFinite(s.unread) && s.unread >= 0
+        ? s.unread
+        : 0,
+    celebrity: {
+      id: asText(celRaw.id) || id,
+      slug: asText(celRaw.slug),
+      name,
+      profession: asText(celRaw.profession),
+      profileImage:
+        typeof celRaw.profileImage === "string" ? celRaw.profileImage : null,
+      chatAccountType: asText(celRaw.chatAccountType),
+      chatAccountLabel:
+        typeof celRaw.chatAccountLabel === "string" ? celRaw.chatAccountLabel : null,
+      online: Boolean(celRaw.online),
+    },
+    lastMessage,
+  };
+}
+
+/** Hours-old cached lists are still shown instantly; the next fetch fixes them. */
+export function readConversationListCache(): CachedConversationView[] {
+  const st = storage();
+  if (!st) return [];
+  try {
+    const raw = st.getItem(LIST_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return [];
+    const arr = parsed.conversations;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map(sanitizeConversationView)
+      .filter((c): c is CachedConversationView => c !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function writeConversationListCache(
+  conversations: CachedConversationView[]
+): void {
+  const st = storage();
+  if (!st) return;
+  try {
+    st.setItem(
+      LIST_KEY,
+      JSON.stringify({ conversations, savedAt: new Date().toISOString() })
+    );
+  } catch {
+    // Storage full/blocked — the list just isn't persisted across reloads.
+  }
+}
+
+/**
+ * Patch a single cached conversation (e.g. a message that just landed in a room
+ * so navigating back to the list shows the fresh preview instantly). No-op when
+ * the list cache is missing or the conversation isn't cached yet. The updater
+ * returns the same reference to skip the write entirely.
+ */
+export function updateConversationListCache(
+  conversationId: string,
+  updater: (
+    conversation: CachedConversationView | null
+  ) => CachedConversationView | null
+): void {
+  const current = readConversationListCache();
+  const index = current.findIndex((c) => c.id === conversationId);
+  if (index < 0) return;
+  const updated = updater(current[index]);
+  if (!updated || updated === current[index]) return;
+  const next = [...current];
+  next[index] = updated;
+  writeConversationListCache(next);
 }
 
 const DRAFT_PREFIX = "cp.chat.draft.v1.";
