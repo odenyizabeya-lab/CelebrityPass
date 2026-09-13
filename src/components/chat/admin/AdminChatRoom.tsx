@@ -78,8 +78,6 @@ export default function AdminChatRoom({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiProvider, setAiProvider] = useState<"gemini" | "fallback" | null>(null);
-  const [aiModel, setAiModel] = useState<string | null>(null);
   const [aiConfigured, setAiConfigured] = useState(true);
   const [aiStyle, setAiStyle] = useState<string>("Friendly and warm");
   const styleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -305,13 +303,9 @@ export default function AdminChatRoom({
       }
       const data = (await res.json()) as {
         text: string;
-        provider?: "gemini" | "fallback";
-        model?: string | null;
         configured?: boolean;
       };
       setAiText(data.text);
-      setAiProvider(data.provider ?? null);
-      setAiModel(data.model ?? null);
       setAiConfigured(data.configured ?? true);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : "Could not generate a reply.");
@@ -404,7 +398,7 @@ export default function AdminChatRoom({
         </div>
       </div>
 
-      {/* AI reply assistant */}
+      {/* Reply assistant */}
       {aiOpen && (
         <div className="border-t border-white/10 bg-white/[0.03]">
           <div className="mx-auto flex max-w-2xl flex-col gap-2 px-3 py-2.5">
@@ -412,17 +406,12 @@ export default function AdminChatRoom({
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-primary-300">
                 <SparkleIcon className="h-3.5 w-3.5" />
-                AI Reply
-                {aiProvider && (
-                  <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-zinc-400">
-                    {aiProvider === "gemini" ? `Gemini · ${aiModel ?? "assistant"}` : "offline draft"}
-                  </span>
-                )}
+                Assistant
               </p>
               <button
                 type="button"
                 onClick={() => setAiOpen(false)}
-                aria-label="Close AI reply assistant"
+                aria-label="Close reply assistant"
                 className="grid h-6 w-6 place-items-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-white"
               >
                 ✕
@@ -436,7 +425,7 @@ export default function AdminChatRoom({
                 onChange={(e) => onStyleChange(e.target.value)}
                 list="ai-style-presets"
                 placeholder="Reply style…"
-                aria-label="AI reply style"
+                aria-label="Reply style"
                 className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-primary-500"
               />
               <datalist id="ai-style-presets">
@@ -477,12 +466,12 @@ export default function AdminChatRoom({
               </div>
             ) : aiText ? (
               <div className="flex flex-col gap-2 rounded-2xl border border-primary-500/30 bg-primary-500/10 px-3 py-2.5">
-                <p className="text-[10px] font-black uppercase tracking-wider text-primary-300">Suggested reply</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary-300">Draft reply</p>
                 <p className="text-sm leading-relaxed text-white">{aiText}</p>
-                {aiProvider === "fallback" && !aiConfigured && (
+                {!aiConfigured && (
                   <p className="text-[11px] leading-snug text-zinc-500">
-                    Live AI isn&apos;t active yet — this is an instant offline draft. Add the assistant&apos;s own Gemini
-                    key (<span className="font-mono text-zinc-400">AI_ASSIST_GEMINI_KEY</span>) to enable it.
+                    Live drafting isn&apos;t active yet — this is a saved draft. Add the assistant key (
+                    <span className="font-mono text-zinc-400">ASSIST_GEMINI_KEY</span>) to enable it.
                   </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
@@ -540,7 +529,7 @@ export default function AdminChatRoom({
         <button
           type="button"
           onClick={toggleAi}
-          aria-label={aiOpen ? "Close AI reply assistant" : "Open AI reply assistant"}
+          aria-label={aiOpen ? "Close reply assistant" : "Open reply assistant"}
           className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition ${
             aiOpen
               ? "border-primary-500/50 bg-primary-500/20 text-primary-300"

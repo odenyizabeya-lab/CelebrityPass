@@ -9,11 +9,10 @@ import { prisma } from "@/lib/db";
  * NEVER falls back to the scanner's key. The assistant is powered by a
  * dedicated Gemini key the owner supplies:
  *
- *   AI_ASSIST_GEMINI_KEY        its own Gemini key (required for live AI)
- *   AI_ASSIST_GEMINI_MODEL      default "gemini-2.5-flash" (scanner defaults to
- *                               a different model, so the two never share quota
- *                               or interference)
- *   AI_ASSIST_GEMINI_BASE_URL   default https://generativelanguage.googleapis.com/v1beta
+ *   ASSIST_GEMINI_KEY        its own Gemini key (required for live replies)
+ *   ASSIST_GEMINI_MODEL      default "gemini-2.5-flash" (scanner defaults to
+ *                            a different model, so the two never share quota)
+ *   ASSIST_GEMINI_BASE_URL   default https://generativelanguage.googleapis.com/v1beta
  *
  * It drafts suggested replies in the celebrity's voice that the team reviews,
  * edits and approves in the admin chat room before anything is sent. The draft
@@ -56,11 +55,11 @@ export function stylePresets(): readonly string[] {
 
 /** The assistant's OWN Gemini key — never the scanner's. */
 function getGeminiKey(): string | null {
-  return process.env.AI_ASSIST_GEMINI_KEY?.trim() || null;
+  return process.env.ASSIST_GEMINI_KEY?.trim() || null;
 }
 
 function getGeminiModel(): string {
-  return process.env.AI_ASSIST_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return process.env.ASSIST_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
 function shorten(text: string): string {
@@ -81,7 +80,7 @@ async function geminiComplete(system: string, user: string): Promise<string> {
   const key = getGeminiKey();
   if (!key) throw new Error("Gemini key is not configured for the reply assistant");
   const base = (
-    process.env.AI_ASSIST_GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com/v1beta"
+    process.env.ASSIST_GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com/v1beta"
   ).replace(/\/+$/, "");
   const model = getGeminiModel();
 
@@ -126,44 +125,51 @@ function detectIntent(t: string): "greeting" | "thanks" | "praise" | "question" 
 }
 
 /**
- * Deterministic offline fallback so the "✨ AI Reply" button always responds,
+ * Deterministic offline fallback so the "Suggest reply" button always responds,
  * even when no Gemini key is configured or the provider is unreachable.
+ * Written to sound like a real person's text, not a bot.
  */
 function fallbackReply(ctx: {
   celebrityName: string;
   style: string | null;
   fanFirstName: string | null;
   lastFanMessage: string | null;
-  lastTeamReply: string | null;
 }): string {
-  const { fanFirstName, lastFanMessage, lastTeamReply } = ctx;
-  const name = fanFirstName ?? "friend";
+  const { lastFanMessage } = ctx;
+  const name = fanFirstNameTrim(ctx.fanFirstName);
   const intent = detectIntent(lastFanMessage ?? "");
 
-  const stylePhrases: Record<string, string> = {
-    "Friendly and warm": `It really means a lot to me that you took the time to reach out, ${name}.`,
-    "Playful and fun": `You have no idea how much that put a smile on my face, ${name}.`,
-    "Professional and polished": `Thank you for reaching out — I truly appreciate you, ${name}.`,
-    "Inspiring and motivational": `That kind of energy from fans like you is exactly what keeps me going, ${name}.`,
-    "Focused on music/art/sport": `Comments like yours remind me why I pour everything into my craft, ${name}.`,
-    "Quiet and sincere": `That genuinely means a lot, ${name}. Thank you.`,
-  };
-  const warm = stylePhrases[ctx.style ?? ""] ?? stylePhrases["Friendly and warm"];
-
-  const endings: Record<string, string> = {
-    greeting: `So glad you found your way here, ${name} — I hope you'll stick around for what's coming next!`,
-    thanks: `${warm} Let's keep this energy going — it means the world to me.`,
-    praise: `${warm} Knowing my work connects with you is honestly what makes it all worth it.`,
-    question: `Great question, ${name}! I'm with my team right now, but we'll make sure you get a proper answer soon.`,
-    support: `Thank you, ${name} — your kindness truly doesn't go unnoticed, and I appreciate you being here for me too.`,
-    general: `${warm} Keep spreading that good energy, ${name}!`,
+  const replies: Record<string, string> = {
+    greeting: `Hey ${name}!! So glad you found your way here — stick around, there's lots of good stuff coming.`,
+    thanks: `Aw ${name}, thank you! That honestly means so much to me.`,
+    praise: `${name}, that means the world to me — seriously, thank you!`,
+    question: `Great question, ${name}! I'll get you a proper answer as soon as I can.`,
+    support: `Sending you love, ${name}. Knowing you're here for me like this? Means everything.`,
+    general: `${name}, thank you for the message — it genuinely made my day!`,
   };
 
-  let reply = `${endings[intent]} ${warm}`;
-  if (lastTeamReply && reply.includes(shorten(lastTeamReply).slice(0, 40))) {
-    reply = `${endings[intent]} Stay close, ${name}!`;
+  const playful = (ctx.style ?? "").toLowerCase().includes("playful");
+  const polished = (ctx.style ?? "").toLowerCase().includes("professional");
+  let reply = replies[intent];
+
+  if (polished) {
+    reply = `${replies[intent]} I really appreciate you reaching out.`;
+  } else if (playful) {
+    const fun = `${replies[intent]} You're the best, keep being you!`;
+    if (detectIntent(lastFanMessage ?? "") === "greeting") {
+      reply = `Hey ${name}!! Welcome — you fit right in around here.`;
+    } else {
+      reply = fun;
+    }
+  } else if (detectIntent(lastFanMessage ?? "") === "greeting" && intent !== "greeting") {
+    reply = replies[intent];
   }
+
   return clean(reply);
+}
+
+function fanFirstNameTrim(fanFirstName: string | null): string {
+  return fanFirstName ?? "friend";
 }
 
 export async function suggestReply(conversationId: string): Promise<SuggestionResult> {
@@ -187,7 +193,6 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
   });
   const messages = raw.slice().reverse();
   const latestFan = [...messages].reverse().find((m) => m.senderType === "fan");
-  const lastTeamReply = [...messages].reverse().find((m) => m.senderType === "team");
 
   const fanFirstName = fan.name.trim().split(/\s+/)[0] || null;
   const style = celebrity.chatAiStyle?.trim() || null;
@@ -201,29 +206,32 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
           .join("\n");
 
   const systemInstruction = [
-    "You are the AI reply assistant for a celebrity community on CelebrityPass.",
-    "You help the celebrity's team draft replies to fans. The fan is a real person; the draft is always reviewed and approved by the team before it is sent.",
+    "You write short chat messages for a celebrity community on CelebrityPass.",
+    "You draft a message FROM the celebrity to one of their fans, in the celebrity's own voice — exactly as if the celebrity personally sat down and texted them back.",
+    "The celebrity reviews and approves the message before it is sent, so it is safe to write in their voice.",
     `The celebrity is ${celebrity.name}, a ${celebrity.profession} from ${celebrity.country}.`,
     celebrity.bio ? `Short bio: ${shorten(celebrity.bio)}.` : null,
-    `Response style to match: ${finalStyle}.`,
+    `Signature style to write in: ${finalStyle}.`,
   ]
     .filter(Boolean)
     .join("\n");
 
   const rules = [
-    "Write a natural, personal, conversational reply that reads like the celebrity's team cheerfully acknowledging the fan — never like a customer-service bot.",
-    "Respond directly to what the fan actually said (greeting, compliment, question or request).",
-    "Use the fan's first name at most once, naturally.",
-    "Keep it to 1-3 short sentences (roughly 15-40 words). Do not ask open-ended interview questions.",
-    "Never repeat phrases or wording the team already used in this conversation.",
-    "Never invent facts, meetings, gifts, events, dates, promises, or schedule commitments.",
-    "Never mention the fan's email, phone, address, payment or any private detail.",
-    "Do not mention that this reply is AI-generated, and do not claim the celebrity personally typed it.",
-    "No emoji unless the style calls for it and it fits naturally.",
-    "Output ONLY the reply text. No preamble, no quotes around it, no labels.",
+    "Write LIKE THE CELEBRITY, warm and personal — never like a virtual assistant, bot or customer-service script.",
+    "Text the way a real person texts: short sentences, natural rhythm, everyday contractions (I'm, it's, you'll), room for personality.",
+    "Never present yourself as an assistant, system, bot, program, or an answering service. Write as the celebrity would, first person.",
+    "Never let on that anything assisted with the message — no mention of drafts, tools, automation, reviews, or anyone else helping.",
+    "No form-letter phrases (I hope this message finds you well, Thank you for your inquiry, etc.), no bullet points, no headings.",
+    "Reply to what the fan actually said — their greeting, compliment, question or message.",
+    "Use the fan's first name at most once, naturally and only when it fits.",
+    "Keep it short and human: typically 1-3 short sentences. Vary how replies start so nothing sounds templated or repetitive.",
+    "Never invent facts, meetings, gifts, events, dates, promises, or commitments.",
+    "Never mention the fan's email, phone, address, payment or other private details.",
+    "No emoji unless the style calls for it and it lands naturally.",
+    "Output ONLY the reply text. No quotes, no labels, no preamble.",
   ].join("\n");
 
-  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nDraft the reply to the fan's latest message now.`;
+  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nWrite the message the celebrity would send back now.`;
 
   const meta = {
     celebrityName: celebrity.name,
@@ -245,7 +253,6 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
         style: finalStyle,
         fanFirstName,
         lastFanMessage: latestFan ? shorten(latestFan.body) : null,
-        lastTeamReply: lastTeamReply ? shorten(lastTeamReply.body) : null,
       }),
       provider: "fallback",
       model: null,
