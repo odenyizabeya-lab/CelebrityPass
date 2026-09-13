@@ -161,22 +161,12 @@ export default function ChatNowButton({
         disabled={loading}
         className="inline-flex w-full min-w-0 items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-4 text-sm font-bold text-white shadow-[0_10px_30px_-6px_rgba(16,185,129,0.55)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 sm:px-6 sm:text-base"
       >
-        <svg
-          className="h-5 w-5 shrink-0"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-        >
-          {/* Solid speech bubble with a centered tail — reads as chat instantly */}
-          <path
-            d="M20 2.5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2.5l3.5 3.1 3.5-3.1H18a2 2 0 0 0 2-2v-11a2 2 0 0 0-2-2Z"
-            fill="currentColor"
-          />
-          {/* Three dots in the button's emerald tone — active-messaging feel */}
-          <circle cx="7" cy="9.5" r="1.4" fill="#10b981" />
-          <circle cx="12" cy="9.5" r="1.4" fill="#10b981" />
-          <circle cx="17" cy="9.5" r="1.4" fill="#10b981" />
-        </svg>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] sm:h-12 sm:w-12">
+          {/* Messenger-style lightning-bubble mark inside a big white circle badge */}
+          <svg className="h-7 w-7 text-emerald-500 sm:h-8 sm:w-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M12 2C6.48 2 2 6.04 2 10.95c0 2.57 1.25 4.85 3.2 6.35l-.05 4.3c-.01.46.48.77.87.55l3.96-2.16c1.03.19 2.1.29 3.2.29 5.14 0 9.32-4.04 9.32-9.03S17.14 2 12 2Zm3.98 10.99-2.31 5.49c-.23.56-.86.93-1.48.84-.49-.09-.87-.47-.96-.96l-.99-4.73-3.99-1.91c-.53-.25-.73-.88-.45-1.38.1-.18.27-.33.48-.41l9.5-3.99c.56-.24 1.19.06 1.42.62.09.18.13.39.11.6-.04.63-.41 1.17-.99 1.43Z" />
+          </svg>
+        </span>
         <span className="min-w-0 text-center leading-snug">
           {loading ? "Opening..." : "Chat Now"}
         </span>
