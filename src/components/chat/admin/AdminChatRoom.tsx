@@ -409,6 +409,7 @@ export default function AdminChatRoom({
                 key={m.id}
                 message={m}
                 isOwn={m.senderType === "team"}
+                quoteIdentity={{ viewer: "team", fanName: fan?.name }}
                 isFirstInGroup={isFirstInGroup}
                 isLastInGroup={i === messages.length - 1}
                 onMediaClick={

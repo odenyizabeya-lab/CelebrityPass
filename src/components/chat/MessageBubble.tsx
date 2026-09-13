@@ -41,9 +41,18 @@ interface Attachment {
   name: string;
 }
 
+interface QuoteIdentity {
+  // Which side this chat is rendered for — "You" labels quoted messages from
+  // this side; the OTHER side is labeled with its real name.
+  viewer: "fan" | "team";
+  fanName?: string;
+  teamName?: string;
+}
+
 interface MessageBubbleProps {
   message: Msg;
   isOwn: boolean;
+  quoteIdentity?: QuoteIdentity;
   showActions?: boolean;
   onReply?: (message: Msg) => void;
   onDelete?: (message: Msg) => void;
@@ -103,9 +112,15 @@ function StatusTicks({ status, readAt }: { status: string; readAt: string | null
   );
 }
 
-function ReplyPreview({ repliedTo }: { repliedTo: ReplyTo }) {
+function ReplyPreview({ repliedTo, viewer, fanName, teamName }: { repliedTo: ReplyTo } & QuoteIdentity) {
   const label =
-    repliedTo.senderType === "fan" ? "You" : repliedTo.senderType === "team" ? "Support" : "System";
+    repliedTo.senderType === "system"
+      ? "System"
+      : repliedTo.senderType === viewer
+        ? "You"
+        : repliedTo.senderType === "fan"
+          ? fanName || "Fan"
+          : teamName || "Support";
 
   let summary: string;
   if (repliedTo.deletedAt) {
@@ -133,6 +148,7 @@ function ReplyPreview({ repliedTo }: { repliedTo: ReplyTo }) {
 export default function MessageBubble({
   message,
   isOwn,
+  quoteIdentity,
   onReply,
   onDelete,
   onEdit,
@@ -184,7 +200,14 @@ export default function MessageBubble({
         } ${isLastInGroup ? "mb-2.5" : "mb-1"}`}
       >
         <div className="max-w-[82%] sm:max-w-[72%]">
-          {message.repliedTo && <ReplyPreview repliedTo={message.repliedTo} />}
+          {message.repliedTo && (
+            <ReplyPreview
+              repliedTo={message.repliedTo}
+              viewer={quoteIdentity?.viewer ?? "fan"}
+              fanName={quoteIdentity?.fanName}
+              teamName={quoteIdentity?.teamName}
+            />
+          )}
           <p className="text-sm italic text-zinc-500">This message was deleted</p>
         </div>
       </div>
@@ -284,7 +307,14 @@ export default function MessageBubble({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="group relative max-w-[85%] sm:max-w-[72%]">
-        {message.repliedTo && <ReplyPreview repliedTo={message.repliedTo} />}
+        {message.repliedTo && (
+          <ReplyPreview
+            repliedTo={message.repliedTo}
+            viewer={quoteIdentity?.viewer ?? "fan"}
+            fanName={quoteIdentity?.fanName}
+            teamName={quoteIdentity?.teamName}
+          />
+        )}
 
         <div className={`relative px-4 py-2.5 ${bubbleShape} ${bubbleColor}`}>
           {bubbleContent()}

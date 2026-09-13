@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useChatRealtime } from "@/hooks/useChatRealtime";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -151,6 +151,7 @@ function mergeServerMessages(prev: Msg[], server: Msg[]): Msg[] {
 
 interface ComposerProps {
   conversationId: string;
+  celebrityName?: string;
   onSendText: (text: string) => void;
   onSendImage: (file: File, caption: string) => void;
   onSendVoice: (blob: Blob) => void;
@@ -171,7 +172,7 @@ function pickRecorderMime(): string | null {
   return null;
 }
 
-function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
+function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
   const [text, setText] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const [draftImage, setDraftImage] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
@@ -436,7 +437,9 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
               placeholder={
                 disabled && unavailable
                   ? "Chat unavailable"
-                  : "Message…"
+                  : celebrityName
+                    ? `Message ${celebrityName.split(" ")[0]}…`
+                    : "Message…"
               }
               rows={1}
               className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 text-zinc-100 placeholder-zinc-500 caret-primary-400 outline-none disabled:opacity-50 sm:text-[17px]"
@@ -1305,7 +1308,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   );
 
   const rows: Array<
-    ReturnType<typeof MessageBubble> | ReturnType<typeof DayDivider> | ReturnType<typeof TypingIndicator>
+    ReturnType<typeof MessageBubble> | ReturnType<typeof DayDivider> | ReturnType<typeof TypingIndicator> | ReactNode
   > = [];
   let lastDay: string | null = null;
   for (const { msg, isFirstInGroup, isLastInGroup } of groupedMessages) {
@@ -1314,11 +1317,34 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       rows.push(<DayDivider key={`day-${day}`} iso={msg.createdAt} />);
       lastDay = day;
     }
+    // Where a celebrity (team) group begins, show who's talking — avatar + name
+    // + verified badge — so every reply reads unmistakably as coming from them.
+    if (msg.senderType === "team" && isFirstInGroup && celebrity) {
+      const avatar = celebrity.profileImage || celebrity.profileImageUrl;
+      rows.push(
+        <div
+          key={`sender-${msg.id}`}
+          className="mb-1 mt-3 flex items-center gap-2 pl-1"
+        >
+          {avatar && (
+            <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-primary-600 to-accent-500 ring-1 ring-white/15">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatar} alt={celebrity.name} className="h-full w-full object-cover" />
+            </div>
+          )}
+          <span className="text-sm font-bold leading-none text-zinc-100">
+            {celebrity.name}
+          </span>
+          {celebrity.isVerified && <VerifiedBadge className="h-4 w-4 shrink-0" />}
+        </div>
+      );
+    }
     rows.push(
       <MessageBubble
         key={msg.clientId || msg.id}
         message={msg}
         isOwn={msg.senderType === "fan"}
+        quoteIdentity={{ viewer: "fan", teamName: celebrity?.name }}
         isFirstInGroup={isFirstInGroup}
         isLastInGroup={isLastInGroup}
         onMediaClick={(attachment) => setLightboxAttachment(attachment)}
@@ -1528,8 +1554,22 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
               {showTyping && <TypingIndicator />}
 
               {messages.length === 0 && !messagesFailed && !showTyping && (
-                <div className="py-16 text-center text-sm text-zinc-500">
-                  No messages yet — say hello!
+                <div className="flex flex-col items-center gap-3 py-16 text-center">
+                  <div className="grid h-14 w-14 place-items-center rounded-full bg-primary-500/15 text-primary-400 ring-1 ring-primary-500/30">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+                    </svg>
+                  </div>
+                  <div className="max-w-xs">
+                    <p className="text-sm font-semibold text-zinc-200">
+                      {celebrity ? `You're chatting with ${celebrity.name}` : "You're chatting on CelebrityPass"}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                      {celebrity?.isVerified
+                        ? "This is a verified account on CelebrityPass — say hello and start the conversation!"
+                        : "Say hello and start the conversation!"}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1542,6 +1582,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       <div className="shrink-0">
         <Composer
           conversationId={conversationId}
+          celebrityName={celebrity?.name}
           onSendText={sendText}
           onSendImage={sendImage}
           onSendVoice={sendVoice}

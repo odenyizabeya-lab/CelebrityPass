@@ -240,12 +240,13 @@ function fallbackReply(ctx: {
     `Reading that honestly made my day, ${name}. Thank you.`,
   ]);
   const question = pick([
-    `Great question, ${name}! I'll get you a proper answer as soon as I can.`,
-    `That's a good one, ${name} — let me get you a real answer rather than a guess.`,
+    `That's a good question, ${name} — some things I keep just for me, but I'm always straight with you. What's going on with you today?`,
+    `${name}, I love that you ask. I can't tell you everything, but you can always talk to me — so tell me, how has your day been?`,
+    `You make me smile, ${name}. Some of it stays private, but I'm always real with you — ask me anything else whenever.`,
   ]);
   const support = pick([
-    `Sending you love, ${name}. Knowing you're here for me like this means everything.`,
-    `I'm grateful you opened up, ${name}. I'm here — you're not alone in this.`,
+    `${name}, I'm really glad you opened up to me — you're not alone in anything, okay? I'm right here with you. What's going on?`,
+    `Thank you for trusting me with that, ${name}. I'm sending you all my love — and I'm always here whenever you need me.`,
   ]);
   const scam = pick([
     `${name}, that genuinely stings, but I understand why people ask. I promise you — this is really me. My profile is verified on CelebrityPass, and I would never, ever scam my fans. Scammers try to copy famous people, so the real chat and anything official only ever happen here, inside the official CelebrityPass app. If anyone outside the app asks you for money using my name — that's not me, please block and report it.`,
@@ -264,8 +265,9 @@ function fallbackReply(ctx: {
     `Good question, ${name}. My family life stays private, even from people I love talking to like you — but I promise you, I'm always straight with you.`,
   ]);
   const general = pick([
-    `${name}, thank you for the message — it genuinely made my day!`,
-    `Really glad you reached out, ${name}. That means a lot.`,
+    `${name}, it's always good to hear from you — genuinely. What's been going on with you?`,
+    `That's what I love about this — real people like you reaching out. Tell me more, ${name}.`,
+    `${name}, hearing from you honestly makes my day. Talk to me — how are you doing?`,
   ]);
 
   const replies: Record<string, string> = {

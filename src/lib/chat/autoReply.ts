@@ -23,12 +23,17 @@ import { randomUUID } from "node:crypto";
  */
 const AI_TEAM_EMAIL = process.env.AI_TEAM_EMAIL || "celebrity-ai@celebritypass.app";
 
-const PENDING = new Map<string, boolean>();
+// Per-conversation in-flight lock. In serverless, a frozen instance can leave
+// a lock set forever; a TTL means a stuck lock can never permanently silence a
+// conversation — the next fan message after the stale window retries normally.
+const PENDING = new Map<string, number>();
+const PENDING_TTL_MS = 60_000;
 let warnedNoKey = false;
 
 export async function maybeAutoReply(conversationId: string): Promise<void> {
-  if (PENDING.get(conversationId)) return;
-  PENDING.set(conversationId, true);
+  const startedAt = PENDING.get(conversationId);
+  if (startedAt !== undefined && Date.now() - startedAt < PENDING_TTL_MS) return;
+  PENDING.set(conversationId, Date.now());
   try {
     await runAutoReply(conversationId);
   } catch (err) {
@@ -73,6 +78,23 @@ async function alreadyAnswered(conversationId: string): Promise<boolean> {
   return rows.some(
     (r) => r.senderType === "team" && r.repliedToId === target && Date.now() - r.createdAt.getTime() < 120_000,
   );
+}
+
+async function newestUnansweredFanMessage(conversationId: string) {
+  const newest = await newestRaw(conversationId);
+  if (!newest || newest.senderType !== "fan") return null;
+  if (await alreadyAnswered(conversationId)) return null;
+  return newest;
+}
+
+async function replyToNewestIfStillUnanswered(conversationId: string) {
+  try {
+    if (await newestUnansweredFanMessage(conversationId)) {
+      await runAutoReply(conversationId);
+    }
+  } catch (err) {
+    console.error("[autoReply] follow-up failed:", err);
+  }
 }
 
 async function runAutoReply(conversationId: string) {
@@ -131,6 +153,11 @@ async function runAutoReply(conversationId: string) {
     repliedToId: target.id,
   });
   clearTyping(conversationId, "team");
+
+  // Fan messages that landed while this reply was composing were skipped by the
+  // in-flight lock. If the fan is still talking and the newest message is still
+  // an unanswered one, answer the newest once more so nothing gets silently lost.
+  await replyToNewestIfStillUnanswered(conversationId);
 
   // Let the fan know a reply landed (email when they're away + phone push).
   try {
