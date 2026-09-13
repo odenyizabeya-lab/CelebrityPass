@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import AppSplash from "@/components/auth/AppSplash";
 import AuthWelcome from "@/components/auth/AuthWelcome";
 
@@ -49,6 +49,7 @@ export default function AuthShell({
   onboarded: boolean;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   // Initial state always matches SSR (no splash/reveal on the server); the
   // splashSeen flag only shortens the client-side splash below.
@@ -82,10 +83,18 @@ export default function AuthShell({
     // Remember the choice so this browser never shows the welcome again.
     sessionSet(WELCOME_KEY);
     void fetch("/api/onboarding/complete", { method: "POST" }).catch(() => undefined);
+    // Preserve the proxy's ?next= so auth keeps the visitor's destination.
+    let target = dest;
+    if (typeof window !== "undefined" && dest && (dest === "/login" || dest === "/register")) {
+      const rawNext = new URLSearchParams(window.location.search).get("next");
+      if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")) {
+        target = `${dest}?next=${encodeURIComponent(rawNext)}`;
+      }
+    }
     setTimeout(() => {
       setWelcomeGone(true);
-      if (dest) {
-        window.location.href = dest;
+      if (target) {
+        router.push(target);
       }
     }, WELCOME_LEAVE_MS);
   };

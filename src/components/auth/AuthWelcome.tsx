@@ -33,7 +33,7 @@ export default function AuthWelcome({
     <div
       role="dialog"
       aria-modal="false"
-      className={`fixed inset-0 z-[60] grid place-items-center overflow-hidden bg-aurora px-6 ${
+      className={`fixed inset-0 z-[60] flex w-full items-center justify-center overflow-y-auto bg-aurora px-6 ${
         leaving ? "welcome-leave" : ""
       }`}
     >
@@ -43,7 +43,7 @@ export default function AuthWelcome({
         <div className="welcome-glow welcome-glow-c" />
       </div>
 
-      <div className="welcome-sheet-in relative z-10 mx-auto w-full max-w-[400px] text-center">
+      <div className="welcome-sheet-in relative z-10 mx-auto my-auto w-full max-w-[400px] py-10 text-center">
         <div className="mx-auto mb-7 w-fit">
           <div className="relative">
             <span className="absolute -inset-4 rounded-[2.5rem] bg-primary-600/25 blur-2xl" aria-hidden />
