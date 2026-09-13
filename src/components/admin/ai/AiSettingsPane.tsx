@@ -36,7 +36,7 @@ async function getStatus(): Promise<Status | null> {
     const res = await fetch("/api/admin/ai/settings", { cache: "no-store" });
     if (!res.ok) return null;
     const d = await res.json();
-    return d.settings ?? null;
+    return { ...(d.settings ?? null), assistant: d.assistant ?? null };
   } catch {
     return null;
   }
@@ -110,7 +110,8 @@ export default function AiSettingsPane() {
       setPrimaryKey("");
       setBackupKey("");
       setAssistantKey("");
-      setStatus(d.settings ?? null);
+      const merged = { ...(d.settings ?? null), assistant: d.assistant ?? null };
+      setStatus(merged);
       setAssistantModel(d.assistant?.model ?? "");
       setOk("AI settings saved. The assistant picks up new keys instantly — no redeploy needed.");
     } catch (err) {
