@@ -57,6 +57,14 @@ export default function ChatNavBadge({
     return () => window.clearTimeout(t);
   }, [pathname, refresh]);
 
+  // In-app notifications broadcast "chat:unread-changed" the moment a message
+  // lands — refresh the badge immediately instead of waiting up to a minute.
+  useEffect(() => {
+    const onUnreadChanged = () => void refresh();
+    window.addEventListener("chat:unread-changed", onUnreadChanged);
+    return () => window.removeEventListener("chat:unread-changed", onUnreadChanged);
+  }, [refresh]);
+
   const active = pathname === "/chat" || pathname.startsWith("/chat/");
 
   if (variant === "menu") {

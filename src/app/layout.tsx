@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import NativeIntegration from "@/components/NativeIntegration";
 import PushBootstrap from "@/components/PushBootstrap";
+import InAppNotifications from "@/components/InAppNotifications";
 import LanguageProvider from "@/lib/i18n/language-context";
 import {
   localeDir,
@@ -101,6 +102,7 @@ export default async function RootLayout({
           {children}
           <NativeIntegration />
           <PushBootstrap />
+          <InAppNotifications />
         </LanguageProvider>
       </body>
     </html>
