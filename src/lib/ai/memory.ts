@@ -58,7 +58,7 @@ function extractFacts(body: string): string[] {
   };
 
   if (/(no money|no cash|no funds|can'?t afford|can'?t pay|cannot afford|broke|too expensive|expensive|scarce|hardship|trouble paying|small small|instalment|installment|pay later|smaller amount|don't have (the )?money|i don't have|money is tight|tight on money|financial|fc\b)/i.test(s)) {
-    push("Money struggle (important — sweetly convince + offer small small)", s);
+    push("Money struggle (important — sweetly convince, lower to the entry level, no instalment promises)", s);
   }
   if (/\b(fc|full? card|celebritypass|celebrity pass|membership|card|paying|payment|price|cost|fee)\b/i.test(s)) {
     push("Money/card/membership talk", s);
