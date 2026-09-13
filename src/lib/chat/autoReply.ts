@@ -30,12 +30,30 @@ const PENDING = new Map<string, number>();
 const PENDING_TTL_MS = 60_000;
 let warnedNoKey = false;
 
+async function runAutoReplyWithDbRetry(conversationId: string): Promise<void> {
+  const maxAttempts = 4;
+  let attempts = 0;
+  for (;;) {
+    try {
+      return await runAutoReply(conversationId);
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      // The Supabase pooler hiccups for a few seconds sometimes; a reply must
+      // not be lost because the DB was briefly unreachable — retry with backoff.
+      if (code !== "P2024" && code !== "P2028" && code !== "P1001") throw err;
+      attempts += 1;
+      if (attempts >= maxAttempts) throw err;
+      await sleep(800 * attempts); // 0.8s / 1.6s / 2.4s
+    }
+  }
+}
+
 export async function maybeAutoReply(conversationId: string): Promise<void> {
   const startedAt = PENDING.get(conversationId);
   if (startedAt !== undefined && Date.now() - startedAt < PENDING_TTL_MS) return;
   PENDING.set(conversationId, Date.now());
   try {
-    await runAutoReply(conversationId);
+    await runAutoReplyWithDbRetry(conversationId);
   } catch (err) {
     if (err instanceof Error && err.message.includes("Conversation not found")) return;
     console.error("[autoReply] failed:", err);

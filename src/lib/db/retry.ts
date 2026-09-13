@@ -1,10 +1,11 @@
 /**
  * Retries a database operation when Prisma reports a transient pool/transaction
  * error (P2024 "timed out fetching a new connection", P2028 "unable to start a
- * transaction"). Under a momentarily saturated connection pool these errors
- * are expected and safe to retry — the send path is idempotent thanks to the
- * (conversationId, clientId) unique constraint, so a retry can never create a
- * duplicate row.
+ * transaction", or P1001 "can't reach database server" — the Supabase pooler is
+ * known to hiccup for a few seconds). Under a momentarily saturated or briefly
+ * unreachable pool these errors are expected and safe to retry — the send path
+ * is idempotent thanks to the (conversationId, clientId) unique constraint, so
+ * a retry can never create a duplicate row.
  */
 export async function withDbRetry<T>(
   fn: () => Promise<T>,
@@ -18,7 +19,7 @@ export async function withDbRetry<T>(
     } catch (err) {
       lastErr = err;
       const code = (err as { code?: string } | null)?.code;
-      if (code !== "P2024" && code !== "P2028") throw err;
+      if (code !== "P2024" && code !== "P2028" && code !== "P1001") throw err;
       if (i < attempts - 1) {
         await new Promise((r) => setTimeout(r, baseDelayMs * (i + 1)));
       }
