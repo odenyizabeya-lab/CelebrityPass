@@ -74,3 +74,9 @@ android/keystore.properties
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local e2e/db test scratch
+e2e-live.js
+db-peek.js
+test-*.ts
+
