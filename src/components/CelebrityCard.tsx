@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,8 @@ const CATEGORY_STYLES: Record<string, string> = {
 
 export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardData }) {
   const router = useRouter();
+  const [coverBroken, setCoverBroken] = useState(false);
+  const [photoBroken, setPhotoBroken] = useState(false);
   const catStyle = CATEGORY_STYLES[celebrity.category] ?? CATEGORY_STYLES["Public Figure"];
   const profileUrl = `/celebrity/${celebrity.slug}`;
 
@@ -42,7 +45,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
     >
       {/* Cover */}
       <div className="relative h-44 overflow-hidden sm:h-52">
-        {celebrity.coverImageUrl ? (
+        {celebrity.coverImageUrl && !coverBroken ? (
           <Image
             src={celebrity.coverImageUrl}
             alt=""
@@ -50,6 +53,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover transition duration-500 group-hover:scale-105"
             unoptimized
+            onError={() => setCoverBroken(true)}
           />
         ) : (
           <div
@@ -63,7 +67,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
       <div className="flex items-start justify-between px-6 pt-3">
         <div className="relative z-10 -mt-14 w-44 sm:w-56">
           <div className="overflow-hidden rounded-2xl bg-ink-900 p-1.5 shadow-lg ring-4 ring-ink-900">
-            {celebrity.profileImageUrl ? (
+            {celebrity.profileImageUrl && !photoBroken ? (
               <Image
                 src={celebrity.profileImageUrl}
                 alt={celebrity.name}
@@ -71,6 +75,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
                 height={celebrity.profileImageH}
                 sizes="(max-width: 639px) 176px, 224px"
                 unoptimized
+                onError={() => setPhotoBroken(true)}
                 className="h-auto w-full object-contain"
               />
             ) : (

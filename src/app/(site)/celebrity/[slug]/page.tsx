@@ -291,9 +291,13 @@ export default async function CelebrityPage({ params }: Props) {
         }}
       />
       {/* Cover */}
+      {/* Cookie-gated /images/... routes must load directly in the browser: the
+          next/image optimizer fetches them WITHOUT the fan cookie, the proxy redirects
+          to /login and the optimizer returns 400 "not a valid image". Keep `unoptimized`
+          on every local /images route or photos break again. */}
       <div className="relative h-64 w-full overflow-hidden sm:h-80">
         {celebrity.coverImageUrl ? (
-          <Image src={celebrity.coverImageUrl} alt="" fill priority sizes="100vw" className="object-cover" />
+          <Image src={celebrity.coverImageUrl} alt="" fill priority sizes="100vw" className="object-cover" unoptimized />
         ) : (
           <div
             className="h-full w-full"
@@ -319,6 +323,7 @@ export default async function CelebrityPage({ params }: Props) {
                   height={celebrity.profileImageH}
                   sizes="(max-width: 639px) 320px, (max-width: 1023px) 450px, 560px"
                   priority
+                  unoptimized
                   className="h-auto w-full object-contain"
                 />
               ) : (
@@ -595,7 +600,7 @@ async function LevelCardGraphic({
           <div className="flex items-center gap-2.5">
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-2 ring-white/30">
               {imageUrl ? (
-                <Image src={imageUrl} alt={name} width={48} height={60} className="h-full w-full object-cover" />
+                <Image src={imageUrl} alt={name} width={48} height={60} className="h-full w-full object-cover" unoptimized />
               ) : (
                 <div className="grid h-full w-full place-items-center text-base font-black text-white" style={{ backgroundColor: neon }}>
                   {name[0]}
