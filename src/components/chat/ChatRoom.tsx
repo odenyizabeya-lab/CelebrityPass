@@ -106,6 +106,52 @@ function unwrapMessage(payload: unknown): Record<string, unknown> | null {
   return obj.message === undefined ? obj : null;
 }
 
+// Merge a server-fetched snapshot (history, older pages, SSE echoes, POST acks)
+// into whatever the client already holds — NEVER dropping anything the user is
+// looking at and NEVER duplicating a row that already exists by id or clientId.
+// Server rows are authoritative; every prev row the snapshot doesn't supersede
+// (queued temps, a fan send that raced ahead of a stale snapshot, team/system
+// rows from an incremental page) is kept, so a bubble can never blink out on a
+// merge. Locally-deleted rows are dropped. Returns the SAME array reference if
+// nothing changed so React skips the re-render (no scroll jump, no flicker on
+// redundant history refetches).
+function mergeServerMessages(prev: Msg[], server: Msg[]): Msg[] {
+  const out: Msg[] = [...server];
+  const usedIds = new Set<string>();
+  const usedClients = new Set<string>();
+  for (const m of out) {
+    if (m.id) usedIds.add(m.id);
+    if (m.clientId) usedClients.add(m.clientId);
+  }
+
+  for (const local of prev) {
+    if (local.deletedAt) continue;
+    if (local.id && usedIds.has(local.id)) continue;
+    if (local.clientId && usedClients.has(local.clientId)) continue;
+    out.push(local);
+    if (local.id) usedIds.add(local.id);
+    if (local.clientId) usedClients.add(local.clientId);
+  }
+
+  out.sort(
+    (a, b) =>
+      String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")) ||
+      String(a.id ?? "").localeCompare(String(b.id ?? ""))
+  );
+
+  if (out.length === prev.length) {
+    let same = true;
+    for (let i = 0; i < out.length; i += 1) {
+      if (out[i].id !== prev[i].id) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return prev;
+  }
+  return out;
+}
+
 interface ComposerProps {
   conversationId: string;
   onSendText: (text: string) => void;
@@ -525,15 +571,19 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const retry = useCallback(() => setRetryTick((t) => t + 1), []);
 
   // Atomically replace the optimistic copy of a just-acknowledged send with the
-  // server's flat message (matched by clientId). Degenerate/nested payloads are
-  // dropped — the optimistic copy stays put (and queued) until a real ack.
+  // server's flat message (matched by clientId). If the optimistic copy was
+  // already dropped by a racing snapshot, the acked message is merged in from
+  // the server row instead — a successful send ALWAYS renders the real message.
   const reconcileSent = useCallback((clientId: string, payload: unknown) => {
     const raw = unwrapMessage(payload);
     if (!raw) return;
     const normalized = normalizeMessage(raw);
     if (!normalized) return;
-    setMessages((prev) =>
-      prev.map((m) =>
+    setMessages((prev) => {
+      if (!prev.some((m) => m.clientId === clientId)) {
+        return mergeServerMessages(prev, [normalized]);
+      }
+      return prev.map((m) =>
         m.clientId === clientId
           ? {
               ...normalized,
@@ -541,8 +591,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
               createdAt: normalized.createdAt || m.createdAt,
             }
           : m
-      )
-    );
+      );
+    });
   }, []);
 
   // Offline outbox: messages that were accepted locally but never acked by the
@@ -723,24 +773,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         const list: Msg[] = Array.isArray(data.messages)
           ? (data.messages as unknown[]).map((m) => normalizeMessage(m as Record<string, unknown>)).filter((m): m is Msg => m !== null)
           : [];
-        setMessages(list);
         setHasMore(Boolean(data.hasMore));
-        setMessages((prev) => {
-          // NEVER drop locally-queued sends that the server hasn't acked yet.
-          // Replacing wholesale here would wipe a just-sent offline message the
-          // moment the history fetch lands; instead keep any un-acked temp sends
-          // that don't already exist on the server and re-sort chronologically.
-          const keptTemps = prev.filter(
-            (m) =>
-              m.senderType === "fan" &&
-              m.id.startsWith("temp-") &&
-              (m.status === "PENDING" || m.status === "FAILED") &&
-              !list.some((l) => l.clientId && l.clientId === m.clientId)
-          );
-          return [...list, ...keptTemps].sort((a, b) =>
-            String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? ""))
-          );
-        });
+        // MERGE into whatever already exists. This intentionally never replaces
+        // wholesale: a just-sent optimistic/acked message that raced ahead of
+        // this snapshot (or the SSE catch-up replay) must survive the merge so
+        // nothing the user typed ever blinks out and comes back.
+        setMessages((prev) => mergeServerMessages(prev, list));
         const latest = list[list.length - 1];
         if (latest?.createdAt) setSince(latest.createdAt);
         setMessagesFailed(false);
@@ -813,7 +851,9 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           );
         }
         if (prev.some((m) => m.id === normalized.id)) return prev;
-        return [...prev, normalized];
+        // New inbound message: merge (not append) so it is inserted in
+        // chronological position and local-only sends are never displaced.
+        return mergeServerMessages(prev, [normalized]);
       });
       if (normalized.createdAt) setSince(normalized.createdAt);
     },
@@ -909,10 +949,10 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       const older: Msg[] = Array.isArray(data.messages)
         ? (data.messages as unknown[]).map((m) => normalizeMessage(m as Record<string, unknown>)).filter((m): m is Msg => m !== null)
         : [];
-      setMessages((prev) => [
-        ...older.filter((m) => !prev.some((p) => p.id === m.id)),
-        ...prev,
-      ]);
+      // Merge (not prepend): dedupes by id AND clientId so a row already held
+      // locally (same send) can never appear twice, and any in-flight optimistic
+      // send survives the page load.
+      setMessages((prev) => mergeServerMessages(prev, older));
       setHasMore(data.hasMore ?? false);
     } finally {
       setLoadingOlder(false);
@@ -920,7 +960,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendText = async (body: string) => {
-    if (!meta || blocked) return;
+    if (blocked || metaStatus === "unavailable") return;
     const clientId = crypto.randomUUID();
     const optimistic: Msg = {
       id: `temp-${clientId}`,
@@ -1049,12 +1089,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendImage = (file: File, caption: string) => {
-    if (!meta || blocked) return;
+    if (blocked || metaStatus === "unavailable") return;
     void sendAttachmentMessage(crypto.randomUUID(), "image", caption, file);
   };
 
   const sendVoice = (blob: Blob) => {
-    if (!meta || blocked) return;
+    if (blocked || metaStatus === "unavailable") return;
     let mime = blob.type || "audio/webm";
     if (mime.includes("webm")) {
       mime = "audio/webm";
@@ -1428,7 +1468,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
               {groupedMessages.map(({ msg, isFirstInGroup, isLastInGroup }) => (
                 <MessageBubble
-                  key={msg.id}
+                  key={msg.clientId || msg.id}
                   message={msg}
                   isOwn={msg.senderType === "fan"}
                   isFirstInGroup={isFirstInGroup}
