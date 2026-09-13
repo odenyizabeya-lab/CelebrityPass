@@ -7,7 +7,7 @@ import { withDbRetry } from "@/lib/db/retry";
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
-import { maybeAutoReply } from "@/lib/chat/autoReply";
+import { maybeAutoReply, catchUpUnansweredFanMessage } from "@/lib/chat/autoReply";
 import { rememberAsync } from "@/lib/ai/memory";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +52,20 @@ export async function GET(request: Request, { params }: Ctx) {
   }
 
   if (actor.fanId) touchFanPresence(actor.fanId).catch(() => {});
+
+  // Catch-up: if the newest message is an unanswered fan message, run the
+  // always-on AI reply inside this request so fans are never left hanging even
+  // when the fan-POST's fire-and-forget froze or hit a pooler blip. Blocking
+  // here guarantees the reply completes within the request lifecycle, and it
+  // becomes part of this poll's snapshot. Fan polls only — the admin team
+  // inbox must never spawn AI replies.
+  if (actor.type === "fan") {
+    try {
+      await catchUpUnansweredFanMessage(conversationId);
+    } catch (err) {
+      console.error("[chat] catch-up auto-reply failed:", err);
+    }
+  }
 
   const readState = await prisma.chatReadState.findUnique({
     where: { conversationId },

@@ -80,3 +80,4 @@ e2e-live.js
 db-peek.js
 test-*.ts
 
+e2e-*.js

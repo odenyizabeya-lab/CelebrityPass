@@ -28,6 +28,7 @@ const AI_TEAM_EMAIL = process.env.AI_TEAM_EMAIL || "celebrity-ai@celebritypass.a
 // conversation — the next fan message after the stale window retries normally.
 const PENDING = new Map<string, number>();
 const PENDING_TTL_MS = 60_000;
+const CATCH_UP_MIN_AGE_MS = 12_000;
 let warnedNoKey = false;
 
 async function runAutoReplyWithDbRetry(conversationId: string): Promise<void> {
@@ -60,6 +61,25 @@ export async function maybeAutoReply(conversationId: string): Promise<void> {
   } finally {
     PENDING.delete(conversationId);
   }
+}
+
+/**
+ * Catch-up: the fan's chat GETs (client polls continuously while the chat is
+ * open) also trigger the always-on AI. If the newest message is an unanswered
+ * fan message a few seconds old, we block on the reply here — inside the
+ * request lifecycle, so the serverless function is guaranteed to finish it
+ * (no fire-and-forget freeze) and a brief Supabase-pooler outage just means
+ * the next poll retries. `alreadyAnswered` + the in-flight lock prevent
+ * double replies when the POST's own trigger already landed one.
+ */
+export async function catchUpUnansweredFanMessage(conversationId: string): Promise<void> {
+  const newest = await newestRaw(conversationId).catch(() => null);
+  if (!newest || newest.senderType !== "fan") return;
+  // Give the fan-POST's immediate trigger its own beat first; this is only the
+  // safety net for sends whose background trigger froze or hit a pooler blip.
+  if (Date.now() - newest.createdAt.getTime() < CATCH_UP_MIN_AGE_MS) return;
+  if (await alreadyAnswered(conversationId).catch(() => true)) return;
+  await maybeAutoReply(conversationId);
 }
 
 function sleep(ms: number) {
