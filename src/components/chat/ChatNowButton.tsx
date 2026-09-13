@@ -163,17 +163,19 @@ export default function ChatNowButton({
       >
         <svg
           className="h-5 w-5 shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
           viewBox="0 0 24 24"
+          fill="none"
           aria-hidden
         >
+          {/* Solid speech bubble with a centered tail — reads as chat instantly */}
           <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.42-4.03 8-9 8a9.86 9.86 0 01-4.26-.95L3 20l1.26-3.7A7.96 7.96 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"
+            d="M20 2.5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2.5l3.5 3.1 3.5-3.1H18a2 2 0 0 0 2-2v-11a2 2 0 0 0-2-2Z"
+            fill="currentColor"
           />
+          {/* Three dots in the button's emerald tone — active-messaging feel */}
+          <circle cx="7" cy="9.5" r="1.4" fill="#10b981" />
+          <circle cx="12" cy="9.5" r="1.4" fill="#10b981" />
+          <circle cx="17" cy="9.5" r="1.4" fill="#10b981" />
         </svg>
         <span className="min-w-0 text-center leading-snug">
           {loading ? "Opening..." : "Chat Now"}
