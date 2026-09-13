@@ -8,7 +8,11 @@ import { serializeSSE, type RealtimeEvent } from "@/lib/chat/realtime";
 
 export const dynamic = "force-dynamic";
 
-const POLL_MS = 2000;
+// Poll fast: every AI reply, read receipt or presence flip surfaces to the
+// fan's open chat almost instantly instead of after a multi-second gap. Each
+// poll's DB reads are run in parallel (Promise.all below), so the tighter
+// cadence stays cheap — one read batch per connection every ~750ms.
+const POLL_MS = 750;
 // Heartbeat frequently enough that idle proxies, carrier NATs and mobile
 // networks never kill a healthy but quiet stream. This is what kept killing
 // the old single-heartbeat streams mid-window.
@@ -99,15 +103,40 @@ export async function GET(request: Request) {
       async function poll() {
         if (closed) return;
         try {
-          const messages = await prisma.chatMessage.findMany({
-            where: {
-              conversationId,
-              createdAt: { gte: cursor },
-              deletedAt: null,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            take: 200,
-          });
+          presenceTick += 1;
+          const checkPresence = fanId && presenceTick % 5 === 1;
+
+          // Run the independent reads in parallel — sequential awaits would
+          // stretch every poll and slow message/typing/read delivery (which is
+          // exactly what the fast cadence is for). The presence query only
+          // fires on every 5th poll (presenceTick gate below) but still runs
+          // inside the same batch so its cost never delays a fresh message.
+          const [messages, readStateRow, onlineNow] = await Promise.all([
+            prisma.chatMessage.findMany({
+              where: {
+                conversationId,
+                createdAt: { gte: cursor },
+                deletedAt: null,
+              },
+              orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              take: 200,
+            }),
+            prisma.chatReadState.findUnique({
+              where: { conversationId },
+              select: { teamLastReadAt: true, fanLastReadAt: true },
+            }),
+            checkPresence
+              ? prisma.celebrity
+                  .findUnique({
+                    where: { id: celebrityId },
+                    select: { chatLastSeenAt: true },
+                  })
+                  .then((row) => {
+                    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+                    return !!(row?.chatLastSeenAt && row.chatLastSeenAt > fiveMinAgo);
+                  })
+              : Promise.resolve<boolean | null>(lastOnline),
+          ]);
 
           let streamCursor = cursor;
           let streamCursorIds = new Set<string>();
@@ -134,32 +163,14 @@ export async function GET(request: Request) {
             cursorIds = streamCursorIds;
           }
 
-          if (fanId) {
-            // Presence re-check every 5th poll (10s) — cheaper than every 2s,
-            // and only emit when the online state actually changes so an idle
-            // stream isn't spitting identical presence events forever.
-            presenceTick += 1;
-            if (presenceTick % 5 === 1) {
-              const online = await prisma.celebrity.findUnique({
-                where: { id: celebrityId },
-                select: { chatLastSeenAt: true },
-              });
-              const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-              const isOnline = !!(online?.chatLastSeenAt && online.chatLastSeenAt > fiveMinAgo);
-              if (isOnline !== lastOnline) {
-                lastOnline = isOnline;
-                send({ type: "presence", celebrityId, online: isOnline });
-              }
-            }
+          if (fanId && checkPresence && onlineNow !== null && onlineNow !== lastOnline) {
+            lastOnline = onlineNow;
+            send({ type: "presence", celebrityId, online: onlineNow });
           }
 
           // Read receipts: whenever a participant's read watermark advances,
           // broadcast it so the other side flips to the blue double-tick instantly.
-          const readState = await prisma.chatReadState.findUnique({
-            where: { conversationId },
-            select: { teamLastReadAt: true, fanLastReadAt: true },
-          });
-          const teamReadAt = readState?.teamLastReadAt?.toISOString() ?? null;
+          const teamReadAt = readStateRow?.teamLastReadAt?.toISOString() ?? null;
 
           const { fanTyping, teamTyping } = getTyping(conversationId);
           let showTeamTyping = teamTyping;
@@ -204,7 +215,7 @@ export async function GET(request: Request) {
             lastTeamReadAt = teamReadAt;
             send({ type: "read", conversationId, readerType: "team", at: teamReadAt });
           }
-          const fanReadAt = readState?.fanLastReadAt?.toISOString() ?? null;
+          const fanReadAt = readStateRow?.fanLastReadAt?.toISOString() ?? null;
           if (fanReadAt !== lastFanReadAt && fanReadAt) {
             lastFanReadAt = fanReadAt;
             send({ type: "read", conversationId, readerType: "fan", at: fanReadAt });

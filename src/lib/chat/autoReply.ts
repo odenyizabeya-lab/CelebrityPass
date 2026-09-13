@@ -29,7 +29,7 @@ const AI_TEAM_EMAIL = process.env.AI_TEAM_EMAIL || "celebrity-ai@celebritypass.a
 const PENDING = new Map<string, number>();
 const PENDING_TTL_MS = 60_000;
 const CATCH_UP_MIN_AGE_MS = 12_000;
-const CATCH_UP_MAX_MS = 25_000;
+const CATCH_UP_MAX_MS = 15_000;
 let warnedNoKey = false;
 
 async function runAutoReplyWithDbRetry(conversationId: string): Promise<void> {

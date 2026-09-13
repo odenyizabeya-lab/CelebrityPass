@@ -171,6 +171,8 @@ interface ComposerProps {
   onTyping: () => void;
   disabled: boolean;
   unavailable: boolean;
+  /** Lets the parent focus the input (e.g. tap-to-type in the message area). */
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 function pickRecorderMime(): string | null {
@@ -185,7 +187,7 @@ function pickRecorderMime(): string | null {
   return null;
 }
 
-function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable }: ComposerProps) {
+function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable, inputRef }: ComposerProps) {
   const [text, setText] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const [draftImage, setDraftImage] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
@@ -196,6 +198,16 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Single source of truth for the textarea node — the parent (its tap-to-type
+  // handler) reads the same ref, so focusing always hits the real input.
+  const setTextareaNode = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      textareaRef.current = node;
+      if (inputRef) inputRef.current = node;
+    },
+    [inputRef],
+  );
 
   // Restore a saved draft (composed but never sent) so switching screens or
   // relaunching never loses it. Drafts live per-conversation in localStorage.
@@ -437,16 +449,23 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
 
             <textarea
-              ref={textareaRef}
+              ref={setTextareaNode}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               onInput={handleInput}
               disabled={disabled}
+              autoFocus
               autoComplete="off"
               autoCorrect="off"
+              autoCapitalize="sentences"
               spellCheck={false}
               enterKeyHint="send"
+              aria-label={
+                celebrityName
+                  ? `Message ${celebrityName.split(" ")[0]}`
+                  : "Message"
+              }
               placeholder={
                 disabled && unavailable
                   ? "Chat unavailable"
@@ -608,6 +627,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [since, setSince] = useState<string | null>(null);
+
+  // Native-app tap-to-type: on touch devices, tapping anywhere in the message
+  // area pops the keyboard with the cursor at the end, like WhatsApp/iMessage.
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTapStartRef = useRef<{ x: number; y: number } | null>(null);
+  const coarsePointerRef = useRef(false);
+  useEffect(() => {
+    coarsePointerRef.current =
+      window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  }, []);
 
   // Tracks the visual viewport height so the composer stays pinned above the
   // Android keyboard while it is open and returns to the bottom when closed.
@@ -1328,6 +1357,29 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const isDisabled =
     !conversation || conversation.status !== "ACTIVE" || blocked;
 
+  const handleMessagesTapStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    messageTapStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMessagesTap = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = messageTapStartRef.current;
+    messageTapStartRef.current = null;
+    if (!start) return;
+    // A scroll or drag ends far from where it began — only a real tap counts.
+    if (Math.abs(e.clientX - start.x) > 12 || Math.abs(e.clientY - start.y) > 12)
+      return;
+    if (!coarsePointerRef.current || isDisabled || metaStatus === "unavailable")
+      return;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest("a, button, input, textarea, img, [role='button']")) return;
+    const input = composerInputRef.current;
+    if (!input) return;
+    const pos = input.value.length;
+    input.focus();
+    input.setSelectionRange(pos, pos);
+  };
+
   const groupedMessages = messages.map((msg, i) => {
     const prev = messages[i - 1];
     const next = messages[i + 1];
@@ -1562,6 +1614,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        onPointerDown={handleMessagesTapStart}
+        onPointerUp={handleMessagesTap}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5"
       >
         <div className="mx-auto flex w-full max-w-2xl flex-col px-1">
@@ -1671,6 +1725,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           onTyping={sendTyping}
           disabled={isDisabled || metaStatus === "unavailable"}
           unavailable={metaStatus === "unavailable"}
+          inputRef={composerInputRef}
         />
       </div>
 
