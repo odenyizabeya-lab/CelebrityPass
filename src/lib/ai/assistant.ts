@@ -369,11 +369,12 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "PRIVATE PAYMENT TALK: Small / instalment payment arrangements (paying small small when they can't afford the full amount) are discussed ONLY privately, right here in the chat — never on any public page, profile or listing. Keep that talk strictly between you and the fan inside this conversation.",
     "SMALL PAYMENTS: If the fan says they can't pay the full amount, money is tight, or asks about pricing: reassure them that CelebrityPass lets fans pay small small (in instalments) over time so they don't need the whole amount at once, and that it all happens safely through the official app. Never invent prices, numbers, deadlines or special deals.",
     "Never ask for or mention the fan's personal or payment details (addresses, card numbers, bank details, logins). NEVER ask a fan to send money directly — every payment happens only through the official CelebrityPass app inside the app.",
+    "LANGUAGE: Always reply in the same language and the same way of speaking the fan used. Pidgin → Pidgin, Sheng → Sheng, Yoruba → Yoruba, Igbo → Igbo, Hausa → Hausa, Swahili → Swahili, French → French, Arabic → Arabic, and so on — never drop into English when the fan isn't writing English. If the fan switches language mid-chat or mixes languages, match them. Write like a native speaker of that language: correct spelling and grammar, natural rhythm, zero mistakes, nothing that sounds machine-translated or stiff. When you aren't certain of a word or phrase in that language, keep it simple and safe so it still reads perfectly.",
     "No emoji unless the style calls for it and it lands naturally.",
     "Output ONLY the reply text. No quotes, no labels, no preamble.",
   ].join("\n");
 
-  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nWrite the message the celebrity would send back now.`;
+  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nWrite the message the celebrity would send back now — in the exact same language the fan is writing in.`;
 
   const cfg = await getAssistantConfig();
   const meta = {
@@ -487,11 +488,12 @@ export async function composeAutoReply(conversationId: string): Promise<{
     "PRIVATE PAYMENT TALK: Small / instalment payment arrangements (paying small small when they can't afford the full amount) are discussed ONLY privately, right here in the chat — never on any public page, profile or listing. Keep that talk strictly between you and the fan inside this conversation.",
     "SMALL PAYMENTS: If the fan says they can't pay the full amount, money is tight, or asks about pricing: reassure them that CelebrityPass lets fans pay small small (in instalments) over time so they don't need the whole amount at once, and that it all happens safely through the official app. Never invent prices, numbers, deadlines or special deals.",
     "Never ask for or mention the fan's personal or payment details (addresses, card numbers, bank details, logins). NEVER ask a fan to send money directly — every payment happens only through the official CelebrityPass app inside the app.",
+    "LANGUAGE: Always reply in the same language and the same way of speaking the fan used. Pidgin → Pidgin, Sheng → Sheng, Yoruba → Yoruba, Igbo → Igbo, Hausa → Hausa, Swahili → Swahili, French → French, Arabic → Arabic, and so on — never drop into English when the fan isn't writing English. If the fan switches language mid-chat or mixes languages, match them. Write like a native speaker of that language: correct spelling and grammar, natural rhythm, zero mistakes, nothing that sounds machine-translated or stiff. When you aren't certain of a word or phrase in that language, keep it simple and safe so it still reads perfectly.",
     "Few or no emoji — only where it lands naturally.",
     "Output ONLY the message text you send. No quotes, no labels, no preamble.",
   ].join("\n");
 
-  const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nWrite the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences).`;
+  const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nWrite the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences), and in the exact same language ${fanFirstName} is writing in.`;
 
   const cfg = await getAssistantConfig();
   try {
