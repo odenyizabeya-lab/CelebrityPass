@@ -189,7 +189,11 @@ async function geminiComplete(
     if (search) body.tools = [{ googleSearch: {} }];
 
     const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), search ? 60_000 : 45_000);
+    // Grounded search is best-effort and usually either fails fast (429) or, on
+    // a slow network, can stall. Cap it far below the plain timeout so a hung
+    // grounded attempt can never blow past the route's maxDuration and lose the
+    // whole reply — falling back to plain is always better than being killed.
+    const timeout = setTimeout(() => ctrl.abort(), search ? 15_000 : 40_000);
     try {
       const res = await fetch(`${base}/models/${model}:generateContent`, {
         method: "POST",

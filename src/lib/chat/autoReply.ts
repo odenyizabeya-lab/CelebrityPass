@@ -116,6 +116,7 @@ async function replyToNewestIfStillUnanswered(conversationId: string) {
 }
 
 async function runAutoReply(conversationId: string) {
+  console.log(`[autoReply] runAutoReply start ${conversationId}`);
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
     include: {
@@ -146,6 +147,7 @@ async function runAutoReply(conversationId: string) {
 
   const result = await composeAutoReply(conversationId);
   if (!result?.text?.trim()) return;
+  console.log(`[autoReply] composed ${String(result.text).length} chars for ${conversationId}`);
 
   if (!result.configured && !warnedNoKey) {
     warnedNoKey = true;
