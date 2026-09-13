@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { profileImageUrl } from "@/lib/images";
+import { celebrityImageFlags } from "@/lib/images";
 
 /** Total unread message count across all of a fan's conversations. */
 export async function getFanUnreadTotal(fanId: string): Promise<number> {
@@ -58,7 +58,8 @@ export async function listFanConversations(
           slug: true,
           name: true,
           profession: true,
-          profileImage: true,
+          // NOTE: profileImage (a multi-MB base64 blob) is intentionally NOT
+          // selected — presence comes from celebrityImageFlags() instead.
           chatAccountType: true,
           chatAccountLabel: true,
           chatLastSeenAt: true,
@@ -97,6 +98,7 @@ export async function listFanConversations(
   `;
   const unreadMap = new Map(unreadRows.map((r) => [r.conversationId, r.total]));
 
+  const imageFlags = await celebrityImageFlags();
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
 
   return conversations.map((c) => ({
@@ -114,7 +116,9 @@ export async function listFanConversations(
       name: c.celebrity.name,
       profession: c.celebrity.profession,
       // URL (never the raw base64 blob), served from the cacheable endpoint.
-      profileImage: profileImageUrl(c.celebrity.slug, c.celebrity.profileImage),
+      profileImage: imageFlags.get(c.celebrity.slug)?.hasProfile
+        ? `/images/${c.celebrity.slug}/profile`
+        : null,
       chatAccountType: c.celebrity.chatAccountType,
       chatAccountLabel: c.celebrity.chatAccountLabel,
       online: !!(c.celebrity.chatLastSeenAt && c.celebrity.chatLastSeenAt > fiveMinAgo),

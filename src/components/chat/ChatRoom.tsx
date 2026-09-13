@@ -633,14 +633,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     });
   }, []);
 
-  // Browser online/offline — the chat shell stays open either way. When the
-  // network comes back (or the tab regains focus) we automatically refetch.
-  const wasOnlineRef = useRef(isOnline);
-  useEffect(() => {
-    if (isOnline && !wasOnlineRef.current) retry();
-    wasOnlineRef.current = isOnline;
-  }, [isOnline, retry]);
-
   useEffect(() => {
     const update = () =>
       setIsOnline(document.visibilityState !== "hidden" && navigator.onLine !== false);
@@ -802,7 +794,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     return () => ro.disconnect();
   }, []);
 
-  const { connected: rtConnected } = useChatRealtime(conversationId, since, {
+  const { connected: rtConnected, reconnect: rtReconnect } = useChatRealtime(conversationId, since, {
     onMessage: (message: import("@/hooks/useChatRealtime").RealtimeMessage) => {
       const normalized = normalizeMessage(message as unknown as Record<string, unknown>);
       if (!normalized) return;
@@ -851,7 +843,22 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = setTimeout(() => setOtherTyping(false), 3500);
     },
+    onAuthExpired: () => {
+      window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+    },
   });
+
+  // Browser online/offline — the chat shell stays open either way. When the
+  // network comes back (or the tab regains focus) we automatically refetch
+  // history AND re-open the realtime stream if it silently died.
+  const wasOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (isOnline && !wasOnlineRef.current) {
+      retry();
+      rtReconnect();
+    }
+    wasOnlineRef.current = isOnline;
+  }, [isOnline, retry, rtReconnect]);
 
   // When the realtime stream reconnects, refetch history so cached (offline)
   // messages catch up with everything that happened while disconnected.

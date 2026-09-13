@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
 import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
-import { profileImageUrl } from "@/lib/images";
+import { celebrityImageFlags } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,9 @@ export async function GET(_request: Request, { params }: Ctx) {
       slug: true,
       name: true,
       profession: true,
-      profileImage: true,
+      // profileImage (up to 3MB base64) is fetched separately via a raw query
+      // that only materializes it when it's small enough to embed for offline
+      // instant-open — never pulling the full blob just to make a URL.
       isVerified: true,
       chatAccountType: true,
       chatAccountLabel: true,
@@ -51,12 +53,19 @@ export async function GET(_request: Request, { params }: Ctx) {
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   const online = !!(celebrity.chatLastSeenAt && celebrity.chatLastSeenAt > fiveMinAgo);
 
-  // Keep the raw base64 ONLY when it's small enough to be worth caching for
-  // offline instant-open; larger avatars go through the cacheable route. The
-  // client renders `profileImage ?? profileImageUrl`, so a missing blob here is
-  // never a blank avatar.
-  const rawImage = celebrity.profileImage ?? "";
-  const blobTooBig = rawImage.startsWith("data:") && rawImage.length > 200_000;
+  // rawImage stays null for large avatars — the client renders
+  // `profileImage ?? profileImageUrl`, so a missing blob is never a blank avatar.
+  const smallRow = await prisma.$queryRaw<{ small: string | null }[]>`
+    SELECT CASE
+      WHEN length("profileImage") < 200001 THEN "profileImage"
+      ELSE NULL
+    END AS "small"
+    FROM "Celebrity"
+    WHERE "id" = ${celebrity.id}
+  `;
+  const rawImage = smallRow[0]?.small ?? null;
+  const imageFlags = await celebrityImageFlags();
+  const hasProfile = imageFlags.get(celebrity.slug)?.hasProfile ?? false;
 
   const readState = await prisma.chatReadState.findUnique({
     where: { conversationId },
@@ -90,8 +99,8 @@ export async function GET(_request: Request, { params }: Ctx) {
       slug: celebrity.slug,
       name: celebrity.name,
       profession: celebrity.profession,
-      profileImage: blobTooBig ? "" : rawImage,
-      profileImageUrl: profileImageUrl(celebrity.slug, celebrity.profileImage),
+      profileImage: rawImage ?? "",
+      profileImageUrl: hasProfile ? `/images/${celebrity.slug}/profile` : null,
       isVerified: celebrity.isVerified,
       chatAccountType: celebrity.chatAccountType,
       chatAccountLabel: celebrity.chatAccountLabel,

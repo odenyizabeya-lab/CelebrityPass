@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { profileImageUrl } from "@/lib/images";
+import { celebrityImageFlags } from "@/lib/images";
 
 export interface AdminConversationView {
   id: string;
@@ -45,7 +45,7 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
           name: true,
           profession: true,
           accentColor: true,
-          profileImage: true,
+          // profileImage blob intentionally not selected (see list.ts).
         },
       },
       messages: {
@@ -77,6 +77,8 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
   `;
   const unreadMap = new Map(unreadRows.map((r) => [r.conversationId, r.total]));
 
+  const imageFlags = await celebrityImageFlags();
+
   return conversations.map((c) => ({
     id: c.id,
     status: c.status,
@@ -99,7 +101,9 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
       name: c.celebrity.name,
       profession: c.celebrity.profession,
       accentColor: c.celebrity.accentColor,
-      profileImage: profileImageUrl(c.celebrity.slug, c.celebrity.profileImage),
+      profileImage: imageFlags.get(c.celebrity.slug)?.hasProfile
+        ? `/images/${c.celebrity.slug}/profile`
+        : null,
     },
     lastMessage: c.messages[0]
       ? {
