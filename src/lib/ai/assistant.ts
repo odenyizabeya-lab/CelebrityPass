@@ -188,8 +188,12 @@ async function geminiComplete(system: string, user: string): Promise<string> {
   }
 }
 
-function detectIntent(t: string): "greeting" | "thanks" | "praise" | "question" | "support" | "general" {
+function detectIntent(
+  t: string
+): "greeting" | "thanks" | "praise" | "question" | "support" | "scam" | "membership" | "general" {
   const s = t.toLowerCase();
+  if (/\b(scam|scammer|scammed|scamming|fraud|fraudster|fake|faker|liar|lying|rip-?off|swindle|con ?(man|artist)|stole|steal|fooled)\b/.test(s)) return "scam";
+  if (/\b(membership|member card|card|celebrity.?pass|join|apply|sign.?up|enroll|installment|instalment|small small|can.?t afford|don.?t have the (full )?(money|amount)|broke|no money)\b/.test(s)) return "membership";
   if (/\b(hi|hey|hello|hiya|yo|hola|greetings|good (morning|afternoon|evening|night))\b/.test(s)) return "greeting";
   if (/\b(thank|thanks|thx|grateful|appreciate)\b/.test(s)) return "thanks";
   if (/\b(love|adore|biggest fan|huge fan|inspired|inspiring|amazing|idol|obsessed)\b/.test(s)) return "praise";
@@ -240,12 +244,29 @@ function fallbackReply(ctx: {
     `Sending you love, ${name}. Knowing you're here for me like this means everything.`,
     `I'm grateful you opened up, ${name}. I'm here — you're not alone in this.`,
   ]);
+  const scam = pick([
+    `${name}, that genuinely stings, but I understand why people ask. I promise you — this is really me. My profile is verified on CelebrityPass, and I would never, ever scam my fans. Scammers try to copy famous people, so the real chat and anything official only ever happen here, inside the official CelebrityPass app. If anyone outside the app asks you for money using my name — that's not me, please block and report it.`,
+    `${name}, I hear you, and I won't get upset with you for asking. This is 100% the real me — verified on CelebrityPass. I love my fans, and betraying that trust would break my heart. Just remember: I never ask anyone to pay me directly — everything official goes through the CelebrityPass app only.`,
+  ]);
+  const membership = pick([
+    `By the way ${name}, have you gotten your CelebrityPass membership card yet? It's important — it's how you get real perks and stay closest to everything I've got coming. And if the full amount feels like a lot at once, don't worry: CelebrityPass lets fans pay small small over time, so you don't need it all today.`,
+    `${name}, quick one — do you have your CelebrityPass membership card yet? It really matters, it keeps you connected to exclusive stuff. And if money's tight right now, no pressure at all: CelebrityPass lets fans pay in small instalments, so you can start whenever works for you.`,
+  ]);
   const general = pick([
     `${name}, thank you for the message — it genuinely made my day!`,
     `Really glad you reached out, ${name}. That means a lot.`,
   ]);
 
-  const replies: Record<string, string> = { greeting, thanks, praise, question, support, general };
+  const replies: Record<string, string> = {
+    greeting,
+    thanks,
+    praise,
+    question,
+    support,
+    scam,
+    membership,
+    general,
+  };
   const playful = (ctx.style ?? "").toLowerCase().includes("playful");
   const polished = (ctx.style ?? "").toLowerCase().includes("professional");
   let reply = replies[intent];
@@ -328,7 +349,10 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "Keep it short and human: typically 1-3 short sentences. Vary how replies start so nothing sounds templated or repetitive.",
     "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
     "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
-    "Never mention the fan's email, phone, address, payment or other private details.",
+    "SCAM ACCUSATIONS: If the fan calls you or CelebrityPass a scammer, fraud, or fake, or asks \"are you real?\" / \"is this a scam?\": never get defensive, angry or dismissive. Respond with grace and honest reassurance — you ARE the real, verified celebrity on CelebrityPass, you would never scam your fans, scammers are fake copies of famous people, and real chats plus anything official only ever happen inside the official CelebrityPass app. Never agree you are a scam, never invent proof, never make threats. Then steer the chat back to caring about the fan.",
+    "MEMBER CARD: CelebrityPass has an official membership card that really matters — it's how fans get real perks, exclusive content and closer contact with you. Naturally and warmly ask the fan if they have gotten their CelebrityPass membership card yet. Bring it up when it fits (a new fan, a warm moment, or when they talk about staying close), NOT in every single message, vary how you say it, and never sound like a sales script.",
+    "SMALL PAYMENTS: If the fan says they can't pay the full amount, money is tight, or asks about pricing: reassure them that CelebrityPass lets fans pay small small (in instalments) over time so they don't need the whole amount at once, and that it all happens safely through the official app. Never invent prices, numbers, deadlines or special deals.",
+    "Never ask for or mention the fan's personal or payment details (addresses, card numbers, bank details, logins). NEVER ask a fan to send money directly — every payment happens only through the official CelebrityPass app inside the app.",
     "No emoji unless the style calls for it and it lands naturally.",
     "Output ONLY the reply text. No quotes, no labels, no preamble.",
   ].join("\n");
@@ -440,7 +464,10 @@ export async function composeAutoReply(conversationId: string): Promise<{
     "Typically 1-3 short sentences. Vary how you start so nothing sounds templated.",
     "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
     "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
-    "Never mention the fan's email, phone, address, payment or other private details.",
+    "SCAM ACCUSATIONS: If the fan calls you or CelebrityPass a scammer, fraud, or fake, or asks \"are you real?\" / \"is this a scam?\": never get defensive, angry or dismissive. Respond with grace and honest reassurance — you ARE the real, verified celebrity on CelebrityPass, you would never scam your fans, scammers are fake copies of famous people, and real chats plus anything official only ever happen inside the official CelebrityPass app. Never agree you are a scam, never invent proof, never make threats. Then steer the chat back to caring about the fan.",
+    "MEMBER CARD: CelebrityPass has an official membership card that really matters — it's how fans get real perks, exclusive content and closer contact with you. Naturally and warmly ask the fan if they have gotten their CelebrityPass membership card yet. Bring it up when it fits (a new fan, a warm moment, or when they talk about staying close), NOT in every single message, vary how you say it, and never sound like a sales script.",
+    "SMALL PAYMENTS: If the fan says they can't pay the full amount, money is tight, or asks about pricing: reassure them that CelebrityPass lets fans pay small small (in instalments) over time so they don't need the whole amount at once, and that it all happens safely through the official app. Never invent prices, numbers, deadlines or special deals.",
+    "Never ask for or mention the fan's personal or payment details (addresses, card numbers, bank details, logins). NEVER ask a fan to send money directly — every payment happens only through the official CelebrityPass app inside the app.",
     "Few or no emoji — only where it lands naturally.",
     "Output ONLY the message text you send. No quotes, no labels, no preamble.",
   ].join("\n");
