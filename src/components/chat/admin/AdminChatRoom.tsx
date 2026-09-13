@@ -6,6 +6,24 @@ import MessageBubble from "@/components/chat/MessageBubble";
 import AdminCallOverlay from "@/components/chat/admin/AdminCallOverlay";
 import type { RealtimeMessage } from "@/hooks/useChatRealtime";
 
+const AI_STYLE_PRESETS = [
+  "Friendly and warm",
+  "Playful and fun",
+  "Professional and polished",
+  "Inspiring and motivational",
+  "Focused on music/art/sport",
+  "Quiet and sincere",
+] as const;
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3l2.1 5.4L19.5 10.5l-5.4 2.1L12 18l-2.1-5.4-5.4-2.1 5.4-2.1L12 3z" />
+      <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z" opacity=".7" />
+    </svg>
+  );
+}
+
 function parseAttachment(m: RealtimeMessage): {
   type: "image" | "voice" | "video" | "file";
   url: string;
@@ -52,8 +70,19 @@ export default function AdminChatRoom({
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [nearBottom, setNearBottom] = useState(true);
   const router = useRouter();
+
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiProvider, setAiProvider] = useState<"gemini" | "fallback" | null>(null);
+  const [aiModel, setAiModel] = useState<string | null>(null);
+  const [aiConfigured, setAiConfigured] = useState(true);
+  const [aiStyle, setAiStyle] = useState<string>("Friendly and warm");
+  const styleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyMessages = useCallback(
     (incoming: RealtimeMessage[]) => {
@@ -208,6 +237,105 @@ export default function AdminChatRoom({
 
   const avatarColor = celebrity.accentColor;
 
+  const loadAiStyle = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/chat/ai/style?conversationId=${encodeURIComponent(conversationId)}`, {
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json()) as { style?: string | null };
+      if (data.style) setAiStyle(data.style);
+    } catch {
+      /* keep default style */
+    }
+  }, [conversationId, router]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      void loadAiStyle();
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      if (styleTimer.current) clearTimeout(styleTimer.current);
+    };
+  }, [loadAiStyle]);
+
+  const persistAiStyle = useCallback(
+    (style: string) => {
+      if (styleTimer.current) clearTimeout(styleTimer.current);
+      styleTimer.current = setTimeout(() => {
+        void fetch(`/api/chat/ai/style`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversationId, style }),
+        }).catch(() => {
+          /* best effort */
+        });
+      }, 400);
+    },
+    [conversationId],
+  );
+
+  const onStyleChange = (value: string) => {
+    setAiStyle(value);
+    persistAiStyle(value);
+  };
+
+  const suggestReply = useCallback(async () => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiText(null);
+    try {
+      const res = await fetch(`/api/chat/ai/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId }),
+      });
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Could not generate a reply.");
+      }
+      const data = (await res.json()) as {
+        text: string;
+        provider?: "gemini" | "fallback";
+        model?: string | null;
+        configured?: boolean;
+      };
+      setAiText(data.text);
+      setAiProvider(data.provider ?? null);
+      setAiModel(data.model ?? null);
+      setAiConfigured(data.configured ?? true);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Could not generate a reply.");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [conversationId, router]);
+
+  const applySuggestion = (keepOpen: boolean) => {
+    if (!aiText) return;
+    setInput(aiText);
+    setAiText(null);
+    if (!keepOpen) setAiOpen(false);
+    window.requestAnimationFrame(() => composerRef.current?.focus());
+  };
+
+  const toggleAi = () => {
+    const next = !aiOpen;
+    setAiOpen(next);
+    if (next && messages.some((m) => m.senderType === "fan")) {
+      void suggestReply();
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-14rem)] flex-col overflow-hidden rounded-3xl border border-white/10 bg-ink-950/40">
       {/* Header */}
@@ -276,9 +404,153 @@ export default function AdminChatRoom({
         </div>
       </div>
 
+      {/* AI reply assistant */}
+      {aiOpen && (
+        <div className="border-t border-white/10 bg-white/[0.03]">
+          <div className="mx-auto flex max-w-2xl flex-col gap-2 px-3 py-2.5">
+            {/* header */}
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-primary-300">
+                <SparkleIcon className="h-3.5 w-3.5" />
+                AI Reply
+                {aiProvider && (
+                  <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-zinc-400">
+                    {aiProvider === "gemini" ? `Gemini · ${aiModel ?? "assistant"}` : "offline draft"}
+                  </span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setAiOpen(false)}
+                aria-label="Close AI reply assistant"
+                className="grid h-6 w-6 place-items-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* style selector */}
+            <div className="flex items-center gap-2">
+              <input
+                value={aiStyle}
+                onChange={(e) => onStyleChange(e.target.value)}
+                list="ai-style-presets"
+                placeholder="Reply style…"
+                aria-label="AI reply style"
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-primary-500"
+              />
+              <datalist id="ai-style-presets">
+                {AI_STYLE_PRESETS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+              <span className="shrink-0 text-[10px] text-zinc-600">style</span>
+            </div>
+
+            {aiLoading ? (
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <svg className="h-4 w-4 animate-spin text-primary-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                <p className="text-sm text-zinc-300">Thinking of a reply…</p>
+              </div>
+            ) : aiError ? (
+              <div className="flex flex-col gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5">
+                <p className="text-sm text-rose-300">{aiError}</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void suggestReply()}
+                    className="rounded-lg bg-rose-500/20 px-2.5 py-1 text-xs font-bold text-rose-200 ring-1 ring-rose-500/30 transition hover:bg-rose-500/30"
+                  >
+                    Try again
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiError(null)}
+                    className="rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : aiText ? (
+              <div className="flex flex-col gap-2 rounded-2xl border border-primary-500/30 bg-primary-500/10 px-3 py-2.5">
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary-300">Suggested reply</p>
+                <p className="text-sm leading-relaxed text-white">{aiText}</p>
+                {aiProvider === "fallback" && !aiConfigured && (
+                  <p className="text-[11px] leading-snug text-zinc-500">
+                    Live AI isn&apos;t active yet — this is an instant offline draft. Add the assistant&apos;s own Gemini
+                    key (<span className="font-mono text-zinc-400">AI_ASSIST_GEMINI_KEY</span>) to enable it.
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applySuggestion(true)}
+                    className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-primary-500"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySuggestion(false)}
+                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-zinc-200 ring-1 ring-white/15 transition hover:bg-white/20"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void suggestReply()}
+                    disabled={aiLoading}
+                    className="rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-400 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+                  >
+                    Regenerate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiText(null)}
+                    className="rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-zinc-500">Ask the assistant to draft a reply to {fan.name}&apos;s latest message.</p>
+                <button
+                  type="button"
+                  onClick={() => void suggestReply()}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1 rounded-xl bg-primary-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-primary-500 disabled:opacity-40"
+                >
+                  <SparkleIcon className="h-3.5 w-3.5" />
+                  Suggest reply
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Composer */}
       <div className="flex items-end gap-2 border-t border-white/10 p-3">
+        <button
+          type="button"
+          onClick={toggleAi}
+          aria-label={aiOpen ? "Close AI reply assistant" : "Open AI reply assistant"}
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition ${
+            aiOpen
+              ? "border-primary-500/50 bg-primary-500/20 text-primary-300"
+              : "border-white/10 bg-white/5 text-zinc-400 hover:text-white"
+          }`}
+        >
+          <SparkleIcon className="h-5 w-5" />
+        </button>
         <textarea
+          ref={composerRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {

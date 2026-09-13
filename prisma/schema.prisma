@@ -57,6 +57,9 @@ model Celebrity {
   chatAccountType String         @default("TEAM") // OFFICIAL | TEAM | SYSTEM
   chatAccountLabel String?       // optional "About" line shown above the chat input
   chatLastSeenAt  DateTime?      // last activity by the authorized team (drives online/offline)
+  // Replies the "✨ AI Reply" assistant drafts in this celebrity's voice.
+  // Free-form style/tone chosen by the team (e.g. "Warm & friendly"). null = default.
+  chatAiStyle     String?
   fans           FanCard[]
   memberships    MembershipLevel[]
   payments       Payment[]
