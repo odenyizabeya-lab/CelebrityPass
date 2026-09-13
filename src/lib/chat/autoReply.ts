@@ -43,7 +43,7 @@ function sleep(ms: number) {
 }
 
 function humanDelay() {
-  return 180 + Math.floor(Math.random() * 250); // ~0.2–0.45s — typing shows instantly, reply lands fast
+  return 60 + Math.floor(Math.random() * 120); // ~60–180ms — no wasted time, still feels like a person typing
 }
 
 async function newestRaw(conversationId: string) {
@@ -106,7 +106,7 @@ async function runAutoReply(conversationId: string) {
 
   // Re-signal typing right before landing, then finish the "typing" beat.
   setTyping(conversationId, "team");
-  await sleep(120 + Math.floor(Math.random() * 180));
+  await sleep(50 + Math.floor(Math.random() * 90));
   if (await alreadyAnswered(conversationId)) return;
 
   const target = await newestRaw(conversationId);
