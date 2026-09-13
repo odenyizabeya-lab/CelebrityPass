@@ -5,6 +5,7 @@ import { touchTeamPresence } from "@/lib/chat/presence";
 import { composeAutoReply } from "@/lib/ai/assistant";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
+import { isGlobalAutoReplyEnabled } from "@/lib/chat/autoReplySettings";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -78,13 +79,18 @@ async function runAutoReply(conversationId: string) {
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
     include: {
-      celebrity: { select: { id: true, name: true, profession: true, country: true, bio: true, chatAiStyle: true } },
+      celebrity: { select: { id: true, name: true, profession: true, country: true, bio: true, chatAiStyle: true, chatAutoReplyEnabled: true } },
       fan: { select: { id: true, name: true, email: true, lastSeenAt: true, isActive: true, unsubscribedAt: true } },
     },
   });
   if (!conversation || !conversation.celebrity?.name) return;
   const fan = conversation.fan;
   if (!fan || !fan.isActive || fan.unsubscribedAt) return;
+
+  // Manual mode: the global kickback switch or this celebrity's switch is off,
+  // so the only replies come from the admin/team inbox. The AI stays silent.
+  if (!(await isGlobalAutoReplyEnabled())) return;
+  if (conversation.celebrity.chatAutoReplyEnabled === false) return;
 
   const first = await newestRaw(conversationId);
   if (!first || first.senderType !== "fan") return;
