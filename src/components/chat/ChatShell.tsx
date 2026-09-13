@@ -99,7 +99,7 @@ export default function ChatShell() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-ink-900/95 px-4 backdrop-blur">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#222d34] bg-[#111b21] px-4">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/"
@@ -120,7 +120,7 @@ export default function ChatShell() {
           <h1 className="flex items-center gap-2 text-lg font-bold text-white">
             Messages
             {unreadCount > 0 && (
-              <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary-500 px-2 text-xs font-bold text-white">
+              <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#00a884] px-2 text-xs font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}

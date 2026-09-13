@@ -42,6 +42,34 @@ body {
     var(--color-ink-900);
 }
 
+/* WhatsApp-style dark chat wallpaper: deep green-black base with the classic
+   subtle doodle motif so the message area reads as a messaging app, not a site. */
+.chat-wall {
+  background-color: #0b141a;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg stroke='%238696a0' stroke-opacity='0.07' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M48 62c-6-6-15-6-21 0s-6 15 0 21 15 6 21 0'/%3E%3Cpath d='M58 52l2 6 6-2-2-6z'/%3E%3Ccircle cx='232' cy='48' r='6'/%3E%3Cpath d='M222 36l3 8 8-3-3-8z'/%3E%3Cpath d='M30 210c7-11 20-15 33-11'/%3E%3Cpath d='M30 222l4 6 6-4-4-6z'/%3E%3Cpath d='M214 236c-11 0-18-7-20-16'/%3E%3Cpath d='M226 240l-6 4 4 6 6-4z'/%3E%3Cpath d='M262 160a10 10 0 01-10 10 10 10 0 01-10-10 10 10 0 0110-10 10 10 0 0110 10z'/%3E%3Cpath d='M120 28c-4-9-13-13-22-13'/%3E%3Cpath d='M110 18l2 7 7-2-2-7z'/%3E%3Cpath d='M66 128c11 0 20 7 23 18'/%3E%3Cpath d='M74 148l-7 3 3 7 7-3z'/%3E%3Cpath d='M178 128l4 11 11-4-4-11z'/%3E%3Cpath d='M268 36l-8 8'/%3E%3Cpath d='M40 150l8 8 8-8-8-8z'/%3E%3Cpath d='M44 268l-7 7'/%3E%3Cpath d='M150 248l6 6 6-6-6-6z'/%3E%3Ccircle cx='88' cy='236' r='5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.chat-wall::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.chat-wall::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-wall::-webkit-scrollbar-thumb {
+  background: rgba(134, 150, 160, 0.35);
+  border-radius: 8px;
+}
+.chat-wall::-webkit-scrollbar-thumb:hover {
+  background: rgba(134, 150, 160, 0.55);
+}
+
+/* WhatsApp header / composer surface — slightly lighter than the wall so the
+   input pill and room chrome sit on top of the wallpaper. */
+.chat-surface {
+  background-color: #111b21;
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);

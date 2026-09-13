@@ -86,27 +86,27 @@ function formatTime(dateStr: string | null | undefined): string {
 function StatusTicks({ status, readAt }: { status: string; readAt: string | null }) {
   if (status === "FAILED") {
     return (
-      <span className="text-xs font-bold text-red-400" title="Couldn't send — tap Retry below">
+      <span className="text-[11px] font-bold leading-none text-red-400" title="Couldn't send">
         !
       </span>
     );
   }
   if (status === "PENDING") {
     return (
-      <span className="text-xs text-zinc-400" title="Queued — waiting to sync">
+      <span className="text-[11px] leading-none opacity-75" title="Queued — waiting to sync">
         ✓
       </span>
     );
   }
   if (readAt) {
     return (
-      <span className="text-xs text-sky-400" title="Read">
+      <span className="text-[11px] leading-none text-[#53bdeb]" title="Read">
         ✓✓
       </span>
     );
   }
   return (
-    <span className="text-xs text-zinc-400" title="Delivered">
+    <span className="text-[11px] leading-none opacity-75" title="Delivered">
       ✓✓
     </span>
   );
@@ -138,9 +138,9 @@ function ReplyPreview({ repliedTo, viewer, fanName, teamName }: { repliedTo: Rep
   }
 
   return (
-    <div className="mb-1.5 overflow-hidden rounded-lg border-l-[3px] border-primary-400/70 bg-white/[0.06] px-2.5 py-1.5">
-      <p className="text-xs font-semibold text-primary-300">{label}</p>
-      <p className="truncate text-xs text-zinc-400">{summary}</p>
+    <div className="mb-1.5 overflow-hidden rounded-lg border-l-[3px] border-[#00a884]/80 bg-white/[0.06] px-2.5 py-1.5">
+      <p className="text-xs font-semibold text-[#7fe3bd]">{label}</p>
+      <p className="truncate text-xs text-[#8696a0]">{summary}</p>
     </div>
   );
 }
@@ -196,8 +196,8 @@ export default function MessageBubble({
     return (
       <div
         className={`flex ${isOwn ? "justify-end" : "justify-start"} px-3 sm:px-5 ${
-          isFirstInGroup ? "mt-2.5" : ""
-        } ${isLastInGroup ? "mb-2.5" : "mb-1"}`}
+          isFirstInGroup ? "mt-2.5" : "mt-[2px]"
+        } ${isLastInGroup ? "mb-3" : "mb-[2px]"}`}
       >
         <div className="max-w-[82%] sm:max-w-[72%]">
           {message.repliedTo && (
@@ -208,19 +208,47 @@ export default function MessageBubble({
               teamName={quoteIdentity?.teamName}
             />
           )}
-          <p className="text-sm italic text-zinc-500">This message was deleted</p>
+          <p className="rounded-2xl bg-[#202c33] px-3 py-2 text-sm italic text-[#8696a0]">
+            This message was deleted
+          </p>
         </div>
       </div>
     );
   }
 
-  const bubbleShape = `rounded-2xl ${
-    isFirstInGroup ? (isOwn ? "rounded-br-lg" : "rounded-bl-lg") : ""
-  }`;
+  const isMedia = message.type === "image" || message.type === "video";
+  // WhatsApp stacking: the FIRST bubble of a group carries the big corner radii
+  // (tail corner stays small); every following bubble in the same group uses the
+  // small all-around radius and sits flush against the one above.
+  const bubbleShape = isFirstInGroup
+    ? `rounded-2xl ${isOwn ? "rounded-br-lg" : "rounded-bl-lg"}`
+    : "rounded-md";
 
   const bubbleColor = isOwn
-    ? "bg-gradient-to-b from-primary-600 to-primary-600/90 text-white shadow-md shadow-primary-900/40"
-    : "bg-white/[0.09] text-zinc-50 ring-1 ring-white/10";
+    ? "bg-[#005c4b] text-white"
+    : "bg-[#202c33] text-white";
+
+  const bubblePad = isMedia ? "p-0" : "px-3 py-2 sm:px-3.5 sm:py-2.5";
+
+  const messageTime = formatTime(message.createdAt);
+  const metaOverlay = (
+    <div className="absolute bottom-1 right-1 flex select-none items-center gap-1 rounded-md bg-black/45 px-1.5 py-0.5 text-white">
+      <span className="text-[10px] leading-none opacity-90">{messageTime}</span>
+      {isOwn && (
+        <StatusTicks status={message.status} readAt={message.readAt} />
+      )}
+    </div>
+  );
+  const metaRow = (
+    <div className="mt-0.5 flex select-none items-center justify-end gap-1.5">
+      {isOwn && <StatusTicks status={message.status} readAt={message.readAt} />}
+      <span
+        className={`text-[10px] leading-none ${isOwn ? "text-white/70" : "text-[#8696a0]"}`}
+      >
+        {messageTime}
+      </span>
+    </div>
+  );
 
   const bubbleContent = () => {
     switch (message.type) {
@@ -237,7 +265,7 @@ export default function MessageBubble({
           <img
             src={attachment.url}
             alt={attachment.name}
-            className="max-h-80 w-64 cursor-zoom-in rounded-xl object-cover sm:w-72"
+            className="max-h-80 w-64 cursor-zoom-in object-cover sm:w-72"
             onClick={() => onMediaClick?.(attachment, message)}
             onError={() => setMediaFailed(true)}
           />
@@ -257,7 +285,7 @@ export default function MessageBubble({
           <video
             controls
             src={attachment.url}
-            className="max-h-80 w-64 rounded-xl object-contain sm:w-72"
+            className="max-h-80 w-64 object-contain sm:w-72"
             onError={() => setMediaFailed(true)}
           />
         ) : (
@@ -301,8 +329,8 @@ export default function MessageBubble({
   return (
     <div
       className={`flex ${isOwn ? "justify-end" : "justify-start"} px-3 sm:px-5 ${
-        isFirstInGroup ? "mt-2.5" : ""
-      } ${isLastInGroup ? "mb-3" : "mb-1"}`}
+        isFirstInGroup ? "mt-2.5" : "mt-[2px]"
+      } ${isLastInGroup ? "mb-3" : "mb-[2px]"}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -316,22 +344,13 @@ export default function MessageBubble({
           />
         )}
 
-        <div className={`relative px-4 py-2.5 ${bubbleShape} ${bubbleColor}`}>
-          {bubbleContent()}
-        </div>
-
         <div
-          className={`mt-1 flex select-none items-center gap-1.5 px-1 ${
-            isOwn ? "justify-end" : "justify-start"
+          className={`relative ${bubblePad} ${bubbleShape} ${bubbleColor} ${
+            isMedia ? "overflow-hidden" : ""
           }`}
         >
-          <span className="text-xs text-zinc-500">{formatTime(message.createdAt)}</span>
-          {isOwn && (
-            <StatusTicks
-              status={message.status}
-              readAt={message.readAt}
-            />
-          )}
+          {bubbleContent()}
+          {isMedia ? metaOverlay : metaRow}
         </div>
 
         {isOwn && message.status === "FAILED" && (onRetrySend || onDeleteLocal) && (

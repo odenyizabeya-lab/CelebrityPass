@@ -180,7 +180,7 @@ export default function ChatList({
                     {c.pinned && <span className="text-xs text-gold-400" title="Pinned">📌</span>}
                     {c.muted && <span className="text-xs text-zinc-500" title="Muted">🔕</span>}
                     {c.unread > 0 && (
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary-500 px-1.5 text-[11px] font-bold text-white">
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#00a884] px-1.5 text-[11px] font-bold text-white">
                         {c.unread > 99 ? "99+" : c.unread}
                       </span>
                     )}

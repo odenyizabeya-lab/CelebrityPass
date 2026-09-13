@@ -370,10 +370,10 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
   const recordLabel = `${String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:${String(recordSeconds % 60).padStart(2, "0")}`;
 
   return (
-    <div className="relative border-t border-white/10 bg-ink-900/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur">
+    <div className="relative border-t border-[#222d34] bg-[#111b21] px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 sm:px-3">
       <div className="mx-auto max-w-2xl">
         {pendingImage && (
-          <div className="mb-2 flex items-center gap-3 rounded-2xl bg-white/[0.06] px-3 py-2 ring-1 ring-white/10">
+          <div className="mb-2 flex items-center gap-3 rounded-2xl bg-[#1f2c33] px-3 py-2 ring-1 ring-[#2e3b42]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pendingImage.preview}
@@ -405,7 +405,7 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
             </span>
             <button
               onClick={finishRecording}
-              className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 active:scale-95"
+              className="rounded-full bg-[#00a884] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#02c297] active:scale-95"
             >
               Send
             </button>
@@ -418,7 +418,7 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-2 rounded-[32px] bg-white/10 p-2 ring-1 ring-white/10 transition focus-within:bg-white/[0.13] focus-within:ring-primary-500/50">
+          <div className="flex items-end gap-1.5 rounded-[28px] bg-[#202c33] p-1.5">
             <button
               onClick={async () => {
                 const { isNativePlatform } = await import("@/lib/native");
@@ -436,14 +436,12 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
                 fileRef.current?.click();
               }}
               disabled={disabled}
-              className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
+              className="grid h-11 w-11 shrink-0 place-items-center self-end rounded-full text-[#8696a0] transition hover:bg-white/10 hover:text-[#e9edef] active:scale-90 disabled:opacity-40"
               title="Attach photo"
               aria-label="Attach photo"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M21 15l-5-5L5 21" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
               </svg>
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
@@ -474,18 +472,18 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
                     : "Message…"
               }
               rows={1}
-              className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 text-zinc-100 placeholder-zinc-500 caret-primary-400 outline-none disabled:opacity-50 sm:text-[17px]"
+              className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-2 py-3 text-base leading-6 text-[#e9edef] placeholder-[#8696a0] caret-[#00a884] outline-none disabled:opacity-50 sm:text-[17px]"
             />
 
             {text.trim() || pendingImage ? (
               <button
                 onClick={handleSend}
                 disabled={disabled}
-                className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full bg-primary-600 text-white shadow-lg shadow-primary-900/50 transition-all hover:bg-primary-500 active:scale-90 disabled:opacity-40"
+                className="grid h-11 w-11 shrink-0 place-items-center self-end rounded-full bg-[#00a884] text-white transition-all hover:bg-[#02c297] active:scale-90 disabled:opacity-40"
                 title="Send"
                 aria-label="Send"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 2L11 13" />
                   <path d="M22 2l-7 20-4-9-9-4 20-7z" />
                 </svg>
@@ -494,11 +492,11 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
               <button
                 onClick={() => void startRecording()}
                 disabled={disabled}
-                className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full bg-white/10 text-zinc-200 transition hover:bg-white/15 hover:text-white active:scale-90 disabled:opacity-40"
+                className="grid h-11 w-11 shrink-0 place-items-center self-end rounded-full text-[#8696a0] transition hover:bg-white/10 hover:text-[#e9edef] active:scale-90 disabled:opacity-40"
                 title="Record voice note"
                 aria-label="Record voice note"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                   <path d="M19 10v2a7 7 0 01-14 0v-2" />
                   <line x1="12" y1="19" x2="12" y2="23" />
@@ -544,7 +542,7 @@ function dayLabel(iso: string): string {
 function DayDivider({ iso }: { iso: string }) {
   return (
     <div className="my-4 flex justify-center">
-      <span className="rounded-full bg-white/[0.06] px-3.5 py-1 text-xs font-medium text-zinc-400 ring-1 ring-white/10">
+      <span className="rounded-full bg-[#1f2c33] px-3.5 py-1 text-xs font-medium text-[#8696a0] shadow-sm">
         {dayLabel(iso)}
       </span>
     </div>
@@ -553,12 +551,12 @@ function DayDivider({ iso }: { iso: string }) {
 
 function TypingIndicator() {
   return (
-    <div className="flex justify-start px-3 sm:px-5">
-      <div className="mt-2 self-start rounded-2xl rounded-bl-lg bg-white/[0.09] px-4 py-3.5 ring-1 ring-white/10">
+    <div className="mt-[2px] flex justify-start px-3 sm:px-5">
+      <div className="self-end rounded-2xl rounded-bl-lg bg-[#202c33] px-4 py-3.5">
         <span className="flex items-center gap-1.5">
-          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
-          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
-          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-[#8696a0]" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-[#8696a0]" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-[#8696a0]" />
         </span>
       </div>
     </div>
@@ -1502,7 +1500,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden"
       style={visualHeight !== null ? { height: `${visualHeight}px` } : undefined}
     >
-      <header className="sticky top-0 z-20 flex min-h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-ink-900/95 px-2.5 backdrop-blur sm:gap-3 sm:px-4">
+      <header className="sticky top-0 z-20 flex min-h-16 shrink-0 items-center gap-2.5 border-b border-[#222d34] bg-[#111b21] px-2.5 backdrop-blur sm:gap-3 sm:px-4">
         <Link
           href="/chat"
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
@@ -1616,7 +1614,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         onScroll={handleScroll}
         onPointerDown={handleMessagesTapStart}
         onPointerUp={handleMessagesTap}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5"
+        className="chat-wall min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5"
       >
         <div className="mx-auto flex w-full max-w-2xl flex-col px-1">
           {metaStatus === "unavailable" && (
@@ -1638,7 +1636,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
             <>
               <div className="flex flex-col gap-1.5">
                 {!isOnline && (
-                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#aebac1]">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     {messages.length > 0
                       ? "You're offline — showing saved messages"
@@ -1646,17 +1644,17 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   </div>
                 )}
                 {isOnline && !rtConnected && meta && (
-                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#aebac1]">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     Reconnecting…
                   </div>
                 )}
                 {(metaTransient || messagesFailed) && (
-                  <div className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#aebac1]">
                     <span>Couldn&apos;t refresh — showing what we have.</span>
                     <button
                       onClick={retry}
-                      className="shrink-0 font-semibold text-primary-400 hover:text-primary-300"
+                      className="shrink-0 font-semibold text-[#53bdeb] hover:text-[#7fd1f2]"
                     >
                       Retry
                     </button>
@@ -1668,7 +1666,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   </div>
                 )}
                 {conversation && conversation.status !== "ACTIVE" && (
-                  <div className="mx-auto w-fit rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-400">
+                  <div className="mx-auto w-fit rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#8696a0]">
                     This conversation is not active.
                   </div>
                 )}
@@ -1678,7 +1676,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                 <button
                   onClick={loadOlder}
                   disabled={loadingOlder}
-                  className="mx-auto mb-2 mt-2 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
+                  className="mx-auto mb-2 mt-2 flex items-center gap-2 rounded-full border border-[#2e3b42] bg-[#1f2c33] px-5 py-2 text-sm text-[#aebac1] transition-colors hover:bg-[#233138] hover:text-white disabled:opacity-50"
                 >
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/30" />
                   {loadingOlder ? "Loading…" : "Load earlier messages"}
@@ -1691,7 +1689,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
               {messages.length === 0 && !messagesFailed && !showTyping && (
                 <div className="flex flex-col items-center gap-3 py-16 text-center">
-                  <div className="grid h-14 w-14 place-items-center rounded-full bg-primary-500/15 text-primary-400 ring-1 ring-primary-500/30">
+                  <div className="grid h-14 w-14 place-items-center rounded-full bg-[#00a884]/15 text-[#00a884] ring-1 ring-[#00a884]/30">
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
                     </svg>
