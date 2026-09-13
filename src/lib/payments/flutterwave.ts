@@ -85,11 +85,15 @@ function decryptStoredKey(stored: string): string {
   }
 }
 
-async function getSetting(key: string): Promise<string> {
+async function getSetting(key: string, opts?: { strict?: boolean }): Promise<string> {
   try {
     const row = await prisma.appSetting.findUnique({ where: { key } });
     return row?.value?.trim() ?? "";
-  } catch {
+  } catch (e) {
+    // Settings reads that must NEVER be mistaken for a real value (e.g. the
+    // admin status view) propagate the error; the default is a best-effort ""
+    // used by low-level checkout paths that fail closed anyway.
+    if (opts?.strict) throw e;
     return "";
   }
 }
@@ -115,8 +119,14 @@ export type FlutterwaveConfig = {
   encryptionEnabled: boolean;
 };
 
-/** Resolve the effective Flutterwave config (settings first, then env fallbacks). */
-export async function getFlutterwaveConfig(): Promise<FlutterwaveConfig> {
+/**
+ * Resolve the effective Flutterwave config (settings first, then env fallbacks).
+ * pass `{ strict: true }` when the caller must never mistake a DB hiccup for a
+ * real "disabled" setting (the admin status view). Default stays fail-closed
+ * for checkout paths.
+ */
+export async function getFlutterwaveConfig(opts?: { strict?: boolean }): Promise<FlutterwaveConfig> {
+  const strict = opts?.strict === true;
   const env = {
     enabled: (process.env.FLUTTERWAVE_ENABLED ?? "").trim().toLowerCase() === "true",
     environment: (process.env.FLUTTERWAVE_ENVIRONMENT ?? "").trim().toLowerCase() as "test" | "live" | "",
@@ -127,11 +137,11 @@ export async function getFlutterwaveConfig(): Promise<FlutterwaveConfig> {
 
   try {
     const [enabled, environment, storedId, storedSecret, storedHash] = await Promise.all([
-      getSetting(FW_SETTING_ENABLED),
-      getSetting(FW_SETTING_ENVIRONMENT),
-      getSetting(FW_SETTING_CLIENT_ID),
-      getSetting(FW_SETTING_CLIENT_SECRET),
-      getSetting(FW_SETTING_WEBHOOK_HASH),
+      getSetting(FW_SETTING_ENABLED, { strict }),
+      getSetting(FW_SETTING_ENVIRONMENT, { strict }),
+      getSetting(FW_SETTING_CLIENT_ID, { strict }),
+      getSetting(FW_SETTING_CLIENT_SECRET, { strict }),
+      getSetting(FW_SETTING_WEBHOOK_HASH, { strict }),
     ]);
 
     const secret = decryptStoredKey(storedSecret);
@@ -158,7 +168,8 @@ export async function getFlutterwaveConfig(): Promise<FlutterwaveConfig> {
       webhookHashSource: env.webhookHash ? "env" : hash ? "db" : "",
       encryptionEnabled: Boolean(decryptionKey()),
     };
-  } catch {
+  } catch (e) {
+    if (strict) throw e;
     return {
       ...env,
       clientIdSource: env.clientId ? "env" : "",
@@ -203,7 +214,9 @@ export type FlutterwaveStatus = {
 
 /** Client-safe, masked summary of the current Flutterwave configuration. */
 export async function getFlutterwaveStatus(): Promise<FlutterwaveStatus> {
-  const c = await getFlutterwaveConfig();
+  // strict: a database read failure must throw and surface as an error, never
+  // silently masquerade as "processor disabled".
+  const c = await getFlutterwaveConfig({ strict: true });
   return {
     enabled: c.enabled,
     environment: c.environment,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const inputCls =
   "w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-primary-500";
@@ -26,18 +27,38 @@ type Status = {
   ready: boolean;
 };
 
-async function getStatus(): Promise<Status | null> {
+type LoadResult = { status: Status } | { error: string; unauthorized?: boolean };
+
+/**
+ * Fetch the authoritative saved processor state. Failures are surfaced as an
+ * explicit error (never as a clean "disabled" reading), so a transient
+ * network/DB/auth hiccup can't make the UI look OFF and overwrite the real
+ * saved value.
+ */
+async function fetchStatus(): Promise<LoadResult> {
   try {
     const res = await fetch("/api/admin/payment-settings", { cache: "no-store" });
-    if (!res.ok) return null;
+    if (res.status === 401) {
+      return { error: "Your admin session expired.", unauthorized: true };
+    }
+    if (res.status === 503) {
+      return { error: "Could not read the saved processor state right now. No changes were made — reload to try again." };
+    }
+    if (!res.ok) {
+      return { error: `Could not load processor settings (HTTP ${res.status}).` };
+    }
     const d = await res.json();
-    return d.settings ?? null;
+    if (!d.settings) {
+      return { error: "The server returned no processor settings." };
+    }
+    return { status: d.settings as Status };
   } catch {
-    return null;
+    return { error: "Network error while loading processor settings." };
   }
 }
 
 export default function PaymentSettingsPane() {
+  const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -50,37 +71,49 @@ export default function PaymentSettingsPane() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // Whether the real saved state has been loaded. Saving stays locked until it
+  // is, so a transient load failure can never persist a guessed "disabled".
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const s = await getStatus();
-      if (!active) return;
-      setStatus(s);
-      if (s) {
-        setEnabled(s.enabled);
-        if (s.environment) setEnvironment(s.environment);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      active = false;
-    };
+  const applyStatus = useCallback((s: Status) => {
+    setStatus(s);
+    setEnabled(s.enabled);
+    if (s.environment) setEnvironment(s.environment);
+    setLoaded(true);
+    setLoadError(null);
   }, []);
 
-  const refresh = async () => {
-    const s = await getStatus();
-    setStatus(s);
-    if (s) {
-      setEnabled(s.enabled);
-      if (s.environment) setEnvironment(s.environment);
+  const load = useCallback(async () => {
+    setLoadError(null);
+    const r = await fetchStatus();
+    if ("status" in r) {
+      applyStatus(r.status);
+      return true;
     }
-  };
+    if (r.unauthorized) {
+      router.replace("/admin/login");
+    }
+    setLoaded(false);
+    setLoadError(r.error);
+    return false;
+  }, [applyStatus, router]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      void load().finally(() => setLoading(false));
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [load]);
 
   const save = async () => {
     setError(null);
     setOk(null);
     setTestResult(null);
+    if (!loaded) {
+      setError("Reload the current settings first — the switch is locked until the real saved state loads (no changes were made).");
+      return;
+    }
     setBusy(true);
     try {
       const payload: Record<string, string | boolean> = { enabled, environment };
@@ -97,8 +130,21 @@ export default function PaymentSettingsPane() {
       setClientId("");
       setClientSecret("");
       setWebhookHash("");
-      setStatus(d.settings ?? null);
       setOk("Payment settings saved.");
+      try {
+        if (d.settings) {
+          applyStatus(d.settings as Status);
+          return;
+        }
+      } catch {
+        /* fall through to a fresh read below */
+      }
+      const r = await fetchStatus();
+      if ("status" in r) {
+        applyStatus(r.status);
+      } else {
+        setLoadError(`${r.error} The save succeeded but could not be re-verified.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save payment settings.");
     } finally {
@@ -136,6 +182,24 @@ export default function PaymentSettingsPane() {
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-amber-200">Processor state is unknown</p>
+            <p className="mt-0.5 text-xs leading-5 text-amber-200/80">
+              {loadError} The switch and Save are locked until the real saved state loads, so nothing can be turned OFF by accident.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="shrink-0 rounded-full bg-amber-500/20 px-4 py-1.5 text-sm font-bold text-amber-100 ring-1 ring-amber-500/30 transition hover:bg-amber-500/30"
+          >
+            Reload
+          </button>
+        </div>
+      )}
+
       <div className="glass rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -147,19 +211,23 @@ export default function PaymentSettingsPane() {
           <div className="flex items-center gap-3">
             <span
               className={`rounded-full px-4 py-1.5 text-sm font-bold ring-1 ${
-                status?.ready
+                loaded && status?.ready
                   ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30"
                   : "bg-amber-500/15 text-amber-300 ring-amber-500/30"
               }`}
             >
-              {status?.ready ? "Ready" : "Not ready"}
+              {loaded ? (status?.ready ? "Ready" : "Not ready") : "Unknown"}
             </span>
             <button
               type="button"
               role="switch"
               aria-checked={enabled}
+              disabled={!loaded}
               onClick={() => setEnabled((v) => !v)}
-              className={`relative h-8 w-14 shrink-0 rounded-full transition ${enabled ? "bg-emerald-500" : "bg-zinc-600"}`}
+              title={loaded ? undefined : "Locked until the real saved state loads."}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                enabled ? "bg-emerald-500" : "bg-zinc-600"
+              } ${loaded ? "" : "cursor-not-allowed opacity-50"}`}
             >
               <span
                 className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${enabled ? "left-7" : "left-1"}`}
@@ -168,9 +236,15 @@ export default function PaymentSettingsPane() {
           </div>
         </div>
         <p className="mt-3 text-xs leading-5 text-zinc-500">
-          {enabled
-            ? "Card payments are enabled for fans. No live card charges can happen while the environment is set to Test."
-            : "Card payments are disabled for fans. Flip the switch to enable them."}
+          {loaded ? (
+            enabled ? (
+              "Card payments are enabled for fans. No live card charges can happen while the environment is set to Test."
+            ) : (
+              "Card payments are disabled for fans. Flip the switch to enable them."
+            )
+          ) : (
+            "The saved on/off state hasn't loaded yet — controls are temporarily locked."
+          )}
         </p>
       </div>
 
@@ -305,7 +379,13 @@ export default function PaymentSettingsPane() {
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={save} disabled={busy} className="btn-grad rounded-full px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy || !loaded}
+            title={loaded ? undefined : "Locked until the real saved state loads."}
+            className="btn-grad rounded-full px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+          >
             {busy ? "Saving…" : "Save settings"}
           </button>
           <button
@@ -316,7 +396,7 @@ export default function PaymentSettingsPane() {
           >
             {testing ? "Testing…" : "Test connection"}
           </button>
-          <button type="button" onClick={refresh} className="rounded-full px-4 py-2 text-sm text-zinc-400 transition hover:text-white">
+          <button type="button" onClick={() => void load()} className="rounded-full px-4 py-2 text-sm text-zinc-400 transition hover:text-white">
             Refresh status
           </button>
         </div>

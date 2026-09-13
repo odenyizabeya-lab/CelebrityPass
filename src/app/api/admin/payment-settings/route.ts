@@ -9,8 +9,18 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const settings = await getFlutterwaveStatus();
-  return NextResponse.json({ settings });
+  try {
+    const settings = await getFlutterwaveStatus();
+    return NextResponse.json({ settings });
+  } catch {
+    // Never answer "disabled" because the database was momentarily unreachable —
+    // the admin UI must show an explicit "couldn't read state" so it can't
+    // overwrite the real saved value with OFF.
+    return NextResponse.json(
+      { error: "settings_unavailable", message: "Could not read the saved processor state. Retry — no changes were made." },
+      { status: 503 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -51,6 +61,13 @@ export async function POST(request: NextRequest) {
     webhookHash,
   });
 
-  const settings = await getFlutterwaveStatus();
-  return NextResponse.json({ settings });
+  // The save succeeded — confirm the authoritative state. If the DB is briefly
+  // unreachable here, return saved-without-confirmation instead of an error:
+  // the admin UI re-reads the real state before letting anyone touch the switch.
+  try {
+    const settings = await getFlutterwaveStatus();
+    return NextResponse.json({ settings });
+  } catch {
+    return NextResponse.json({ settings: null, saved: true });
+  }
 }
