@@ -134,6 +134,7 @@ export default async function DashboardPage() {
                           width={80}
                           height={100}
                           sizes="80px"
+                          unoptimized
                           className="h-full w-full rounded-xl object-contain object-top"
                         />
                       ) : (

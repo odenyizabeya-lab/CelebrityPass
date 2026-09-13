@@ -87,6 +87,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                     width={64}
                     height={80}
                     sizes="64px"
+                    unoptimized
                     className="h-full w-full rounded-lg object-contain object-top"
                   />
                 ) : (

@@ -319,6 +319,7 @@ export default async function CelebrityPage({ params }: Props) {
                   height={celebrity.profileImageH}
                   sizes="(max-width: 639px) 320px, (max-width: 1023px) 450px, 560px"
                   priority
+                  unoptimized
                   className="h-auto w-full object-contain"
                 />
               ) : (

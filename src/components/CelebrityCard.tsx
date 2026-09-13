@@ -70,6 +70,7 @@ export default function CelebrityCard({ celebrity }: { celebrity: CelebrityCardD
                 width={celebrity.profileImageW}
                 height={celebrity.profileImageH}
                 sizes="(max-width: 639px) 176px, 224px"
+                unoptimized
                 className="h-auto w-full object-contain"
               />
             ) : (
