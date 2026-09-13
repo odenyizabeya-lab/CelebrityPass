@@ -347,15 +347,15 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
   const recordLabel = `${String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:${String(recordSeconds % 60).padStart(2, "0")}`;
 
   return (
-    <div className="relative border-t border-white/10 bg-ink-900 px-3 pb-2 pt-1">
-      <div className="mx-auto max-w-3xl">
+    <div className="relative border-t border-white/10 bg-ink-900/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur">
+      <div className="mx-auto max-w-2xl">
         {pendingImage && (
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
+          <div className="mb-2 flex items-center gap-3 rounded-2xl bg-white/[0.06] px-3 py-2 ring-1 ring-white/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pendingImage.preview}
               alt="Selected"
-              className="h-12 w-12 rounded-lg object-cover"
+              className="h-16 w-16 rounded-xl object-cover"
             />
             <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">
               {pendingImage.file.name}
@@ -365,7 +365,7 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
                 URL.revokeObjectURL(pendingImage.preview);
                 setPendingImage(null);
               }}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-zinc-300 hover:bg-white/20"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20"
               aria-label="Remove image"
             >
               ✕
@@ -374,28 +374,28 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
         )}
 
         {recording ? (
-          <div className="flex items-center gap-2 py-1.5">
-            <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-            <span className="text-sm tabular-nums text-red-400">{recordLabel}</span>
-            <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">
+          <div className="flex items-center gap-3 py-1">
+            <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-red-500" />
+            <span className="text-base font-medium tabular-nums text-red-400">{recordLabel}</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-zinc-400">
               Recording voice note…
             </span>
             <button
               onClick={finishRecording}
-              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+              className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 active:scale-95"
             >
               Send
             </button>
             <button
               onClick={cancelRecording}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-zinc-300 hover:bg-white/20"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20"
               aria-label="Cancel recording"
             >
               ✕
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-1.5 rounded-[28px] bg-white/10 p-1.5">
+          <div className="flex items-end gap-2 rounded-[32px] bg-white/10 p-2 ring-1 ring-white/10 transition focus-within:bg-white/[0.13] focus-within:ring-primary-500/50">
             <button
               onClick={async () => {
                 const { isNativePlatform } = await import("@/lib/native");
@@ -413,11 +413,11 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
                 fileRef.current?.click();
               }}
               disabled={disabled}
-              className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
+              className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
               title="Attach photo"
               aria-label="Attach photo"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <path d="M21 15l-5-5L5 21" />
@@ -439,21 +439,21 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
               placeholder={
                 disabled && unavailable
                   ? "Chat unavailable"
-                  : "Message..."
+                  : "Message…"
               }
               rows={1}
-              className="max-h-[144px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-[17px] leading-6 text-zinc-100 placeholder-zinc-500 caret-primary-400 outline-none disabled:opacity-50"
+              className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 text-zinc-100 placeholder-zinc-500 caret-primary-400 outline-none disabled:opacity-50 sm:text-[17px]"
             />
 
             {text.trim() || pendingImage ? (
               <button
                 onClick={handleSend}
                 disabled={disabled}
-                className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full bg-primary-600 text-white transition-all hover:bg-primary-500 active:scale-90 disabled:opacity-40"
+                className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full bg-primary-600 text-white shadow-lg shadow-primary-900/50 transition-all hover:bg-primary-500 active:scale-90 disabled:opacity-40"
                 title="Send"
                 aria-label="Send"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 2L11 13" />
                   <path d="M22 2l-7 20-4-9-9-4 20-7z" />
                 </svg>
@@ -462,11 +462,11 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
               <button
                 onClick={() => void startRecording()}
                 disabled={disabled}
-                className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-zinc-100 active:scale-90 disabled:opacity-40"
+                className="grid h-12 w-12 shrink-0 place-items-center self-end rounded-full bg-white/10 text-zinc-200 transition hover:bg-white/15 hover:text-white active:scale-90 disabled:opacity-40"
                 title="Record voice note"
                 aria-label="Record voice note"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                   <path d="M19 10v2a7 7 0 01-14 0v-2" />
                   <line x1="12" y1="19" x2="12" y2="23" />
@@ -476,6 +476,58 @@ function Composer({ conversationId, onSendText, onSendImage, onSendVoice, onTypi
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function dayKey(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(Date.parse(iso));
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const nowDay = dayKey(now.toISOString());
+  const thatDay = dayKey(iso);
+  if (thatDay === nowDay) return "Today";
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.round((todayStart - dayStart) / 86400000);
+  if (diffDays === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: d.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+}
+
+function DayDivider({ iso }: { iso: string }) {
+  return (
+    <div className="my-4 flex justify-center">
+      <span className="rounded-full bg-white/[0.06] px-3.5 py-1 text-xs font-medium text-zinc-400 ring-1 ring-white/10">
+        {dayLabel(iso)}
+      </span>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start px-3 sm:px-5">
+      <div className="mt-2 self-start rounded-2xl rounded-bl-lg bg-white/[0.09] px-4 py-3.5 ring-1 ring-white/10">
+        <span className="flex items-center gap-1.5">
+          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
+          <span className="typing-dot h-2 w-2 rounded-full bg-zinc-400" />
+        </span>
       </div>
     </div>
   );
@@ -1188,7 +1240,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   });
 
   const headerControls = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       <button
         onClick={() => {
           if (pushState === "subscribed") {
@@ -1198,7 +1250,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           }
         }}
         disabled={pushState === "unsupported" || pushState === "denied" || pushState === "loading"}
-        className={`rounded-full p-2 transition ${
+        className={`grid h-11 w-11 place-items-center rounded-full transition ${
           pushState === "subscribed"
             ? "text-amber-400 hover:bg-white/10"
             : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
@@ -1213,8 +1265,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         aria-label="Toggle push notifications"
       >
         <svg
-          width="18"
-          height="18"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1228,12 +1280,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       </button>
       <button
         onClick={() => startCall("voice")}
-        className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+        className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
         title="Voice call"
       >
         <svg
-          width="18"
-          height="18"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1246,12 +1298,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       </button>
       <button
         onClick={() => startCall("video")}
-        className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+        className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
         title="Video call"
       >
         <svg
-          width="18"
-          height="18"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1266,12 +1318,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       <div className="relative">
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+          className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
           title="More options"
         >
           <svg
-            width="18"
-            height="18"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
@@ -1314,19 +1366,53 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     </div>
   );
 
+  const rows: Array<
+    ReturnType<typeof MessageBubble> | ReturnType<typeof DayDivider> | ReturnType<typeof TypingIndicator>
+  > = [];
+  let lastDay: string | null = null;
+  for (const { msg, isFirstInGroup, isLastInGroup } of groupedMessages) {
+    const day = dayKey(msg.createdAt);
+    if (day !== lastDay) {
+      rows.push(<DayDivider key={`day-${day}`} iso={msg.createdAt} />);
+      lastDay = day;
+    }
+    rows.push(
+      <MessageBubble
+        key={msg.clientId || msg.id}
+        message={msg}
+        isOwn={msg.senderType === "fan"}
+        isFirstInGroup={isFirstInGroup}
+        isLastInGroup={isLastInGroup}
+        onMediaClick={(attachment) => setLightboxAttachment(attachment)}
+        onRetrySend={
+          msg.senderType === "fan" && msg.status === "FAILED"
+            ? retryLocalMessage
+            : undefined
+        }
+        onDeleteLocal={
+          msg.senderType === "fan" && msg.status === "FAILED"
+            ? () => deleteLocalMessage(msg.clientId)
+            : undefined
+        }
+      />
+    );
+  }
+  const showTyping = otherTyping && online;
+
   return (
     <main
-      className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden"
+      className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden"
       style={visualHeight !== null ? { height: `${visualHeight}px` } : undefined}
     >
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-white/10 bg-ink-900/95 px-4 backdrop-blur">
+      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-ink-900/95 px-3 backdrop-blur sm:px-4">
         <Link
           href="/chat"
-          className="mr-1 text-zinc-400 hover:text-zinc-200"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+          aria-label="Back to chats"
         >
           <svg
-            width="20"
-            height="20"
+            width="24"
+            height="24"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1341,7 +1427,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         {celebrity ? (
           <>
             {(celebrity.profileImage || celebrity.profileImageUrl) && (
-              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white/10 ring-2 ring-primary-500/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={celebrity.profileImage || celebrity.profileImageUrl}
@@ -1351,23 +1437,23 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1">
-                <span className="truncate text-sm font-semibold text-zinc-100">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-lg font-bold leading-tight text-white">
                   {celebrity.name}
                 </span>
-                {celebrity.isVerified && <VerifiedBadge />}
+                {celebrity.isVerified && <VerifiedBadge className="h-5 w-5 shrink-0" />}
               </div>
-              <p className="text-xs text-zinc-400">
+              <p className="mt-1 text-sm leading-none text-zinc-400">
                 {celebrity.chatAccountLabel ??
                   (otherTyping ? (
                     <span className="text-primary-400">typing…</span>
                   ) : online ? (
-                    <span className="flex items-center gap-1">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      online
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      Online now
                     </span>
                   ) : (
-                    "offline"
+                    "Offline"
                   ))}
               </p>
             </div>
@@ -1375,12 +1461,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           </>
         ) : (
           <>
-            <div className="h-9 w-9 shrink-0 rounded-full border border-white/10 bg-white/10" />
+            <div className="h-12 w-12 shrink-0 rounded-full border border-white/10 bg-white/10" />
             <div className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-zinc-100">
+              <span className="block truncate text-lg font-bold leading-tight text-white">
                 {metaStatus === "unavailable" ? "Conversation unavailable" : "Chat"}
               </span>
-              <span className="text-xs text-zinc-400">
+              <span className="mt-1 block text-sm leading-none text-zinc-400">
                 {metaStatus === "unavailable"
                   ? "This conversation is no longer available"
                   : !isOnline
@@ -1398,9 +1484,9 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5"
       >
-        <div className="mx-auto flex flex-col">
+        <div className="mx-auto flex w-full max-w-2xl flex-col px-1">
           {metaStatus === "unavailable" && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <p className="text-zinc-200">Conversation unavailable</p>
@@ -1418,9 +1504,9 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
           {metaStatus !== "unavailable" && (
             <>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {!isOnline && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     {messages.length > 0
                       ? "You're offline — showing saved messages"
@@ -1428,29 +1514,29 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   </div>
                 )}
                 {isOnline && !rtConnected && meta && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     Reconnecting…
                   </div>
                 )}
                 {(metaTransient || messagesFailed) && (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-300">
+                  <div className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-300">
                     <span>Couldn&apos;t refresh — showing what we have.</span>
                     <button
                       onClick={retry}
-                      className="shrink-0 text-primary-400 hover:text-primary-300"
+                      className="shrink-0 font-semibold text-primary-400 hover:text-primary-300"
                     >
                       Retry
                     </button>
                   </div>
                 )}
                 {blocked && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+                  <div className="mx-auto w-fit rounded-full bg-amber-500/10 px-3.5 py-1.5 text-xs text-amber-300">
                     You blocked this user.
                   </div>
                 )}
                 {conversation && conversation.status !== "ACTIVE" && (
-                  <div className="rounded-lg border border-white/10 bg-ink-800/90 px-3 py-1.5 text-xs text-zinc-400">
+                  <div className="mx-auto w-fit rounded-full bg-ink-800/90 px-3.5 py-1.5 text-xs text-zinc-400">
                     This conversation is not active.
                   </div>
                 )}
@@ -1460,34 +1546,18 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                 <button
                   onClick={loadOlder}
                   disabled={loadingOlder}
-                  className="mx-auto mb-4 mt-3 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
+                  className="mx-auto mb-2 mt-2 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200 disabled:opacity-50"
                 >
-                  {loadingOlder ? "Loading..." : "Load earlier messages"}
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/30" />
+                  {loadingOlder ? "Loading…" : "Load earlier messages"}
                 </button>
               )}
 
-              {groupedMessages.map(({ msg, isFirstInGroup, isLastInGroup }) => (
-                <MessageBubble
-                  key={msg.clientId || msg.id}
-                  message={msg}
-                  isOwn={msg.senderType === "fan"}
-                  isFirstInGroup={isFirstInGroup}
-                  isLastInGroup={isLastInGroup}
-                  onMediaClick={(attachment) => setLightboxAttachment(attachment)}
-                  onRetrySend={
-                    msg.senderType === "fan" && msg.status === "FAILED"
-                      ? retryLocalMessage
-                      : undefined
-                  }
-                  onDeleteLocal={
-                    msg.senderType === "fan" && msg.status === "FAILED"
-                      ? () => deleteLocalMessage(msg.clientId)
-                      : undefined
-                  }
-                />
-              ))}
+              {rows}
 
-              {messages.length === 0 && !messagesFailed && (
+              {showTyping && <TypingIndicator />}
+
+              {messages.length === 0 && !messagesFailed && !showTyping && (
                 <div className="py-16 text-center text-sm text-zinc-500">
                   No messages yet — say hello!
                 </div>
@@ -1499,7 +1569,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
+      <div className="shrink-0">
         <Composer
           conversationId={conversationId}
           onSendText={sendText}
