@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { cache } from "react";
 import { tryParseJson } from "./utils";
 import { celebrityImageFlags } from "./images";
 import { platformTotal, displayCountryCount } from "./display";
@@ -226,54 +227,63 @@ export type CelebrityDetail = CelebritySummary & {
 };
 
 /** Slugs of all active communities (used for static generation). */
-export async function listActiveCelebritySlugs(): Promise<{ slug: string }[]> {
+export const listActiveCelebritySlugs = cache(async (): Promise<{ slug: string }[]> => {
   const rows = await prisma.celebrity.findMany({
     where: { isActive: true },
     select: { slug: true },
   });
   return rows;
-}
+});
 
-/** Full data for a single celebrity community. */
-export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail | null> {
+/**
+ * Full data for a single celebrity community.
+ *
+ * Wrapped in React `cache()` so `generateMetadata` and the page body in the
+ * same request share ONE fetch instead of running the whole load twice, and
+ * all three reads run in parallel (they are independent) so a cold cache pays
+ * a single round-trip, not a 3-step waterfall.
+ */
+export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityDetail | null> => {
   // Deliberately select scalars EXCEPT the giant base64 profileImage/coverImage
   // blobs: a full-row read transferred up to ~3MB per profile render. Presence
   // is derived from the hash columns so image URLs stay exact and cacheable,
   // and the /images/... routes do the single heavy read (cached) on demand.
-  const celebrity = await prisma.celebrity.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      category: true,
-      country: true,
-      city: true,
-      profession: true,
-      bio: true,
-      googleInfo: true,
-      accentColor: true,
-      isFeatured: true,
-      isActive: true,
-      isVerified: true,
-      displayFanCount: true,
-      createdAt: true,
-      instagramFollowers: true,
-      tiktokFollowers: true,
-      facebookFollowers: true,
-      facebookUrl: true,
-      instagramUrl: true,
-      tiktokUrl: true,
-      googleUrl: true,
-      socialLinks: true,
-      cardDesign: true,
-      memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
-    },
-  });
+  const [celebrity, totalCountries, flags] = await Promise.all([
+    prisma.celebrity.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        category: true,
+        country: true,
+        city: true,
+        profession: true,
+        bio: true,
+        googleInfo: true,
+        accentColor: true,
+        isFeatured: true,
+        isActive: true,
+        isVerified: true,
+        displayFanCount: true,
+        createdAt: true,
+        instagramFollowers: true,
+        tiktokFollowers: true,
+        facebookFollowers: true,
+        facebookUrl: true,
+        instagramUrl: true,
+        tiktokUrl: true,
+        googleUrl: true,
+        socialLinks: true,
+        cardDesign: true,
+        memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
+      },
+    }),
+    platformCountryTotal(),
+    celebrityImageFlags(),
+  ]);
   if (!celebrity) return null;
 
-  const totalCountries = await platformCountryTotal();
-  const flags = await celebrityImageFlags();
   const hasProfile = flags.get(celebrity.slug)?.hasProfile ?? false;
   const hasCover = flags.get(celebrity.slug)?.hasCover ?? false;
 
@@ -321,7 +331,7 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
       isActive: m.isActive,
     })),
   };
-}
+});
 
 /** Get a single fan card with celebrity + fan + level, for public views. */
 export async function getFanCardByNumber(fanNumber: string) {
