@@ -8,6 +8,7 @@ import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/ch
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { maybeAutoReply } from "@/lib/chat/autoReply";
+import { rememberAsync } from "@/lib/ai/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -206,6 +207,8 @@ export async function POST(request: Request, { params }: Ctx) {
   // The celebrity's always-on AI replies on its own when a fan messages.
   // Fire-and-forget — a slow reply must never delay the fan's message landing.
   if (actor.type === "fan" && ["text", "voice", "image", "video"].includes(type)) {
+    // Remember what matters about this fan so the AI builds on past chats.
+    rememberAsync({ conversationId, latestFanText: type === "text" ? text : `[sent ${type}]` });
     void maybeAutoReply(conversationId).catch((err) => console.error("[autoReply] trigger failed:", err));
   }
 

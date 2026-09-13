@@ -293,6 +293,11 @@ model ChatConversation {
   lastMessagePreview String?
   lastMessageAt      DateTime?
   lastMessageSender  String?   // "fan" | "team" | "system"
+  // The AI assistant's running memory of this fan and their chats together
+  // (hopes, money situation, family, favorite things, promises made, love talk,
+  // plans). Never fan emails/phones/payment — only what is talked about in the
+  // chat, so replies can remember and naturally build on past conversations.
+  aiMemory           String    @default("")
   fan                Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
   celebrity          Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
   messages           ChatMessage[]
