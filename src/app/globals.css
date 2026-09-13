@@ -200,9 +200,117 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .welcome-glow,
   .welcome-exit,
-  .typing-dot {
+  .typing-dot,
+  .app-splash-logo,
+  .app-splash-ring,
+  .app-splash-exit,
+  .app-screen-in,
+  .welcome-leave,
+  .welcome-sheet-in {
     animation: none !important;
   }
+}
+
+/* ============ App launch: splash + auth screens ============ */
+.app-splash-logo {
+  animation: appSplashLogo 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+@keyframes appSplashLogo {
+  from {
+    opacity: 0;
+    transform: scale(0.86) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.app-splash-ring {
+  animation: appSplashRing 1.15s ease-out forwards;
+}
+@keyframes appSplashRing {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.14);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.app-splash-exit {
+  animation: appSplashExit 0.42s ease forwards;
+}
+@keyframes appSplashExit {
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+.app-screen-in {
+  animation: appScreenIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes appScreenIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-screen-fade {
+  animation: appScreenFade 0.4s ease forwards;
+}
+@keyframes appScreenFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.welcome-leave {
+  animation: welcomeLeave 0.42s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes welcomeLeave {
+  to {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.985);
+  }
+}
+
+.welcome-sheet-in {
+  animation: welcomeSheetIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes welcomeSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #13141b inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 /* Custom scrollbar */

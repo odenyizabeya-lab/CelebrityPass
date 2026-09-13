@@ -62,6 +62,28 @@ export default function DownloadPage() {
           </li>
         </ul>
       </section>
+
+      <section className="mt-12 overflow-hidden rounded-3xl border border-primary-500/20 bg-gradient-to-br from-primary-600/20 via-ink-800 to-ink-900 p-8 text-center">
+        <h2 className="text-2xl font-black tracking-tight text-white">Ready to join?</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-zinc-300">
+          Create a free account in under a minute and unlock official fan communities, your digital fan card, and VIP
+          experiences.
+        </p>
+        <div className="mx-auto mt-6 flex max-w-sm flex-col gap-3">
+          <Link
+            href="/register"
+            className="btn-grad rounded-2xl py-3.5 text-sm font-bold text-white shadow-xl shadow-primary-600/25"
+          >
+            Create Account
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-2xl py-3 text-sm font-semibold text-zinc-200 ring-1 ring-white/15 transition hover:bg-white/5 hover:text-white"
+          >
+            Log In
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,9 +1,24 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { fetchWithTimeout } from "@/lib/client-http";
+import AuthScreen from "@/components/auth/AuthScreen";
+import AuthField from "@/components/auth/AuthField";
+import {
+  MailIcon,
+  LockIcon,
+  UserIcon,
+  GlobeIcon,
+  EyeIcon,
+  EyeOffIcon,
+  AlertIcon,
+  Spinner,
+  ArrowLeftIcon,
+} from "@/components/auth/AuthIcons";
+import { appErrorBannerClass, appScreenLinkClass, appPrimaryButtonClass } from "@/components/auth/authStyles";
 
 export default function RegisterForm() {
   const { t } = useLanguage();
@@ -18,6 +33,7 @@ export default function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,76 +78,117 @@ export default function RegisterForm() {
   };
 
   return (
-    <form onSubmit={submit} className="glass mx-auto max-w-md rounded-3xl p-8">
-      <h1 className="text-2xl font-black tracking-tight">{t("auth.registerTitle")}</h1>
-      <p className="mt-1 text-sm text-zinc-400">{t("auth.registerSub")}</p>
+    <AuthScreen
+      footer={
+        <>
+          <p className="text-sm text-zinc-500">
+            {t("auth.hasAccount")}{" "}
+            <a href={`/login${nextQuery}`} className={appScreenLinkClass}>
+              {t("auth.signIn")}
+            </a>
+          </p>
+          <p className="text-[11px] leading-relaxed text-zinc-600">
+            {t("auth.agree")}{" "}
+            <a href="/legal/terms" className="text-zinc-500 underline transition hover:text-zinc-300">
+              {t("auth.termsLink")}
+            </a>{" "}
+            {t("auth.and")}{" "}
+            <a href="/legal/privacy" className="text-zinc-500 underline transition hover:text-zinc-300">
+              {t("auth.privacyLink")}
+            </a>.
+          </p>
+        </>
+      }
+    >
+      <div className="app-screen-in">
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-white"
+        >
+          <ArrowLeftIcon />
+          Back
+        </Link>
 
-      {error && (
-        <div className="mt-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-          {error}
-        </div>
-      )}
+        <h1 className="text-3xl font-black tracking-tight sm:text-[2rem]">{t("auth.registerTitle")}</h1>
+        <p className="mt-1.5 text-[15px] text-zinc-400">{t("auth.registerSub")}</p>
 
-      <div className="mt-6 space-y-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.name")}</label>
-          <input
-            required
+        {error && (
+          <div role="alert" className={appErrorBannerClass}>
+            <span className="mt-0.5 shrink-0"><AlertIcon /></span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={submit} className="mt-7 space-y-5" noValidate>
+          <AuthField
+            id="reg-name"
+            label={t("auth.name")}
+            icon={<UserIcon />}
+            autoComplete="given-name"
+            placeholder={t("auth.nameYour")}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.nameYour")}
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.email")}</label>
-          <input
             required
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.emailPlaceholder")}
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.password")}</label>
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.passwordShort")}
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.country")}</label>
-          <input
+          <AuthField
+            id="reg-country"
+            label={t("auth.country")}
+            icon={<GlobeIcon />}
+            autoComplete="country-name"
+            placeholder={t("auth.countryYour")}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.countryYour")}
           />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-grad w-full rounded-full py-3 text-sm font-bold text-white disabled:opacity-60"
-        >
-          {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
-        </button>
-      </div>
+          <AuthField
+            id="reg-email"
+            label={t("auth.email")}
+            icon={<MailIcon />}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder={t("auth.emailPlaceholder")}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <AuthField
+            id="reg-password"
+            label={t("auth.password")}
+            icon={<LockIcon />}
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            placeholder={t("auth.passwordShort")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            after={
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="grid h-10 w-10 place-items-center rounded-xl text-zinc-400 transition hover:text-white"
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            }
+          />
 
-      <p className="mt-5 text-center text-xs text-zinc-500">
-        {t("auth.hasAccount")}{" "}
-        <a href={`/login${nextQuery}`} className="text-primary-400 hover:text-primary-300">{t("auth.signIn")}</a>
-      </p>
-      <p className="mt-3 text-center text-xs text-zinc-600">
-        {t("auth.agree")}{" "}
-        <a href="/legal/terms" className="text-zinc-500 underline">{t("auth.termsLink")}</a> {t("auth.and")}{" "}
-        <a href="/legal/privacy" className="text-zinc-500 underline">{t("auth.privacyLink")}</a>.
-      </p>
-    </form>
+          <button
+            type="submit"
+            disabled={loading}
+            className={appPrimaryButtonClass}
+          >
+            {loading ? (
+              <>
+                <Spinner />
+                {t("auth.creatingAccount")}
+              </>
+            ) : (
+              t("auth.createAccount")
+            )}
+          </button>
+        </form>
+      </div>
+    </AuthScreen>
   );
 }

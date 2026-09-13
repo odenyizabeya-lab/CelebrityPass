@@ -4,6 +4,15 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { fetchWithTimeout } from "@/lib/client-http";
+import AuthScreen from "@/components/auth/AuthScreen";
+import AuthField from "@/components/auth/AuthField";
+import { UserIcon, GlobeIcon, AlertIcon, Spinner, ArrowLeftIcon } from "@/components/auth/AuthIcons";
+import {
+  appScreenLinkClass,
+  appPrimaryButtonClass,
+  appErrorBannerClass,
+  appSuccessBannerClass,
+} from "@/components/auth/authStyles";
 
 export default function ForgotEmailForm() {
   const { t } = useLanguage();
@@ -40,55 +49,70 @@ export default function ForgotEmailForm() {
   };
 
   return (
-    <form onSubmit={submit} className="glass mx-auto max-w-md rounded-3xl p-8">
-      <h1 className="text-2xl font-black tracking-tight">{t("auth.forgotEmailTitle")}</h1>
-      <p className="mt-1 text-sm text-zinc-400">{t("auth.forgotEmailSub")}</p>
+    <AuthScreen
+      footer={
+        <p className="text-sm text-zinc-500">
+          <a href={`/login?next=${encodeURIComponent(safeNext)}`} className={appScreenLinkClass}>
+            {t("auth.forgotEmailBack")}
+          </a>
+        </p>
+      }
+    >
+      <div className="app-screen-in">
+        <a
+          href="/login"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-white"
+        >
+          <ArrowLeftIcon />
+          Back
+        </a>
+        <h1 className="text-3xl font-black tracking-tight sm:text-[2rem]">{t("auth.forgotEmailTitle")}</h1>
+        <p className="mt-1.5 text-[15px] text-zinc-400">{t("auth.forgotEmailSub")}</p>
 
-      <div className="mt-6 space-y-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.forgotEmailName")}</label>
-          <input
-            required
+        {status === "found" && (
+          <div role="status" className={`${appSuccessBannerClass} mt-6`}>
+            {t("auth.forgotEmailFound", { email: maskedEmail })}
+          </div>
+        )}
+        {status === "none" && (
+          <div role="alert" className={`${appErrorBannerClass} mt-6`}>
+            <span className="mt-0.5 shrink-0"><AlertIcon /></span>
+            <span>{t("auth.forgotEmailNotFound")}</span>
+          </div>
+        )}
+
+        <form onSubmit={submit} className="mt-7 space-y-5" noValidate>
+          <AuthField
+            id="forgot-name"
+            label={t("auth.forgotEmailName")}
+            icon={<UserIcon />}
+            autoComplete="given-name"
+            placeholder={t("auth.forgotEmailName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.forgotEmailName")}
+            required
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("auth.country")}</label>
-          <input
+          <AuthField
+            id="forgot-country"
+            label={t("auth.country")}
+            icon={<GlobeIcon />}
+            autoComplete="country-name"
+            placeholder={t("auth.countryYour")}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="field-cp"
-            placeholder={t("auth.countryYour")}
           />
-        </div>
-        <button
-          type="submit"
-          disabled={status === "loading"}
-          className="btn-grad w-full rounded-full py-3 text-sm font-bold text-white disabled:opacity-60"
-        >
-          {status === "loading" ? t("auth.forgotEmailChecking") : t("auth.forgotEmailSubmit")}
-        </button>
+          <button type="submit" disabled={status === "loading"} className={appPrimaryButtonClass}>
+            {status === "loading" ? (
+              <>
+                <Spinner />
+                {t("auth.forgotEmailChecking")}
+              </>
+            ) : (
+              t("auth.forgotEmailSubmit")
+            )}
+          </button>
+        </form>
       </div>
-
-      {status === "found" && (
-        <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          {t("auth.forgotEmailFound", { email: maskedEmail })}
-        </div>
-      )}
-      {status === "none" && (
-        <div className="mt-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-          {t("auth.forgotEmailNotFound")}
-        </div>
-      )}
-
-      <p className="mt-5 text-center text-xs text-zinc-500">
-        <a href={`/login?next=${encodeURIComponent(safeNext)}`} className="text-primary-400 hover:text-primary-300">
-          {t("auth.forgotEmailBack")}
-        </a>
-      </p>
-    </form>
+    </AuthScreen>
   );
 }
