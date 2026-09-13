@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getAssistantConfig } from "@/lib/ai/assistantConfig";
+import type { GoogleInfo } from "@/lib/google-info";
 
 /**
  * AI Reply Assistant — its OWN Gemini system, fully separate from the scanner.
@@ -40,7 +41,7 @@ export type SuggestionResult = {
 };
 
 const MAX_HISTORY = 12;
-const MAX_AUTO_HISTORY = 16;
+const MAX_AUTO_HISTORY = 24;
 const MAX_BODY_CHARS = 600;
 const MAX_OUTPUT_CHARS = 2000;
 const STYLE_PRESETS = [
@@ -61,6 +62,78 @@ export function stylePresets(): readonly string[] {
 function shorten(text: string): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length > MAX_BODY_CHARS ? `${t.slice(0, MAX_BODY_CHARS)}…` : t;
+}
+
+/** Current age from an ISO birthdate, or null when unparseable. */
+function ageFromIso(iso: string): number | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+/**
+ * Build the verified, sourced public-knowledge block for a celebrity from the
+ * site's own records: profile fields plus the cached Wikipedia/Wikidata
+ * knowledge panel (googleInfo). Everything here is real, attributed data — the
+ * AI is told to treat ONLY this plus well-known public facts as true and to say
+ * "I don't know" / deflect rather than ever fabricate anything.
+ */
+function buildCelebrityFacts(c: {
+  name: string;
+  category: string;
+  country: string;
+  city: string | null;
+  profession: string;
+  bio: string | null;
+  googleInfo: string | null;
+  chatAiStyle: string | null;
+}): string {
+  const facts: string[] = [];
+  facts.push(`Name: ${c.name}.`);
+  if (c.category) facts.push(`Category: ${c.category}.`);
+  if (c.profession) facts.push(`Profession: ${c.profession}.`);
+  const loc = [c.country, c.city].filter(Boolean).join(", ");
+  if (loc) facts.push(`Publicly reported country/location: ${loc}.`);
+  if (c.bio) facts.push(`Bio: ${shorten(c.bio)}.`);
+
+  let panel: GoogleInfo | null = null;
+  try {
+    if (c.googleInfo) panel = JSON.parse(c.googleInfo) as GoogleInfo;
+  } catch {
+    panel = null;
+  }
+
+  if (panel && panel.source === "wikipedia/wikidata") {
+    if (panel.description) facts.push(`Public summary: ${panel.description}.`);
+    if (panel.born?.display) {
+      const age = panel.born.iso ? ageFromIso(panel.born.iso) : null;
+      facts.push(
+        `Date of birth (public record): ${panel.born.display}${age != null ? ` — ${age} years old now` : ""}.`
+      );
+    }
+    if (panel.occupations?.length) {
+      facts.push(`Careers: ${panel.occupations.slice(0, 5).join(", ")}.`);
+    }
+    if (panel.films?.length) {
+      facts.push(`Well-known films/works: ${panel.films.slice(0, 8).join(", ")}.`);
+    }
+    if (panel.overview) {
+      facts.push(`Public overview: ${shorten(panel.overview)}.`);
+    }
+    if (panel.works?.length) {
+      facts.push(
+        `Notable works: ${panel.works
+          .slice(0, 6)
+          .map((w) => (w.year ? `${w.title} (${w.year})` : w.title))
+          .join(", ")}.`
+      );
+    }
+  }
+  return facts.join("\n");
 }
 
 /** Strip wrapping quotes/markdown bullets and collapse to a single line. */
@@ -87,7 +160,15 @@ async function geminiComplete(system: string, user: string): Promise<string> {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+          // This model thinks before replying; that reasoning previously ate the
+          // whole 200-token budget and truncated replies to fragments. Cap the
+          // thinking budget (keeps it fast) and leave plenty of headroom for the
+          // actual message.
+          thinkingConfig: { thinkingBudget: 256 },
+        },
       }),
       signal: ctrl.signal,
     });
@@ -132,31 +213,48 @@ function fallbackReply(ctx: {
   const { lastFanMessage } = ctx;
   const name = fanFirstNameTrim(ctx.fanFirstName);
   const intent = detectIntent(lastFanMessage ?? "");
+  const msg = lastFanMessage ?? "";
 
-  const replies: Record<string, string> = {
-    greeting: `Hey ${name}!! So glad you found your way here — stick around, there's lots of good stuff coming.`,
-    thanks: `Aw ${name}, thank you! That honestly means so much to me.`,
-    praise: `${name}, that means the world to me — seriously, thank you!`,
-    question: `Great question, ${name}! I'll get you a proper answer as soon as I can.`,
-    support: `Sending you love, ${name}. Knowing you're here for me like this? Means everything.`,
-    general: `${name}, thank you for the message — it genuinely made my day!`,
-  };
+  // Deterministic per-message variation so repeated fallback sends don't come
+  // out word-for-word identical.
+  let seed = 0;
+  for (let i = 0; i < msg.length; i += 1) seed = (seed * 31 + msg.charCodeAt(i)) >>> 0;
+  const pick = <T,>(arr: T[]): T => arr[seed % arr.length];
 
+  const greeting = pick([
+    `Hey ${name}!! So glad you found your way here — stick around, there's lots of good stuff coming.`,
+    `Hey ${name}! Welcome in — this made me smile, thank you for being here.`,
+  ]);
+  const thanks = pick([
+    `Aw ${name}, thank you — that honestly means so much to me.`,
+    `That's really kind of you, ${name}. It means more than you know.`,
+  ]);
+  const praise = pick([
+    `${name}, that means the world to me — seriously, thank you!`,
+    `Reading that honestly made my day, ${name}. Thank you.`,
+  ]);
+  const question = pick([
+    `Great question, ${name}! I'll get you a proper answer as soon as I can.`,
+    `That's a good one, ${name} — let me get you a real answer rather than a guess.`,
+  ]);
+  const support = pick([
+    `Sending you love, ${name}. Knowing you're here for me like this means everything.`,
+    `I'm grateful you opened up, ${name}. I'm here — you're not alone in this.`,
+  ]);
+  const general = pick([
+    `${name}, thank you for the message — it genuinely made my day!`,
+    `Really glad you reached out, ${name}. That means a lot.`,
+  ]);
+
+  const replies: Record<string, string> = { greeting, thanks, praise, question, support, general };
   const playful = (ctx.style ?? "").toLowerCase().includes("playful");
   const polished = (ctx.style ?? "").toLowerCase().includes("professional");
   let reply = replies[intent];
 
   if (polished) {
-    reply = `${replies[intent]} I really appreciate you reaching out.`;
-  } else if (playful) {
-    const fun = `${replies[intent]} You're the best, keep being you!`;
-    if (detectIntent(lastFanMessage ?? "") === "greeting") {
-      reply = `Hey ${name}!! Welcome — you fit right in around here.`;
-    } else {
-      reply = fun;
-    }
-  } else if (detectIntent(lastFanMessage ?? "") === "greeting" && intent !== "greeting") {
-    reply = replies[intent];
+    reply = `${reply} I really appreciate you reaching out.`;
+  } else if (playful && intent !== "greeting") {
+    reply = `${reply} You're the best, keep being you!`;
   }
 
   return clean(reply);
@@ -171,7 +269,16 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     where: { id: conversationId },
     select: {
       celebrity: {
-        select: { name: true, profession: true, country: true, bio: true, chatAiStyle: true },
+        select: {
+          name: true,
+          category: true,
+          profession: true,
+          country: true,
+          city: true,
+          bio: true,
+          googleInfo: true,
+          chatAiStyle: true,
+        },
       },
       fan: { select: { name: true } },
     },
@@ -203,8 +310,8 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "You write short chat messages for a celebrity community on CelebrityPass.",
     "You draft a message FROM the celebrity to one of their fans, in the celebrity's own voice — exactly as if the celebrity personally sat down and texted them back.",
     "The celebrity reviews and approves the message before it is sent, so it is safe to write in their voice.",
-    `The celebrity is ${celebrity.name}, a ${celebrity.profession} from ${celebrity.country}.`,
-    celebrity.bio ? `Short bio: ${shorten(celebrity.bio)}.` : null,
+    "Verified public facts about the celebrity (from the site's sourced records — Wikipedia/Wikidata and admin profile):",
+    buildCelebrityFacts(celebrity),
     `Signature style to write in: ${finalStyle}.`,
   ]
     .filter(Boolean)
@@ -217,9 +324,11 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "Never let on that anything assisted with the message — no mention of drafts, tools, automation, reviews, or anyone else helping.",
     "No form-letter phrases (I hope this message finds you well, Thank you for your inquiry, etc.), no bullet points, no headings.",
     "Reply to what the fan actually said — their greeting, compliment, question or message.",
+    "Use the conversation history: follow up naturally on what was said earlier in this chat, remember what you already told the fan, and never repeat the same phrasing you already used.",
     "Use the fan's first name at most once, naturally and only when it fits.",
     "Keep it short and human: typically 1-3 short sentences. Vary how replies start so nothing sounds templated or repetitive.",
-    "Never invent facts, meetings, gifts, events, dates, promises, or commitments.",
+    "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
+    "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
     "Never mention the fan's email, phone, address, payment or other private details.",
     "No emoji unless the style calls for it and it lands naturally.",
     "Output ONLY the reply text. No quotes, no labels, no preamble.",
@@ -270,7 +379,16 @@ export async function composeAutoReply(conversationId: string): Promise<{
     where: { id: conversationId },
     select: {
       celebrity: {
-        select: { name: true, profession: true, country: true, bio: true, chatAiStyle: true },
+        select: {
+          name: true,
+          category: true,
+          profession: true,
+          country: true,
+          city: true,
+          bio: true,
+          googleInfo: true,
+          chatAiStyle: true,
+        },
       },
       fan: { select: { name: true } },
     },
@@ -302,8 +420,8 @@ export async function composeAutoReply(conversationId: string): Promise<{
           .join("\n");
 
   const systemInstruction = [
-    `The celebrity is ${celebrity.name}, a ${celebrity.profession} from ${celebrity.country}.`,
-    celebrity.bio ? `Short bio: ${shorten(celebrity.bio)}.` : null,
+    "Verified public facts about the celebrity (from the site's sourced records — Wikipedia/Wikidata and admin profile):",
+    buildCelebrityFacts(celebrity),
     `In this private chat with a fan, the celebrity's natural style is: ${style}.`,
   ]
     .filter(Boolean)
@@ -317,10 +435,12 @@ export async function composeAutoReply(conversationId: string): Promise<{
     "Never present yourself as an assistant, AI, system, bot, program, or anyone helping the celebrity. Always just the celebrity, first person.",
     "React to what the fan actually said and keep the conversation alive like two people who care about each other: respond warmly, sometimes share a brief personal thought, and occasionally ask one light question back — never a string of questions.",
     "Match their energy — be loving and happy in a close-friend, partner-like tone, without being scripted or over the top.",
+    "Use the conversation history: follow up naturally on what was said earlier in this chat, remember what you already told the fan, and never repeat the same phrasing you already used.",
     "If the fan signals they are busy, tired, leaving, will reply later, or is ending the chat: acknowledge it warmly in one or two short lines, reassure them you will be right here whenever they are back, and let them go naturally. Never push them to keep talking or sound disappointed.",
     "No form-letter phrases, no opening formulas, no tagline, no sign-off name, no bullet points.",
     "Typically 1-3 short sentences. Vary how you start so nothing sounds templated.",
-    "Never invent facts, plans, meetings, gifts, events, dates, or promises. If you don't know something, say so honestly and naturally.",
+    "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
+    "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
     "Never mention the fan's email, phone, address, payment or other private details.",
     "Few or no emoji — only where it lands naturally.",
     "Output ONLY the message text you send. No quotes, no labels, no preamble.",
