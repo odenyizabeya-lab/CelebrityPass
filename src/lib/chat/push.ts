@@ -27,7 +27,7 @@ export function vapidSupported(): boolean {
 // Invalid/expired subscriptions (410 Gone / 404 Not Found) are pruned.
 export async function notifyFanPush(
   fanId: string,
-  payload: { title: string; body: string; url: string }
+  payload: { title: string; body: string; url: string; conversationId?: string }
 ): Promise<number> {
   if (!ensureVapidConfigured()) return 0;
 
@@ -87,5 +87,6 @@ export async function notifyFanOnTeamMessage(input: {
     title: input.celebrityName,
     body: input.preview,
     url: `/chat/${input.conversationId}`,
+    conversationId: input.conversationId,
   });
 }
