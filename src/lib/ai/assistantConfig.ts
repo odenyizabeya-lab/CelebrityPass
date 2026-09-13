@@ -23,8 +23,13 @@ import {
 export const ASSIST_SETTING_KEY = "assistant.gemini.key";
 export const ASSIST_SETTING_MODEL = "assistant.gemini.model";
 export const ASSIST_SETTING_BASE_URL = "assistant.gemini.base_url";
-export const ASSISTANT_DEFAULT_MODEL = "gemini-2.5-flash";
+export const ASSISTANT_DEFAULT_MODEL = "gemini-3.6-flash";
 export const ASSISTANT_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+
+const DEPRECATED_ASSISTANT_MODELS: Record<string, string> = {
+  "gemini-2.5-flash": "gemini-3.6-flash",
+  "gemini-2.0-flash": "gemini-3.6-flash",
+};
 
 async function getSetting(key: string): Promise<string> {
   try {
@@ -71,9 +76,17 @@ export async function getAssistantConfig(): Promise<AssistantConfig> {
     if (key && !storedKey.startsWith("enc1.") && decryptionKey()) {
       await setSetting(ASSIST_SETTING_KEY, encryptStoredKey(key));
     }
+    let model = (storedModel || envModel || ASSISTANT_DEFAULT_MODEL).trim();
+    const migrated = DEPRECATED_ASSISTANT_MODELS[model];
+    if (migrated && storedModel) {
+      model = migrated;
+      await setSetting(ASSIST_SETTING_MODEL, migrated);
+    } else if (migrated) {
+      model = migrated;
+    }
     return {
       key: key || envKey,
-      model: (storedModel || envModel || ASSISTANT_DEFAULT_MODEL).trim(),
+      model,
       baseUrl: ((storedBase || envBase || ASSISTANT_DEFAULT_BASE_URL).trim()).replace(/\/+$/, ""),
       keySource: key ? "db" : envKey ? "env" : "",
       modelSource: storedModel ? "db" : envModel ? "env" : "",
@@ -82,7 +95,7 @@ export async function getAssistantConfig(): Promise<AssistantConfig> {
   } catch {
     return {
       key: envKey,
-      model: envModel || ASSISTANT_DEFAULT_MODEL,
+      model: DEPRECATED_ASSISTANT_MODELS[envModel] || envModel || ASSISTANT_DEFAULT_MODEL,
       baseUrl: (envBase || ASSISTANT_DEFAULT_BASE_URL).replace(/\/+$/, ""),
       keySource: envKey ? "env" : "",
       modelSource: envModel ? "env" : "",

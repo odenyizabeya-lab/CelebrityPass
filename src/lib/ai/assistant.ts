@@ -14,7 +14,7 @@ import { getAssistantConfig } from "@/lib/ai/assistantConfig";
  *   Admin → AI Settings → "AI Reply Assistant" card   (database, swap any time
  *                                                      without redeploying)
  *   ASSIST_GEMINI_KEY        env fallback          (required for live replies)
- *   ASSIST_GEMINI_MODEL      env fallback, becomes "{ASSISTANT_DEFAULT_MODEL}"
+ *   ASSIST_GEMINI_MODEL      env fallback, default "gemini-3.6-flash"
  *   ASSIST_GEMINI_BASE_URL   env fallback, default
  *                            https://generativelanguage.googleapis.com/v1beta
  *
