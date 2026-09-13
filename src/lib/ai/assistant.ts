@@ -297,6 +297,71 @@ function fanFirstNameTrim(fanFirstName: string | null): string {
   return fanFirstName ?? "friend";
 }
 
+/**
+ * Instant opener replies — the "make replies fast" path.
+ *
+ * Short greetings / "how are you" small talk is the most common fan first
+ * message, and fans feel the wait when it goes to the model. So when the newest
+ * fan message is a short, plain opener we answer immediately from a small pool
+ * of warm, natural templates in the fan's language — no provider round trip, a
+ * reply lands in a couple hundred milliseconds. Real questions and anything
+ * with substance still go to the model. Only languages we can write natively
+ * without mistakes get templates; anything uncertain falls through to Gemini.
+ */
+function quickOpenerReply(t: string, fanName: string | null): string | null {
+  const s = t
+    .toLowerCase()
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{27FF}\p{P}]/gu, "")
+    .trim();
+  if (!s || s.split(/\s+/).length > 10) return null;
+
+  const intent = detectIntent(s);
+  if (intent === "scam" || intent === "membership" || intent === "married") return null;
+
+  let lang: string | null = null;
+  if (/[\u0600-\u06FF]/.test(s) && /^(السلام|مرحبا|اهلين|هلا|كيف)/.test(s)) lang = "ar";
+  else if (/^(you dey|how far|wetin dey|how you dey|how dey|oya|na you|i dey|e dey|my guy|my oga|baba)/.test(s)) lang = "pi";
+  else if (/^(mambo|vipi|habari|jambo|ujambo|sasa|sema|niko poa|poa|fiti)/.test(s)) lang = "sw";
+  else if (/^(bonjour|salut|bonsoir|comment (ça|ca) va|ca va)/.test(s)) lang = "fr";
+  else if (/^(hola|hello|que tal|buenas)/.test(s)) lang = "es";
+  else if (/^(hi|hello|hey|hiya|howdy|yo|good ?(morning|afternoon|evening|night)|how are (you|u|ya)|how ?s (it )?(going|everything)|how (you |are you )?(doing|dey)|sup|wassup|what ?s up|what up|greetings|long time)/.test(s)) lang = "en";
+  if (!lang) return null;
+
+  const pools: Record<string, string[]> = {
+    en: [
+      "Hey {N}! I'm good, thank you — and you?",
+      "Hey {N}! All good on my side. Great to hear from you!",
+      "{N}! I'm doing well, thanks for checking in. How are you?",
+    ],
+    pi: [
+      "I dey o {N}. You dey how?",
+      "Ah {N}, I dey fine o. Na you?",
+      "Oya {N}, I dey o. Wetin dey happen?",
+    ],
+    sw: [
+      "Niko poa {N}, wewe vipi?",
+      "Habari yako {N}? Mimi niko sawa.",
+      "{N}! Vipi mambo? Mimi niko fiti.",
+    ],
+    fr: [
+      "Salut {N} ! Ça va bien, merci — et toi ?",
+      "{N} ! Tout va bien de mon côté. Et toi, comment ça va ?",
+    ],
+    ar: [
+      "أهلاً {N}، أنا بخير، وأنت كيف؟",
+      "{N}! أهلاً بيك. كيف حالك اليوم؟",
+    ],
+  };
+  const pool = pools[lang];
+  if (!pool) return null;
+
+  const name =
+    fanName?.trim() || (lang === "pi" ? "my friend" : lang === "sw" ? "rafiki" : lang === "fr" ? "toi" : lang === "ar" ? "حبيبي" : "friend");
+  let seed = 0;
+  for (let i = 0; i < s.length; i += 1) seed = (seed * 31 + s.charCodeAt(i)) >>> 0;
+  return clean(pool[seed % pool.length].replace("{N}", name));
+}
+
 export async function suggestReply(conversationId: string): Promise<SuggestionResult> {
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
@@ -412,7 +477,7 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
  */
 export async function composeAutoReply(conversationId: string): Promise<{
   text: string;
-  provider: "gemini" | "fallback";
+  provider: "gemini" | "quick" | "fallback";
   configured: boolean;
 }> {
   const conversation = await prisma.chatConversation.findUnique({
@@ -436,6 +501,24 @@ export async function composeAutoReply(conversationId: string): Promise<{
   if (!conversation) throw new Error("Conversation not found");
   const { celebrity, fan } = conversation;
 
+  const fanFirstName = fan.name.trim().split(/\s+/)[0] || "friend";
+  const style = celebrity.chatAiStyle?.trim() || DEFAULT_AI_STYLE;
+
+  // Fast path: a short plain opener ("hey", "how are you"…) is answered
+  // instantly in the fan's language — no provider round trip.
+  const newest = await prisma.chatMessage.findFirst({
+    where: { conversationId, deletedAt: null },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { type: true, body: true },
+  });
+  if (newest?.type === "text") {
+    const quick = quickOpenerReply(newest.body, fanFirstName);
+    if (quick) {
+      const cfg = await getAssistantConfig();
+      return { text: quick, provider: "quick", configured: Boolean(cfg.key) };
+    }
+  }
+
   const raw = await prisma.chatMessage.findMany({
     where: { conversationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
@@ -444,9 +527,6 @@ export async function composeAutoReply(conversationId: string): Promise<{
   });
   const messages = raw.slice().reverse();
   const latestFan = [...messages].reverse().find((m) => m.senderType === "fan");
-
-  const fanFirstName = fan.name.trim().split(/\s+/)[0] || "friend";
-  const style = celebrity.chatAiStyle?.trim() || DEFAULT_AI_STYLE;
 
   const history =
     messages.length === 0
