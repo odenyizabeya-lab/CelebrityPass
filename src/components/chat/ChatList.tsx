@@ -142,7 +142,7 @@ export default function ChatList({
               className="flex items-center gap-3 rounded-2xl px-4 py-3 transition hover:bg-white/5"
             >
               <div className="relative shrink-0">
-                <div className="grid h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-primary-600 to-accent-500 ring-1 ring-white/10">
+                <div className="grid h-14 w-14 overflow-hidden rounded-full bg-gradient-to-br from-primary-600 to-accent-500 ring-2 ring-white/10">
                   {c.celebrity.profileImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -151,20 +151,18 @@ export default function ChatList({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-sm font-bold text-white">
+                    <span className="grid h-full w-full place-items-center text-base font-bold text-white">
                       {c.celebrity.name.charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                {c.celebrity.online && (
-                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-ink-900" />
-                )}
+                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-ink-900" />
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p
-                    className={`truncate text-sm ${
+                    className={`truncate text-base ${
                       c.unread > 0 ? "font-bold text-white" : "font-medium text-zinc-200"
                     }`}
                   >
@@ -176,7 +174,7 @@ export default function ChatList({
                 </div>
                 <div className="mt-0.5 flex items-center justify-between gap-2">
                   <p
-                    className={`truncate text-xs ${
+                    className={`truncate text-sm ${
                       c.unread > 0 ? "text-zinc-300" : "text-zinc-500"
                     }`}
                   >

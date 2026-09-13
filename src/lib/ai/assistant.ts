@@ -162,12 +162,11 @@ async function geminiComplete(system: string, user: string): Promise<string> {
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 512,
           // This model thinks before replying; that reasoning previously ate the
           // whole 200-token budget and truncated replies to fragments. Cap the
-          // thinking budget (keeps it fast) and leave plenty of headroom for the
-          // actual message.
-          thinkingConfig: { thinkingBudget: 256 },
+          // thinking budget low (keeps replies fast) with room for the message.
+          thinkingConfig: { thinkingBudget: 128 },
         },
       }),
       signal: ctrl.signal,

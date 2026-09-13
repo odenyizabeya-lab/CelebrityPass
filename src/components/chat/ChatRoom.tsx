@@ -545,8 +545,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [messagesFailed, setMessagesFailed] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [retryTick, setRetryTick] = useState(0);
-  const [online, setOnline] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [premiumUnlocked, setPremiumUnlocked] = useState(false);
   const [lightboxAttachment, setLightboxAttachment] = useState<LightboxAttachment | null>(null);
@@ -584,7 +584,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     if (cachedMeta) {
       setMeta(cachedMeta);
       setMetaStatus("ready");
-      setOnline(cachedMeta.celebrity?.online ?? false);
       setPremiumUnlocked(true);
     }
     const cachedMessages = readMessagesCache(conversationId);
@@ -785,7 +784,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         setMeta(data);
         setMetaStatus("ready");
         setMetaTransient(false);
-        setOnline(Boolean(data.celebrity?.online));
         setPremiumUnlocked(Boolean(data.premium?.unlocked ?? true));
         setBlocked(false);
         // Persist so the NEXT open (incl. offline) renders instantly.
@@ -926,9 +924,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
             : m
         )
       );
-    },
-    onPresence: (online: boolean) => {
-      setOnline(online);
     },
     onTyping: () => {
       setOtherTyping(true);
@@ -1397,7 +1392,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       />
     );
   }
-  const showTyping = otherTyping && online;
+  const showTyping = otherTyping;
 
   return (
     <main
@@ -1426,37 +1421,41 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
 
         {celebrity ? (
           <>
-            {(celebrity.profileImage || celebrity.profileImageUrl) && (
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white/10 ring-2 ring-primary-500/40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={celebrity.profileImage || celebrity.profileImageUrl}
-                  alt={celebrity.name}
-                  className="h-full w-full object-cover"
-                />
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="flex min-w-0 items-center gap-3 text-left"
+              aria-label={`View ${celebrity.name}'s profile`}
+            >
+              {(celebrity.profileImage || celebrity.profileImageUrl) && (
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white/10 ring-2 ring-primary-500/40 transition group-hover:ring-primary-400/60">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={celebrity.profileImage || celebrity.profileImageUrl}
+                    alt={celebrity.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-lg font-bold leading-tight text-white">
+                    {celebrity.name}
+                  </span>
+                  {celebrity.isVerified && <VerifiedBadge className="h-5 w-5 shrink-0" />}
+                </div>
+                <p className="mt-1 text-sm leading-none text-zinc-400">
+                  {celebrity.chatAccountLabel ??
+                    (otherTyping ? (
+                      <span className="text-primary-400">typing…</span>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                        Online now
+                      </span>
+                    ))}
+                </p>
               </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate text-lg font-bold leading-tight text-white">
-                  {celebrity.name}
-                </span>
-                {celebrity.isVerified && <VerifiedBadge className="h-5 w-5 shrink-0" />}
-              </div>
-              <p className="mt-1 text-sm leading-none text-zinc-400">
-                {celebrity.chatAccountLabel ??
-                  (otherTyping ? (
-                    <span className="text-primary-400">typing…</span>
-                  ) : online ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                      Online now
-                    </span>
-                  ) : (
-                    "Offline"
-                  ))}
-              </p>
-            </div>
+            </button>
             {headerControls}
           </>
         ) : (
@@ -1586,6 +1585,71 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           attachment={lightboxAttachment}
           onClose={() => setLightboxAttachment(null)}
         />
+      )}
+
+      {profileOpen && celebrity && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setProfileOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl bg-ink-900 pb-[env(safe-area-inset-bottom)] shadow-2xl ring-1 ring-white/10 sm:rounded-3xl">
+            <button
+              onClick={() => setProfileOpen(false)}
+              className="absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20"
+              aria-label="Close profile"
+            >
+              ✕
+            </button>
+            <div className="flex flex-col items-center px-6 pb-8 pt-10 text-center">
+              <div className="relative">
+                <div className="h-56 w-56 overflow-hidden rounded-full bg-gradient-to-br from-primary-600 to-accent-500 ring-4 ring-primary-500/30">
+                  {(celebrity.profileImage || celebrity.profileImageUrl) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={celebrity.profileImage || celebrity.profileImageUrl}
+                      alt={celebrity.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center text-7xl font-bold text-white">
+                      {celebrity.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-emerald-400 ring-4 ring-ink-900" />
+              </div>
+              <h2 className="mt-5 flex items-center gap-2 text-2xl font-bold text-white">
+                {celebrity.name}
+                {celebrity.isVerified && <VerifiedBadge className="h-7 w-7 shrink-0" />}
+              </h2>
+              <div className="mt-1 flex items-center gap-1.5 text-sm text-emerald-400">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                Online now
+              </div>
+              {celebrity.chatAccountLabel && (
+                <p className="mt-4 max-w-xs text-sm text-zinc-400">{celebrity.chatAccountLabel}</p>
+              )}
+              <div className="mt-6 w-full divide-y divide-white/5 rounded-2xl bg-white/[0.04] text-left">
+                {celebrity.profession && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[11px] uppercase tracking-wide text-zinc-500">Profession</p>
+                    <p className="mt-0.5 text-sm text-zinc-200">{celebrity.profession}</p>
+                  </div>
+                )}
+                <div className="px-5 py-3.5">
+                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Availability
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-sm text-zinc-200">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                    Usually replies instantly
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <CallOverlay

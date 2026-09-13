@@ -91,7 +91,7 @@ function StatusTicks({ status, deliveredAt, readAt }: { status: string; delivere
   }
   if (readAt) {
     return (
-      <span className="text-xs text-primary-300" title="Read">
+      <span className="text-xs text-sky-400" title="Read">
         ✓✓
       </span>
     );
