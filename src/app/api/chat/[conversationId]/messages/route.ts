@@ -11,6 +11,11 @@ import { maybeAutoReply } from "@/lib/chat/autoReply";
 import { rememberAsync } from "@/lib/ai/memory";
 
 export const dynamic = "force-dynamic";
+// The always-on AI composes a reply after the fan message lands and the HTTP
+// response is already sent (fire-and-forget). Keep the serverless function
+// alive long enough for that compose (Gemini search attempt + plain retry ~20s)
+// to finish instead of freezing mid-reply.
+export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ conversationId: string }> };
 
