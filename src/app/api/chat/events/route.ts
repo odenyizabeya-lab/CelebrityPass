@@ -89,6 +89,8 @@ export async function GET(request: Request) {
       let cursorIds = new Set<string>();
       let presenceTick = 0;
       let lastOnline: boolean | null = null;
+      let lastTeamReadAt: string | null = null;
+      let lastFanReadAt: string | null = null;
 
       async function poll() {
         if (closed) return;
@@ -152,6 +154,23 @@ export async function GET(request: Request) {
             send({ type: "typing", conversationId, senderType: "team" });
           } else if (actorType === "team" && fanTyping) {
             send({ type: "typing", conversationId, senderType: "fan" });
+          }
+
+          // Read receipts: whenever a participant's read watermark advances,
+          // broadcast it so the other side flips to the blue double-tick instantly.
+          const readState = await prisma.chatReadState.findUnique({
+            where: { conversationId },
+            select: { teamLastReadAt: true, fanLastReadAt: true },
+          });
+          const teamReadAt = readState?.teamLastReadAt?.toISOString() ?? null;
+          const fanReadAt = readState?.fanLastReadAt?.toISOString() ?? null;
+          if (teamReadAt !== lastTeamReadAt && teamReadAt) {
+            lastTeamReadAt = teamReadAt;
+            send({ type: "read", conversationId, readerType: "team", at: teamReadAt });
+          }
+          if (fanReadAt !== lastFanReadAt && fanReadAt) {
+            lastFanReadAt = fanReadAt;
+            send({ type: "read", conversationId, readerType: "fan", at: fanReadAt });
           }
         } catch (err) {
           console.error("SSE poll error", err);

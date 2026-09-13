@@ -57,6 +57,7 @@ export async function sendMessage(params: {
           body,
           attachmentJson,
           repliedToId,
+          deliveredAt: now,
         },
       });
     } catch (e) {

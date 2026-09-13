@@ -30,6 +30,7 @@ interface ChatRealtimeHandlers {
   }) => void;
   onRead?: (event: {
     conversationId: string;
+    readerType?: "fan" | "team";
     messageId?: string | null;
     deliveredAt?: string | null;
     readAt?: string | null;
@@ -162,6 +163,7 @@ export function useChatRealtime(
         case "read":
           onReadRef.current?.({
             conversationId: event.conversationId as string,
+            readerType: event.readerType as "fan" | "team" | undefined,
             messageId: event.messageId as string | null | undefined,
             deliveredAt: event.deliveredAt as string | null | undefined,
             readAt: event.at as string | null | undefined,

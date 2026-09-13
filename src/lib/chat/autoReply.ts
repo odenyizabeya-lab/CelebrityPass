@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { sendMessage } from "@/lib/chat/messages";
+import { sendMessage, markRead } from "@/lib/chat/messages";
 import { setTyping, clearTyping } from "@/lib/chat/typing-store";
 import { touchTeamPresence } from "@/lib/chat/presence";
 import { composeAutoReply } from "@/lib/ai/assistant";
@@ -43,7 +43,7 @@ function sleep(ms: number) {
 }
 
 function humanDelay() {
-  return 60 + Math.floor(Math.random() * 120); // ~60–180ms — no wasted time, still feels like a person typing
+  return 40 + Math.floor(Math.random() * 80); // ~40–120ms — barely a beat, still feels like a person typing
 }
 
 async function newestRaw(conversationId: string) {
@@ -86,12 +86,14 @@ async function runAutoReply(conversationId: string) {
   const fan = conversation.fan;
   if (!fan || !fan.isActive || fan.unsubscribedAt) return;
 
-  if (!(await newestRaw(conversationId)) || (await newestRaw(conversationId))!.senderType !== "fan") return;
+  const first = await newestRaw(conversationId);
+  if (!first || first.senderType !== "fan") return;
   if (await alreadyAnswered(conversationId)) return;
 
-  // Fan sees "celebrity is typing…" while the reply is crafted.
+  // The celebrity is live on the message — the fan's tick flips to read.
   setTyping(conversationId, "team");
   touchTeamPresence(conversation.celebrity.id).catch(() => {});
+  markRead(conversationId, "team").catch(() => {});
   await sleep(humanDelay());
 
   if (await alreadyAnswered(conversationId)) return;
@@ -106,7 +108,7 @@ async function runAutoReply(conversationId: string) {
 
   // Re-signal typing right before landing, then finish the "typing" beat.
   setTyping(conversationId, "team");
-  await sleep(50 + Math.floor(Math.random() * 90));
+  await sleep(30 + Math.floor(Math.random() * 60));
   if (await alreadyAnswered(conversationId)) return;
 
   const target = await newestRaw(conversationId);

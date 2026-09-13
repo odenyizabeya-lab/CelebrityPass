@@ -538,6 +538,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [isStuckToBottom, setIsStuckToBottom] = useState(true);
   const [metaStatus, setMetaStatus] = useState<"ready" | "unavailable">("ready");
   const [metaTransient, setMetaTransient] = useState(false);
+  const [teamReadAt, setTeamReadAt] = useState<string | null>(null);
   const [messagesFailed, setMessagesFailed] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [retryTick, setRetryTick] = useState(0);
@@ -773,6 +774,13 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         setMetaStatus("ready");
         setMetaTransient(false);
         setBlocked(false);
+        setTeamReadAt(
+          data && typeof data === "object" && data.readState && typeof data.readState === "object"
+            ? typeof (data.readState as { teamLastReadAt?: unknown }).teamLastReadAt === "string"
+              ? ((data.readState as { teamLastReadAt?: unknown }).teamLastReadAt as string)
+              : null
+            : null,
+        );
         // Persist so the NEXT open (incl. offline) renders instantly.
         writeMetaCache(conversationId, data);
         const c = data.celebrity;
@@ -835,6 +843,29 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     writeMessagesCache(conversationId, messages);
   }, [messages, conversationId]);
 
+  // The celebrity's read watermark: any of my messages older than it counts as
+  // read, which flips the double tick to WhatsApp-blue. Applied on load and on
+  // every live "read" event.
+  useEffect(() => {
+    if (!teamReadAt) return;
+    const t = new Date(teamReadAt).getTime();
+    if (!isFinite(t)) return;
+    const raf = requestAnimationFrame(() => {
+      setMessages((prev) => {
+        let changed = false;
+        const next = prev.map((m) => {
+          if (m.senderType !== "fan" || m.readAt) return m;
+          const ct = new Date(m.createdAt).getTime();
+          if (!isFinite(ct) || ct > t) return m;
+          changed = true;
+          return { ...m, readAt: teamReadAt };
+        });
+        return changed ? next : prev;
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [teamReadAt]);
+
   useEffect(() => {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
@@ -896,20 +927,29 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     },
     onRead: (event: {
       conversationId: string;
+      readerType?: "fan" | "team";
       messageId?: string | null;
       deliveredAt?: string | null;
       readAt?: string | null;
     }) => {
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === event.messageId
-            ? {
-                ...m,
-                deliveredAt: event.deliveredAt ?? m.deliveredAt,
-                readAt: event.readAt ?? m.readAt,
-              }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id === event.messageId) {
+            return {
+              ...m,
+              deliveredAt: event.deliveredAt ?? m.deliveredAt,
+              readAt: event.readAt ?? m.readAt,
+            };
+          }
+          // Watermark read receipt: the celebrity read everything up to `at`.
+          if (event.readerType === "team" && event.readAt && m.senderType === "fan" && !m.readAt) {
+            const ct = new Date(m.createdAt).getTime();
+            if (isFinite(ct) && ct <= new Date(event.readAt).getTime()) {
+              return { ...m, readAt: event.readAt };
+            }
+          }
+          return m;
+        })
       );
     },
     onTyping: () => {

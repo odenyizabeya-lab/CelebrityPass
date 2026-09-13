@@ -46,10 +46,27 @@ export async function GET(request: Request, { params }: Ctx) {
 
   if (actor.fanId) touchFanPresence(actor.fanId).catch(() => {});
 
+  const readState = await prisma.chatReadState.findUnique({
+    where: { conversationId },
+    select: { fanLastReadAt: true, teamLastReadAt: true },
+  });
+
   const { messages, hasMore } = await getMessages(conversationId, { cursor, limit });
   const safeMessages = messages.map((m) => safeMessage(m, actor.fanId));
 
-  return NextResponse.json({ messages: safeMessages, hasMore, conversation: { id: conversation.id, celebrityId: conversation.celebrityId, status: conversation.status } });
+  return NextResponse.json({
+    messages: safeMessages,
+    hasMore,
+    conversation: {
+      id: conversation.id,
+      celebrityId: conversation.celebrityId,
+      status: conversation.status,
+    },
+    readState: {
+      fanLastReadAt: readState?.fanLastReadAt ?? null,
+      teamLastReadAt: readState?.teamLastReadAt ?? null,
+    },
+  });
 }
 
 export async function POST(request: Request, { params }: Ctx) {
@@ -122,56 +139,61 @@ export async function POST(request: Request, { params }: Ctx) {
   });
 
   // Offline-recipient email notification (first message per conversation).
-  // Fire-and-forget — email failures must never break message delivery.
-  try {
-    const [fan, celebrity] = await Promise.all([
-      prisma.fan.findUnique({
-        where: { id: conversation.fanId },
-        select: { id: true, name: true, email: true, lastSeenAt: true, isActive: true, unsubscribedAt: true },
-      }),
-      prisma.celebrity.findUnique({
-        where: { id: conversation.celebrityId },
-        select: { name: true },
-      }),
-    ]);
-    const preview = (text || (type === "image" ? "📷 Photo" : type === "voice" ? "🎤 Voice message" : type === "video" ? "🎬 Video" : "Message")).slice(0, 160);
+  // Fire-and-forget — email failures must never break message delivery, and
+  // slow email round-trips must never delay the send ack (the delivered tick).
+  if (actor.type === "fan" || actor.type === "team") {
+    void (async () => {
+      try {
+        const [fan, celebrity] = await Promise.all([
+          prisma.fan.findUnique({
+            where: { id: conversation.fanId },
+            select: { id: true, name: true, email: true, lastSeenAt: true, isActive: true, unsubscribedAt: true },
+          }),
+          prisma.celebrity.findUnique({
+            where: { id: conversation.celebrityId },
+            select: { name: true },
+          }),
+        ]);
+        const preview = (text || (type === "image" ? "📷 Photo" : type === "voice" ? "🎤 Voice message" : type === "video" ? "🎬 Video" : "Message")).slice(0, 160);
 
-    if (actor.type === "fan" && fan && fan.isActive && !fan.unsubscribedAt) {
-      const online = await isCelebrityOnline(conversation.celebrityId);
-      if (!online && celebrity) {
-        await sendChatMessageNotification({
-          direction: "toTeam",
-          conversationId,
-          celebrityName: celebrity.name,
-          senderName: fan.name,
-          preview,
-          replyUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/admin/messages/${conversationId}`,
-          replyLabel: "Open team inbox",
-        });
-      }
-    } else if (actor.type === "team" && fan && fan.isActive && !fan.unsubscribedAt) {
-      if (fan.lastSeenAt === null || fan.lastSeenAt < new Date(Date.now() - 5 * 60 * 1000)) {
-        await sendChatMessageNotification({
-          direction: "toFan",
-          conversationId,
-          celebrityName: celebrity?.name ?? "Your community",
-          senderName: celebrity?.name ?? "Team",
-          preview,
-          replyUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/chat/${conversationId}`,
-          replyLabel: "Open chat",
-          fan,
-        });
+        if (actor.type === "fan" && fan && fan.isActive && !fan.unsubscribedAt) {
+          const online = await isCelebrityOnline(conversation.celebrityId);
+          if (!online && celebrity) {
+            await sendChatMessageNotification({
+              direction: "toTeam",
+              conversationId,
+              celebrityName: celebrity.name,
+              senderName: fan.name,
+              preview,
+              replyUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/admin/messages/${conversationId}`,
+              replyLabel: "Open team inbox",
+            });
+          }
+        } else if (actor.type === "team" && fan && fan.isActive && !fan.unsubscribedAt) {
+          if (fan.lastSeenAt === null || fan.lastSeenAt < new Date(Date.now() - 5 * 60 * 1000)) {
+            await sendChatMessageNotification({
+              direction: "toFan",
+              conversationId,
+              celebrityName: celebrity?.name ?? "Your community",
+              senderName: celebrity?.name ?? "Team",
+              preview,
+              replyUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://celebritypass.app"}/chat/${conversationId}`,
+              replyLabel: "Open chat",
+              fan,
+            });
 
-        // Native push (PWA + future native apps). Fire-and-forget alongside the email.
-        await notifyFanPush(fan.id, {
-          title: celebrity?.name ?? "New message",
-          body: preview,
-          url: `/chat/${conversationId}`,
-        });
+            // Native push (PWA + future native apps). Fire-and-forget alongside the email.
+            await notifyFanPush(fan.id, {
+              title: celebrity?.name ?? "New message",
+              body: preview,
+              url: `/chat/${conversationId}`,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[chat] Email notification failed:", err);
       }
-    }
-  } catch (err) {
-    console.error("[chat] Email notification failed:", err);
+    })();
   }
 
   // The celebrity's always-on AI replies on its own when a fan messages.

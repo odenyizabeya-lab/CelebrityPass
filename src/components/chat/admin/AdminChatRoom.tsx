@@ -65,6 +65,7 @@ export default function AdminChatRoom({
   fan: { name: string; email: string; country: string | null };
 }) {
   const [messages, setMessages] = useState<RealtimeMessage[]>([]);
+  const [fanReadAt, setFanReadAt] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +105,16 @@ export default function AdminChatRoom({
         return;
       }
       if (!res.ok) throw new Error("Failed to load messages");
-      const data = (await res.json()) as { messages: RealtimeMessage[] };
+      const data = (await res.json()) as {
+        messages: RealtimeMessage[];
+        readState?: { fanLastReadAt?: string | null; teamLastReadAt?: string | null };
+      };
       applyMessages(data.messages ?? []);
+      setFanReadAt(
+        data.readState && typeof data.readState.fanLastReadAt === "string"
+          ? data.readState.fanLastReadAt
+          : null,
+      );
       setError(null);
     } catch {
       setError("Could not load messages.");
@@ -153,6 +162,27 @@ export default function AdminChatRoom({
     }, 0);
     return () => window.clearTimeout(t);
   }, [messages, markRead]);
+
+  // The fan's read watermark: a team message the fan has seen flips to blue ticks.
+  useEffect(() => {
+    if (!fanReadAt) return;
+    const t = new Date(fanReadAt).getTime();
+    if (!isFinite(t)) return;
+    const raf = requestAnimationFrame(() => {
+      setMessages((prev) => {
+        let changed = false;
+        const next = prev.map((m) => {
+          if (m.senderType !== "team" || m.readAt) return m;
+          const ct = new Date(m.createdAt).getTime();
+          if (!isFinite(ct) || ct > t) return m;
+          changed = true;
+          return { ...m, readAt: fanReadAt };
+        });
+        return changed ? next : prev;
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [fanReadAt]);
 
   useEffect(() => {
     const el = scrollRef.current;

@@ -41,8 +41,8 @@ export type SuggestionResult = {
 };
 
 const MAX_HISTORY = 12;
-const MAX_AUTO_HISTORY = 24;
-const MAX_BODY_CHARS = 600;
+const MAX_AUTO_HISTORY = 12;
+const MAX_BODY_CHARS = 240;
 const MAX_OUTPUT_CHARS = 2000;
 const STYLE_PRESETS = [
   "Friendly and warm",
@@ -162,7 +162,7 @@ async function geminiComplete(system: string, user: string): Promise<string> {
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 384,
+          maxOutputTokens: 240,
           // This model thinks before replying; that reasoning previously ate the
           // whole 200-token budget and truncated replies to fragments. Cap the
           // thinking budget as low as possible (keeps replies fast) with room

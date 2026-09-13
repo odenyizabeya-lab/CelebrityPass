@@ -74,7 +74,7 @@ function formatTime(dateStr: string | null | undefined): string {
   return `${h}:${m}`;
 }
 
-function StatusTicks({ status, deliveredAt, readAt }: { status: string; deliveredAt: string | null; readAt: string | null }) {
+function StatusTicks({ status, readAt }: { status: string; readAt: string | null }) {
   if (status === "FAILED") {
     return (
       <span className="text-xs font-bold text-red-400" title="Couldn't send — tap Retry below">
@@ -96,16 +96,9 @@ function StatusTicks({ status, deliveredAt, readAt }: { status: string; delivere
       </span>
     );
   }
-  if (deliveredAt) {
-    return (
-      <span className="text-xs text-zinc-400" title="Delivered">
-        ✓✓
-      </span>
-    );
-  }
   return (
-    <span className="text-xs text-zinc-400" title="Sent">
-      ✓
+    <span className="text-xs text-zinc-400" title="Delivered">
+      ✓✓
     </span>
   );
 }
@@ -306,7 +299,6 @@ export default function MessageBubble({
           {isOwn && (
             <StatusTicks
               status={message.status}
-              deliveredAt={message.deliveredAt}
               readAt={message.readAt}
             />
           )}
