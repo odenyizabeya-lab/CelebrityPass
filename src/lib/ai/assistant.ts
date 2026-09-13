@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getAssistantConfig } from "@/lib/ai/assistantConfig";
 import type { GoogleInfo } from "@/lib/google-info";
+import { getLiveSchedule, describeSchedule, resolveFanImage } from "@/lib/ai/liveContext";
 
 /**
  * AI Reply Assistant — its OWN Gemini system, fully separate from the scanner.
@@ -145,48 +146,90 @@ function clean(text: string): string {
   return t.length > MAX_OUTPUT_CHARS ? t.slice(0, MAX_OUTPUT_CHARS) : t;
 }
 
-async function geminiComplete(system: string, user: string): Promise<string> {
+type GeminiImageInput = { mime: string; data: string };
+
+type GeminiCallOptions = {
+  /** Allow the model to ground its answer in live web search (Google Search). */
+  search?: boolean;
+  /** One or more images for the model to look at (base64 inline_data). */
+  images?: GeminiImageInput[];
+};
+
+async function geminiComplete(
+  system: string,
+  user: string,
+  opts: GeminiCallOptions = {},
+): Promise<string> {
   const cfg = await getAssistantConfig();
   if (!cfg.key) throw new Error("Gemini key is not configured for the reply assistant");
   const base = cfg.baseUrl;
   const model = cfg.model;
 
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), 45_000);
-  try {
-    const res = await fetch(`${base}/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cfg.key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 240,
-          // This model thinks before replying; that reasoning previously ate the
-          // whole 200-token budget and truncated replies to fragments. Cap the
-          // thinking budget as low as possible (keeps replies fast) with room
-          // for the actual message.
-          thinkingConfig: { thinkingBudget: 64 },
-        },
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw new Error(`Gemini provider returned ${res.status}`);
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-      promptFeedback?: { blockReason?: string };
-    };
-    const parts = data?.candidates?.[0]?.content?.parts ?? [];
-    const text = parts.map((p) => p.text ?? "").join("").trim();
-    if (!text && data?.promptFeedback?.blockReason) {
-      throw new Error(`Gemini blocked the request (${data.promptFeedback.blockReason})`);
-    }
-    if (!text) throw new Error("Gemini returned an empty response");
-    return text;
-  } finally {
-    clearTimeout(timeout);
+  const parts: Array<Record<string, unknown>> = [];
+  for (const img of opts.images ?? []) {
+    parts.push({ inline_data: { mime_type: img.mime, data: img.data } });
   }
+  parts.push({ text: user });
+
+  const doCall = async (search: boolean): Promise<string> => {
+    const body: Record<string, unknown> = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 240,
+        // This model thinks before replying; that reasoning previously ate the
+        // whole 200-token budget and truncated replies to fragments. Cap the
+        // thinking budget as low as possible (keeps replies fast) with room
+        // for the actual message.
+        thinkingConfig: { thinkingBudget: 64 },
+      },
+    };
+    if (search) body.tools = [{ googleSearch: {} }];
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), search ? 60_000 : 45_000);
+    try {
+      const res = await fetch(`${base}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cfg.key },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`Gemini provider returned ${res.status}`);
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        promptFeedback?: { blockReason?: string };
+      };
+      const outParts = data?.candidates?.[0]?.content?.parts ?? [];
+      const text = outParts.map((p) => p.text ?? "").join("").trim();
+      if (!text && data?.promptFeedback?.blockReason) {
+        throw new Error(`Gemini blocked the request (${data.promptFeedback.blockReason})`);
+      }
+      if (!text) throw new Error("Gemini returned an empty response");
+      return text;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  const wantSearch = opts.search === true;
+  if (wantSearch) {
+    try {
+      return await doCall(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Some Gemini modes reject grounding combined with image ("unsupported
+      // combination") or on certain models. Fall back to no-search rather than
+      // losing the whole reply — the image + verified facts still matter more
+      // than live grounding.
+      const groundingRejected =
+        /unsupported|not support|combination|grounding/i.test(msg) ||
+        (msg.includes("Gemini provider returned 400") && Boolean(opts.images?.length));
+      if (!groundingRejected) throw err;
+    }
+  }
+  return doCall(false);
 }
 
 function detectIntent(
@@ -370,6 +413,7 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     select: {
       celebrity: {
         select: {
+          id: true,
           name: true,
           category: true,
           profession: true,
@@ -385,6 +429,16 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
   });
   if (!conversation) throw new Error("Conversation not found");
   const { celebrity, fan } = conversation;
+
+  const newest = await prisma.chatMessage.findFirst({
+    where: { conversationId, deletedAt: null },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { type: true, body: true, attachmentJson: true },
+  });
+  const [liveSchedule, fanImage] = await Promise.all([
+    getLiveSchedule(celebrity.id),
+    newest?.type === "image" ? resolveFanImage(newest.attachmentJson) : Promise.resolve(null),
+  ]);
 
   const raw = await prisma.chatMessage.findMany({
     where: { conversationId, deletedAt: null, type: "text" },
@@ -412,6 +466,8 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "The celebrity reviews and approves the message before it is sent, so it is safe to write in their voice.",
     "Verified public facts about the celebrity (from the site's sourced records — Wikipedia/Wikidata and admin profile):",
     buildCelebrityFacts(celebrity),
+    "Right now — the celebrity's live situation (from the official event page and the actual current time):",
+    describeSchedule(liveSchedule, celebrity.name),
     `Signature style to write in: ${finalStyle}.`,
   ]
     .filter(Boolean)
@@ -427,7 +483,9 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "Use the conversation history: follow up naturally on what was said earlier in this chat, remember what you already told the fan, and never repeat the same phrasing you already used.",
     "Use the fan's first name at most once, naturally and only when it fits.",
     "Keep it short and human: typically 1-3 short sentences. Vary how replies start so nothing sounds templated or repetitive.",
-    "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
+    "LIVE NOW + YOU CAN SEARCH: You have live web search enabled — you can search the web right now for anything about the celebrity: current whereabouts, activity, shows, matches, news, etc. When a fan asks what they are doing, where they are, what's next, or anything time-sensitive: SEARCH for the current truth and answer only from what you actually find (plus the official schedule above). Never invent a location, activity, show, date, tour or plan from memory.",
+    "IMAGES: If the fan sent a photo, actually LOOK at it (you see exactly what they sent) and react to what is really in the picture. Never pretend to see something that is not there.",
+    "FACTS: Only the verified facts above, the live schedule above, your live web search results, plus well-known current, widely-reported public information are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, live whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
     "MARRIAGE: If the fan asks if you are married or about your relationship: answer only from well-known public record, and say the truth. If you are publicly single → plainly say you're single. If you are publicly married → say yes, you're married, but keep everything about your family private — never give names, dates or details, and never invent or hint at divorce, separation, affairs or family drama. If it isn't public or you aren't sure → say you keep your family life private and steer to your work. If the fan pushes, doubts you, or calls it fake: defend yourself calmly and honestly, stay warm, never lie, never make up a story.",
     "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
     "SCAM ACCUSATIONS: If the fan calls you or CelebrityPass a scammer, fraud, or fake, or asks \"are you real?\" / \"is this a scam?\": never get defensive, angry or dismissive. Respond with grace and honest reassurance — you ARE the real, verified celebrity on CelebrityPass, you would never scam your fans, scammers are fake copies of famous people, and real chats plus anything official only ever happen inside the official CelebrityPass app. Never agree you are a scam, never invent proof, never make threats. Then steer the chat back to caring about the fan.",
@@ -441,7 +499,7 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     "Output ONLY the reply text. No quotes, no labels, no preamble.",
   ].join("\n");
 
-  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nWrite the message the celebrity would send back now — in the exact same language the fan is writing in.`;
+  const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nNext: ${fanFirstName ?? "The fan"} just sent the message that triggered this reply${fanImage ? `, including a photo (attached above — look at it and react to what it actually shows)` : ""}. Write the message the celebrity would send back now — in the exact same language the fan is writing in.`;
 
   const cfg = await getAssistantConfig();
   const meta = {
@@ -450,7 +508,11 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
     configured: Boolean(cfg.key),
   };
   try {
-    const text = await geminiComplete(`${systemInstruction}\n\nRules:\n${rules}`, userPrompt);
+    const text = await geminiComplete(
+      `${systemInstruction}\n\nRules:\n${rules}`,
+      userPrompt,
+      { search: true, images: fanImage ? [fanImage] : undefined },
+    );
     return {
       text: clean(text),
       provider: "gemini",
@@ -487,6 +549,7 @@ export async function composeAutoReply(conversationId: string): Promise<{
     select: {
       celebrity: {
         select: {
+          id: true,
           name: true,
           category: true,
           profession: true,
@@ -511,7 +574,7 @@ export async function composeAutoReply(conversationId: string): Promise<{
   const newest = await prisma.chatMessage.findFirst({
     where: { conversationId, deletedAt: null },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { type: true, body: true },
+    select: { type: true, body: true, attachmentJson: true },
   });
   if (newest?.type === "text") {
     const quick = quickOpenerReply(newest.body, fanFirstName);
@@ -520,6 +583,13 @@ export async function composeAutoReply(conversationId: string): Promise<{
       return { text: quick, provider: "quick", configured: Boolean(cfg.key) };
     }
   }
+
+  // Live knowledge: the always-on assistant knows the celebrity's own verified
+  // event schedule right now, and can SEE the photo/video the fan just sent.
+  const [liveSchedule, fanImage] = await Promise.all([
+    getLiveSchedule(celebrity.id),
+    newest?.type === "image" ? resolveFanImage(newest.attachmentJson) : Promise.resolve(null),
+  ]);
 
   const raw = await prisma.chatMessage.findMany({
     where: { conversationId, deletedAt: null },
@@ -544,6 +614,8 @@ export async function composeAutoReply(conversationId: string): Promise<{
   const systemInstruction = [
     "Verified public facts about the celebrity (from the site's sourced records — Wikipedia/Wikidata and admin profile):",
     buildCelebrityFacts(celebrity),
+    "Right now — the celebrity's live situation (from the official event page and the actual current time):",
+    describeSchedule(liveSchedule, celebrity.name),
     `In this private chat with a fan, the celebrity's natural style is: ${style}.`,
   ]
     .filter(Boolean)
@@ -561,7 +633,9 @@ export async function composeAutoReply(conversationId: string): Promise<{
     "If the fan signals they are busy, tired, leaving, will reply later, or is ending the chat: acknowledge it warmly in one or two short lines, reassure them you will be right here whenever they are back, and let them go naturally. Never push them to keep talking or sound disappointed.",
     "No form-letter phrases, no opening formulas, no tagline, no sign-off name, no bullet points.",
     "Typically 1-3 short sentences. Vary how you start so nothing sounds templated.",
-    "FACTS: Only the verified facts above plus well-known, widely-reported public information you are genuinely sure of are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
+    "LIVE NOW + YOU CAN SEARCH: You have live web search enabled — you can search the web yourself, right now, anything about the celebrity's current whereabouts, activity, shows, songs, matches, news, or what they're doing. When a fan asks what the celebrity is doing now, where they are, what's next, or anything time-sensitive: SEARCH for the current truth instead of guessing, and answer only from what you actually find (plus the official schedule above). Never invent a location, activity, show, date, tour, result or plan.",
+    "IMAGES: If the fan sent a photo, actually LOOK at it (you see exactly what they sent) and react to what is really in the picture — compliment it naturally if there's something to compliment, or answer whatever it shows. Never pretend to see something that is not there.",
+    "FACTS: Only the verified facts above, the live schedule above, your live web search results, plus well-known current, widely-reported public information are allowed. NEVER invent or guess: no made-up dates, ages, relationships, marriages, kids, live whereabouts, addresses, phone numbers, favorites (foods, colors, people), dislikes, upcoming plans, deals, prices, or personal history.",
     "MARRIAGE: If the fan asks if you are married or about your relationship: answer only from well-known public record, and say the truth. If you are publicly single → plainly say you're single. If you are publicly married → say yes, you're married, but keep everything about your family private — never give names, dates or details, and never invent or hint at divorce, separation, affairs or family drama. If it isn't public or you aren't sure → say you keep your family life private and steer to your work. If the fan pushes, doubts you, or calls it fake: defend yourself calmly and honestly, stay warm, never lie, never make up a story.",
     "If the fan asks about anything private, unknown, unconfirmed, or that you are not sure of: DO NOT make something up. Say so honestly and warmly — \"I'd rather keep some things just for me\", \"I'm not sure, honestly\", or \"that's not really something I share\" — then steer to what you CAN talk about (the career, work, well-known stories above).",
     "SCAM ACCUSATIONS: If the fan calls you or CelebrityPass a scammer, fraud, or fake, or asks \"are you real?\" / \"is this a scam?\": never get defensive, angry or dismissive. Respond with grace and honest reassurance — you ARE the real, verified celebrity on CelebrityPass, you would never scam your fans, scammers are fake copies of famous people, and real chats plus anything official only ever happen inside the official CelebrityPass app. Never agree you are a scam, never invent proof, never make threats. Then steer the chat back to caring about the fan.",
@@ -575,11 +649,15 @@ export async function composeAutoReply(conversationId: string): Promise<{
     "Output ONLY the message text you send. No quotes, no labels, no preamble.",
   ].join("\n");
 
-  const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nWrite the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences), and in the exact same language ${fanFirstName} is writing in.`;
+  const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nNext: ${fanFirstName} just sent the message that triggered this reply${fanImage ? `, including the photo attached above — look at it and react to what it actually shows` : ""}. Write the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences), and in the exact same language ${fanFirstName} is writing in.`;
 
   const cfg = await getAssistantConfig();
   try {
-    const text = await geminiComplete(`${systemInstruction}\n\nRules:\n${rules}`, userPrompt);
+    const text = await geminiComplete(
+      `${systemInstruction}\n\nRules:\n${rules}`,
+      userPrompt,
+      { search: true, images: fanImage ? [fanImage] : undefined },
+    );
     return { text: clean(text), provider: "gemini", configured: Boolean(cfg.key) };
   } catch {
     return {
