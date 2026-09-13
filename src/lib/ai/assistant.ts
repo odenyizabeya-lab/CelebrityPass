@@ -36,6 +36,7 @@ export type SuggestionResult = {
 };
 
 const MAX_HISTORY = 12;
+const MAX_AUTO_HISTORY = 16;
 const MAX_BODY_CHARS = 600;
 const MAX_OUTPUT_CHARS = 2000;
 const STYLE_PRESETS = [
@@ -257,6 +258,95 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
       provider: "fallback",
       model: null,
       ...meta,
+    };
+  }
+}
+
+/**
+ * Always-on direct-chat reply: the celebrity's AI texts a fan back by itself,
+ * like a real one-to-one chat — no human in the middle, no draft that gets
+ * reviewed. Returns the best reply it can produce, plus the provider used.
+ */
+export async function composeAutoReply(conversationId: string): Promise<{
+  text: string;
+  provider: "gemini" | "fallback";
+  configured: boolean;
+}> {
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: {
+      celebrity: {
+        select: { name: true, profession: true, country: true, bio: true, chatAiStyle: true },
+      },
+      fan: { select: { name: true } },
+    },
+  });
+  if (!conversation) throw new Error("Conversation not found");
+  const { celebrity, fan } = conversation;
+
+  const raw = await prisma.chatMessage.findMany({
+    where: { conversationId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: MAX_AUTO_HISTORY,
+    select: { senderType: true, body: true, type: true, createdAt: true },
+  });
+  const messages = raw.slice().reverse();
+  const latestFan = [...messages].reverse().find((m) => m.senderType === "fan");
+
+  const fanFirstName = fan.name.trim().split(/\s+/)[0] || "friend";
+  const style = celebrity.chatAiStyle?.trim() || DEFAULT_AI_STYLE;
+
+  const history =
+    messages.length === 0
+      ? "(the fan just opened this conversation — no messages yet)"
+      : messages
+          .map((m) => {
+            const content =
+              m.type === "image" ? "[sent a photo]" : m.type === "voice" ? "[sent a voice note]" : m.type === "video" ? "[sent a video]" : shorten(m.body);
+            return `- ${m.senderType === "fan" ? fanFirstName : celebrity.name}: ${content}`;
+          })
+          .join("\n");
+
+  const systemInstruction = [
+    `The celebrity is ${celebrity.name}, a ${celebrity.profession} from ${celebrity.country}.`,
+    celebrity.bio ? `Short bio: ${shorten(celebrity.bio)}.` : null,
+    `In this private chat with a fan, the celebrity's natural style is: ${style}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const rules = [
+    "You are the celebrity, privately texting one of their fans. First person, from the heart — exactly like them texting a loved one on their phone.",
+    "This message is SENT to the fan as soon as you write it. It must stand alone as a real personal message.",
+    "Write 100% human, warm and personal — never like an assistant, bot, system, customer service, or an answering service.",
+    "Text like a real person: short sentences, natural rhythm, everyday contractions (I'm, it's, you'll, I'd).",
+    "Never present yourself as an assistant, AI, system, bot, program, or anyone helping the celebrity. Always just the celebrity, first person.",
+    "React to what the fan actually said and keep the conversation alive like two people who care about each other: respond warmly, sometimes share a brief personal thought, and occasionally ask one light question back — never a string of questions.",
+    "Match their energy — be loving and happy in a close-friend, partner-like tone, without being scripted or over the top.",
+    "If the fan signals they are busy, tired, leaving, will reply later, or is ending the chat: acknowledge it warmly in one or two short lines, reassure them you will be right here whenever they are back, and let them go naturally. Never push them to keep talking or sound disappointed.",
+    "No form-letter phrases, no opening formulas, no tagline, no sign-off name, no bullet points.",
+    "Typically 1-3 short sentences. Vary how you start so nothing sounds templated.",
+    "Never invent facts, plans, meetings, gifts, events, dates, or promises. If you don't know something, say so honestly and naturally.",
+    "Never mention the fan's email, phone, address, payment or other private details.",
+    "Few or no emoji — only where it lands naturally.",
+    "Output ONLY the message text you send. No quotes, no labels, no preamble.",
+  ].join("\n");
+
+  const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nWrite the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences).`;
+
+  try {
+    const text = await geminiComplete(`${systemInstruction}\n\nRules:\n${rules}`, userPrompt);
+    return { text: clean(text), provider: "gemini", configured: Boolean(getGeminiKey()) };
+  } catch {
+    return {
+      text: fallbackReply({
+        celebrityName: celebrity.name,
+        style,
+        fanFirstName,
+        lastFanMessage: latestFan ? shorten(latestFan.body) : null,
+      }),
+      provider: "fallback",
+      configured: Boolean(getGeminiKey()),
     };
   }
 }

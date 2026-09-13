@@ -6,6 +6,7 @@ import { sendMessage, getMessages, type MessageWithReply } from "@/lib/chat/mess
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanPush } from "@/lib/chat/push";
+import { maybeAutoReply } from "@/lib/chat/autoReply";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,12 @@ export async function POST(request: Request, { params }: Ctx) {
     }
   } catch (err) {
     console.error("[chat] Email notification failed:", err);
+  }
+
+  // The celebrity's always-on AI replies on its own when a fan messages.
+  // Fire-and-forget — a slow reply must never delay the fan's message landing.
+  if (actor.type === "fan" && ["text", "voice", "image", "video"].includes(type)) {
+    void maybeAutoReply(conversationId).catch((err) => console.error("[autoReply] trigger failed:", err));
   }
 
   return NextResponse.json({ message: safeMessage(message, actor.fanId) }, { status: 201 });
