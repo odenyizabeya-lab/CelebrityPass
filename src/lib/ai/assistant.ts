@@ -219,14 +219,12 @@ async function geminiComplete(
       return await doCall(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Some Gemini modes reject grounding combined with image ("unsupported
-      // combination") or on certain models. Fall back to no-search rather than
-      // losing the whole reply — the image + verified facts still matter more
-      // than live grounding.
-      const groundingRejected =
-        /unsupported|not support|combination|grounding/i.test(msg) ||
-        (msg.includes("Gemini provider returned 400") && Boolean(opts.images?.length));
-      if (!groundingRejected) throw err;
+      // Live search grounding is best-effort: some Gemini modes/quota reject it
+      // (unsupported combination on certain models, 429 rate limits on the
+      // grounded tier, etc.). Fall back to a plain grounded-free reply rather
+      // than losing the whole message — the verified facts + image still matter
+      // more than live grounding, and plain calls are far more likely to work.
+      console.warn(`assistant: search-grounded reply failed, retrying plain (${msg})`);
     }
   }
   return doCall(false);
