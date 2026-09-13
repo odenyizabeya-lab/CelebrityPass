@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useChatRealtime } from "@/hooks/useChatRealtime";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   clearDraftCache,
   draftImageToFile,
@@ -962,6 +963,8 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     },
   });
 
+  const push = usePushNotifications();
+
   // Browser online/offline — the chat shell stays open either way. When the
   // network comes back (or the tab regains focus) we automatically refetch
   // history AND re-open the realtime stream if it silently died.
@@ -1420,6 +1423,33 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           </>
         )}
       </header>
+
+      {push.state === "unsubscribed" && push.permission !== "denied" && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-primary-500/10 px-3 py-2 sm:px-5"
+          role="status"
+        >
+          <p className="text-sm text-white/90">Get phone notifications for {celebrity?.name ?? "this chat"}</p>
+          <button
+            type="button"
+            onClick={() => void push.enable()}
+            className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-white/20"
+          >
+            Enable
+          </button>
+        </div>
+      )}
+      {push.state === "denied" && (
+        <p className="border-b border-white/10 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-300 sm:px-5" role="status">
+          Notifications are blocked. Allow notifications for this site in your browser settings to get replies on your phone.
+        </p>
+      )}
+      {push.state === "unsupported" && (
+        <p className="border-b border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-zinc-400 sm:px-5" role="status">
+          Tip: on iPhone, add CelebrityPass to your Home Screen (Share → &ldquo;Add to Home Screen&rdquo;) to get lock-screen
+          notifications for messages.
+        </p>
+      )}
 
       <div
         ref={scrollRef}

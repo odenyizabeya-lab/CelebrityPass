@@ -61,18 +61,27 @@ export async function notifyFanPush(
   return sent;
 }
 
-// When a team member replies while the fan is offline, notify them.
+// When a team message lands, push it to the fan's phone. The fan gets a
+// notification whenever they're away OR the app is in the background — we skip
+// one case only: they already read this exact message live, so a push would be
+// noise. Always push otherwise, so backgrounded/app-suspended fans still see it.
 export async function notifyFanOnTeamMessage(input: {
   conversationId: string;
   fanId: string;
   celebrityName: string;
   preview: string;
+  messageCreatedAt?: Date;
 }): Promise<number> {
   const fan = await prisma.fan.findUnique({ where: { id: input.fanId } });
   if (!fan || fan.chatNotify === false) return 0;
 
-  // Skip if the fan has been online in the last 60 seconds — they'll see it live.
-  if (fan.lastSeenAt && Date.now() - fan.lastSeenAt.getTime() < 60_000) return 0;
+  if (input.messageCreatedAt) {
+    const read = await prisma.chatReadState.findUnique({
+      where: { conversationId: input.conversationId },
+      select: { fanLastReadAt: true },
+    });
+    if (read?.fanLastReadAt && read.fanLastReadAt.getTime() >= input.messageCreatedAt.getTime()) return 0;
+  }
 
   return notifyFanPush(input.fanId, {
     title: input.celebrityName,

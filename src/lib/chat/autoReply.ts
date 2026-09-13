@@ -4,7 +4,7 @@ import { setTyping, clearTyping } from "@/lib/chat/typing-store";
 import { touchTeamPresence } from "@/lib/chat/presence";
 import { composeAutoReply } from "@/lib/ai/assistant";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
-import { notifyFanPush } from "@/lib/chat/push";
+import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -126,7 +126,7 @@ async function runAutoReply(conversationId: string) {
   });
   clearTyping(conversationId, "team");
 
-  // Let the fan know a reply landed (email + push when they're away).
+  // Let the fan know a reply landed (email when they're away + phone push).
   try {
     const preview = message.body.slice(0, 160);
     if (fan.lastSeenAt === null || fan.lastSeenAt < new Date(Date.now() - 5 * 60 * 1000)) {
@@ -140,12 +140,15 @@ async function runAutoReply(conversationId: string) {
         replyLabel: "Open chat",
         fan,
       });
-      await notifyFanPush(fan.id, {
-        title: conversation.celebrity.name,
-        body: preview,
-        url: `/chat/${conversationId}`,
-      });
     }
+    // Push goes out for every reply unless the fan already read it live.
+    await notifyFanOnTeamMessage({
+      conversationId,
+      fanId: fan.id,
+      celebrityName: conversation.celebrity.name,
+      preview,
+      messageCreatedAt: message.createdAt,
+    });
   } catch (err) {
     console.error("[autoReply] Fan notification failed:", err);
   }

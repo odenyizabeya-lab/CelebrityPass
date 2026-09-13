@@ -5,7 +5,7 @@ import { isConversationAccessible, canFanSendMessage, canTeamSendMessage } from 
 import { sendMessage, getMessages, type MessageWithReply } from "@/lib/chat/messages";
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
-import { notifyFanPush } from "@/lib/chat/push";
+import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { maybeAutoReply } from "@/lib/chat/autoReply";
 
 export const dynamic = "force-dynamic";
@@ -181,14 +181,18 @@ export async function POST(request: Request, { params }: Ctx) {
               replyLabel: "Open chat",
               fan,
             });
-
-            // Native push (PWA + future native apps). Fire-and-forget alongside the email.
-            await notifyFanPush(fan.id, {
-              title: celebrity?.name ?? "New message",
-              body: preview,
-              url: `/chat/${conversationId}`,
-            });
           }
+
+          // Phone push (PWA). Fire-and-forget: goes out whenever a team message
+          // lands, even if the fan just went to the background a second ago —
+          // unless they already read this exact message live.
+          void notifyFanOnTeamMessage({
+            conversationId,
+            fanId: fan.id,
+            celebrityName: celebrity?.name ?? "New message",
+            preview,
+            messageCreatedAt: message.createdAt,
+          });
         }
       } catch (err) {
         console.error("[chat] Email notification failed:", err);

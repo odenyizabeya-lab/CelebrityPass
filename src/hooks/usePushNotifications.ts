@@ -100,6 +100,16 @@ export function usePushNotifications() {
           subscription: subRef.current.toJSON(),
           userAgent: navigator.userAgent,
         }),
+      }).then(async (res) => {
+        if (res.ok) return;
+        // Storing failed. 401 = not signed in yet, 503 = not configured. Undo
+        // the local subscription so a later signed-in session subscribes again.
+        try {
+          await subRef.current?.unsubscribe();
+        } catch {}
+        subRef.current = null;
+        setState(res.status === 401 ? "unsubscribed" : "unavailable");
+        throw new Error(`subscribe HTTP ${res.status}`);
       });
       setState("subscribed");
       return true;

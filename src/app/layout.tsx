@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import NativeIntegration from "@/components/NativeIntegration";
+import PushBootstrap from "@/components/PushBootstrap";
 import LanguageProvider from "@/lib/i18n/language-context";
 import {
   localeDir,
@@ -99,6 +100,7 @@ export default async function RootLayout({
         <LanguageProvider initialLocale={initialLocale} serverCountry={serverCountry}>
           {children}
           <NativeIntegration />
+          <PushBootstrap />
         </LanguageProvider>
       </body>
     </html>
