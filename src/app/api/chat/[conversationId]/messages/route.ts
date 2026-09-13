@@ -3,6 +3,7 @@ import { getCurrentFanId, getCurrentAdminEmail } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isConversationAccessible, canFanSendMessage, canTeamSendMessage } from "@/lib/chat/access";
 import { sendMessage, getMessages, type MessageWithReply } from "@/lib/chat/messages";
+import { withDbRetry } from "@/lib/db/retry";
 import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/chat/presence";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
@@ -126,17 +127,19 @@ export async function POST(request: Request, { params }: Ctx) {
     touchTeamPresence(conversation.celebrityId).catch(() => {});
   }
 
-  const message = await sendMessage({
-    conversationId,
-    senderType: actor.type,
-    fanId: actor.type === "fan" ? actor.fanId : undefined,
-    teamEmail: actor.type === "team" ? actor.teamEmail : undefined,
-    clientId: String(body.clientId),
-    type,
-    body: text,
-    attachmentJson,
-    repliedToId,
-  });
+  const message = await withDbRetry(() =>
+    sendMessage({
+      conversationId,
+      senderType: actor.type,
+      fanId: actor.type === "fan" ? actor.fanId : undefined,
+      teamEmail: actor.type === "team" ? actor.teamEmail : undefined,
+      clientId: String(body.clientId),
+      type,
+      body: text,
+      attachmentJson,
+      repliedToId,
+    }),
+  );
 
   // Offline-recipient email notification (first message per conversation).
   // Fire-and-forget — email failures must never break message delivery, and

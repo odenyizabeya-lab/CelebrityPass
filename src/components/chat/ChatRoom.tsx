@@ -721,6 +721,32 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     }
   }, [conversationId, reconcileSent]);
 
+  // Transient send failures (network drop / server 5xx) keep the optimistic
+  // message PENDING and invisible to the red "Couldn't send" affordance. This
+  // schedules a short backoff of automatic re-sends so the message reaches the
+  // server as soon as the blip passes — no manual tap needed, and the bubble
+  // only ever shows FAILED once the server definitively rejects it (4xx).
+  const transientRetryTimersRef = useRef<number[]>([]);
+  const scheduleTransientRetry = useCallback(() => {
+    const delays = [1500, 3000, 6000, 12000, 24000];
+    for (const delay of delays) {
+      const id = window.setTimeout(() => {
+        if (navigator.onLine !== false) void flushOutbox();
+        transientRetryTimersRef.current = transientRetryTimersRef.current.filter(
+          (t) => t !== id
+        );
+      }, delay);
+      transientRetryTimersRef.current.push(id);
+    }
+  }, [flushOutbox]);
+
+  useEffect(() => {
+    const timers = transientRetryTimersRef.current;
+    return () => {
+      for (const id of timers) window.clearTimeout(id);
+    };
+  }, []);
+
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({
       behavior: smooth ? "smooth" : "instant",
@@ -1062,30 +1088,36 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
+    let res: Response | null = null;
     try {
-      const res = await fetch(`/api/chat/${conversationId}/messages`, {
+      res = await fetch(`/api/chat/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, type: "text", body }),
       });
-      if (!res.ok) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.clientId === clientId ? { ...m, status: "FAILED" } : m
-          )
-        );
-        return;
-      }
+    } catch {
+      // Network failure — keep the message PENDING and queued for the outbox.
+      // The auto-flush (fixed cadence + online/focus events) re-sends it as
+      // soon as connectivity returns; only permanent failures get marked FAILED.
+      scheduleTransientRetry();
+      return;
+    }
+    if (res.ok) {
       clearDraftCache(conversationId);
       reconcileSent(clientId, await res.json().catch(() => null));
-    } catch {
-      // Network failure: keep the message locally, queued for the outbox.
+      return;
+    }
+    if (res.status >= 400 && res.status < 500) {
+      // Definitive rejection (auth/validation/blocked) — retrying can't help.
       setMessages((prev) =>
         prev.map((m) =>
           m.clientId === clientId ? { ...m, status: "FAILED" } : m
         )
       );
+      return;
     }
+    // Server error (retryable) — stay PENDING and let the outbox re-send.
+    scheduleTransientRetry();
   };
 
   const sendTyping = () => {
@@ -1155,11 +1187,17 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           attachmentJson: upload.attachment,
         }),
       });
-      if (!res.ok) throw new Error("Send failed");
+      if (!res.ok) {
+        if (res.status >= 400 && res.status < 500) throw new Error("Send failed");
+        // Server hiccup — keep PENDING, let the outbox re-send.
+        scheduleTransientRetry();
+        return;
+      }
       inMemoryFilesRef.current.delete(clientId);
       clearDraftCache(conversationId);
       reconcileSent(clientId, await res.json().catch(() => null));
     } catch {
+      // Network or permanent failure — keep FAILED so the user can retry/delete.
       setMessages((prev) =>
         prev.map((m) =>
           m.clientId === clientId ? { ...m, status: "FAILED" } : m
