@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChatRealtime } from "@/hooks/useChatRealtime";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   clearDraftCache,
   draftImageToFile,
@@ -19,8 +17,6 @@ import {
 } from "@/lib/chat/local-cache";
 import MessageBubble from "./MessageBubble";
 import AttachmentLightbox, { type LightboxAttachment } from "./AttachmentLightbox";
-import CallOverlay from "./CallOverlay";
-import LockedPremium from "./LockedPremium";
 import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface ReplyTo {
@@ -548,12 +544,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  const [premiumUnlocked, setPremiumUnlocked] = useState(false);
   const [lightboxAttachment, setLightboxAttachment] = useState<LightboxAttachment | null>(null);
-  const [callOpen, setCallOpen] = useState(false);
-  const [callMode, setCallMode] = useState<"voice" | "video">("voice");
-  const [callSession, setCallSession] = useState(0);
-  const [premiumGate, setPremiumGate] = useState<"voice" | "video" | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -571,8 +562,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   useEffect(() => {
     metaStatusRef.current = metaStatus;
   }, [metaStatus]);
-  const { state: pushState, enable: enablePush, disable: disablePush } = usePushNotifications();
-  const router = useRouter();
 
   // INSTANT OPEN — hydrate conversation + messages from local cache BEFORE the
   // first paint. The full chat UI (header, composer, cached messages) shows
@@ -584,7 +573,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     if (cachedMeta) {
       setMeta(cachedMeta);
       setMetaStatus("ready");
-      setPremiumUnlocked(true);
     }
     const cachedMessages = readMessagesCache(conversationId);
     if (cachedMessages.length > 0) {
@@ -784,7 +772,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         setMeta(data);
         setMetaStatus("ready");
         setMetaTransient(false);
-        setPremiumUnlocked(Boolean(data.premium?.unlocked ?? true));
         setBlocked(false);
         // Persist so the NEXT open (incl. offline) renders instantly.
         writeMetaCache(conversationId, data);
@@ -1213,17 +1200,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   const isDisabled =
     !conversation || conversation.status !== "ACTIVE" || blocked;
 
-  const startCall = (mode: "voice" | "video") => {
-    if (!meta || metaStatus !== "ready") return;
-    if (!premiumUnlocked) {
-      setPremiumGate(mode);
-      return;
-    }
-    setCallMode(mode);
-    setCallSession((s) => s + 1);
-    setCallOpen(true);
-  };
-
   const groupedMessages = messages.map((msg, i) => {
     const prev = messages[i - 1];
     const next = messages[i + 1];
@@ -1235,82 +1211,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   });
 
   const headerControls = (
-    <div className="flex items-center gap-0.5">
-      <button
-        onClick={() => {
-          if (pushState === "subscribed") {
-            void disablePush();
-          } else if (pushState === "unsubscribed" || pushState === "unavailable") {
-            void enablePush();
-          }
-        }}
-        disabled={pushState === "unsupported" || pushState === "denied" || pushState === "loading"}
-        className={`grid h-11 w-11 place-items-center rounded-full transition ${
-          pushState === "subscribed"
-            ? "text-amber-400 hover:bg-white/10"
-            : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-        }`}
-        title={
-          pushState === "subscribed"
-            ? "Push notifications on"
-            : pushState === "denied"
-              ? "Notifications blocked in browser"
-              : "Enable push notifications"
-        }
-        aria-label="Toggle push notifications"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 01-3.46 0" />
-        </svg>
-      </button>
-      <button
-        onClick={() => startCall("voice")}
-        className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-        title="Voice call"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
-        </svg>
-      </button>
-      <button
-        onClick={() => startCall("video")}
-        className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-        title="Video call"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polygon points="23 7 16 12 23 17 23 7" />
-          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-        </svg>
-      </button>
-      <div className="relative">
+    <div className="relative">
         <button
           onClick={() => setMenuOpen((v) => !v)}
           className="grid h-11 w-11 place-items-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
@@ -1358,7 +1259,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           </>
         )}
       </div>
-    </div>
   );
 
   const rows: Array<
@@ -1399,7 +1299,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden"
       style={visualHeight !== null ? { height: `${visualHeight}px` } : undefined}
     >
-      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-ink-900/95 px-3 backdrop-blur sm:px-4">
+      <header className="sticky top-0 z-20 flex min-h-16 shrink-0 items-center gap-2.5 border-b border-white/10 bg-ink-900/95 px-2.5 backdrop-blur sm:gap-3 sm:px-4">
         <Link
           href="/chat"
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
@@ -1423,11 +1323,11 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           <>
             <button
               onClick={() => setProfileOpen(true)}
-              className="flex min-w-0 items-center gap-3 text-left"
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
               aria-label={`View ${celebrity.name}'s profile`}
             >
-              {(celebrity.profileImage || celebrity.profileImageUrl) && (
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white/10 ring-2 ring-primary-500/40 transition group-hover:ring-primary-400/60">
+              {((celebrity.profileImage || celebrity.profileImageUrl)) && (
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-primary-600 to-accent-500 ring-2 ring-white/15">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={celebrity.profileImage || celebrity.profileImageUrl}
@@ -1436,23 +1336,24 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                   />
                 </div>
               )}
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-lg font-bold leading-tight text-white">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0">
+                  <span className="break-words text-lg font-bold leading-snug text-white">
                     {celebrity.name}
                   </span>
                   {celebrity.isVerified && <VerifiedBadge className="h-5 w-5 shrink-0" />}
                 </div>
-                <p className="mt-1 text-sm leading-none text-zinc-400">
-                  {celebrity.chatAccountLabel ??
-                    (otherTyping ? (
-                      <span className="text-primary-400">typing…</span>
-                    ) : (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                        Online now
-                      </span>
-                    ))}
+                <p className="mt-0.5 text-sm text-zinc-400">
+                  {celebrity.chatAccountLabel ? (
+                    <span className="break-words">{celebrity.chatAccountLabel}</span>
+                  ) : otherTyping ? (
+                    <span className="text-primary-400">typing…</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      Online
+                    </span>
+                  )}
                 </p>
               </div>
             </button>
@@ -1460,12 +1361,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           </>
         ) : (
           <>
-            <div className="h-12 w-12 shrink-0 rounded-full border border-white/10 bg-white/10" />
+            <div className="h-14 w-14 shrink-0 rounded-full border border-white/10 bg-white/10" />
             <div className="min-w-0 flex-1">
-              <span className="block truncate text-lg font-bold leading-tight text-white">
+              <span className="break-words text-lg font-bold leading-snug text-white">
                 {metaStatus === "unavailable" ? "Conversation unavailable" : "Chat"}
               </span>
-              <span className="mt-1 block text-sm leading-none text-zinc-400">
+              <span className="mt-0.5 block text-sm leading-none text-zinc-400">
                 {metaStatus === "unavailable"
                   ? "This conversation is no longer available"
                   : !isOnline
@@ -1652,38 +1553,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         </div>
       )}
 
-      <CallOverlay
-        key={callSession}
-        conversationId={conversationId}
-        open={callOpen}
-        mode={callMode}
-        contactName={celebrity?.name ?? ""}
-        contactAvatar={celebrity?.profileImage ?? celebrity?.profileImageUrl ?? null}
-        onClose={() => setCallOpen(false)}
-      />
-
-      {premiumGate && celebrity && (
-        <div className="fixed inset-0 z-[65] grid place-items-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md">
-            <LockedPremium
-              feature={premiumGate}
-              name={celebrity.name}
-              onGetCard={() => {
-                setPremiumGate(null);
-                router.push(`/celebrity/${celebrity.slug}?focus=fan-card`);
-              }}
-            />
-            <div className="mt-3 text-center">
-              <button
-                onClick={() => setPremiumGate(null)}
-                className="text-sm text-zinc-400 hover:text-zinc-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
