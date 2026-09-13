@@ -27,13 +27,14 @@ export const AI_SETTING_PRIMARY_KEY = "ai.gemini.primary_key";
 export const AI_SETTING_BACKUP_KEY = "ai.gemini.backup_key";
 
 const ENC_PREFIX = "enc1.";
+const ENC_PREFIX_START = "enc1.";
 
 /** Encryption secret for at-rest AI keys; falls back to the social-token one. */
-function decryptionKey(): string {
+export function decryptionKey(): string {
   return process.env.AI_KEY_ENCRYPTION_KEY?.trim() || process.env.SOCIAL_TOKEN_ENCRYPTION_KEY?.trim() || "";
 }
 
-function encryptStoredKey(plain: string): string {
+export function encryptStoredKey(plain: string): string {
   const secret = decryptionKey();
   if (!secret || !plain) return plain;
   const key = crypto.createHash("sha256").update(secret).digest();
@@ -45,11 +46,11 @@ function encryptStoredKey(plain: string): string {
 }
 
 /** Decrypt an `enc1.`-prefixed stored key. Legacy plaintext passes through. */
-function decryptStoredKey(stored: string): string {
-  if (!stored.startsWith(ENC_PREFIX)) return stored;
+export function decryptStoredKey(stored: string): string {
+  if (!stored.startsWith(ENC_PREFIX_START)) return stored;
   const secret = decryptionKey();
   if (!secret) return ""; // encrypted at rest but the decryption key is missing — fail closed
-  const body = stored.slice(ENC_PREFIX.length);
+  const body = stored.slice(ENC_PREFIX_START.length);
   const [ivHex, tagHex, ...rest] = body.split(".");
   const dataHex = rest.join(".");
   if (!ivHex || !tagHex || !dataHex) return stored;

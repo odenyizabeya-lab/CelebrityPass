@@ -101,7 +101,7 @@ async function runAutoReply(conversationId: string) {
 
   if (!result.configured && !warnedNoKey) {
     warnedNoKey = true;
-    console.warn("[autoReply] ASSIST_GEMINI_KEY is not set — auto-replies are using offline templates. Add the key for real chats.");
+    console.warn("[autoReply] No assistant Gemini key configured — auto-replies are using offline templates. Paste a key in Admin → AI Settings for real chats.");
   }
 
   // Re-signal typing right before landing, then finish the "typing" beat.

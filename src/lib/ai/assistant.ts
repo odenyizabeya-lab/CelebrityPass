@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getAssistantConfig } from "@/lib/ai/assistantConfig";
 
 /**
  * AI Reply Assistant — its OWN Gemini system, fully separate from the scanner.
@@ -6,13 +7,16 @@ import { prisma } from "@/lib/db";
  * This module is a completely independent AI subsystem from `src/lib/ai/scanner.ts`
  * (which re-identifies celebrities with Google Gemini research). It shares no
  * key, no code, no prompts, no models and no settings with the scanner, and it
- * NEVER falls back to the scanner's key. The assistant is powered by a
- * dedicated Gemini key the owner supplies:
+ * NEVER falls back to the scanner's key. The assistant uses a dedicated Gemini
+ * key the owner supplies in Admin → AI Settings (pasted there and stored in the
+ * database, or set via env):
  *
- *   ASSIST_GEMINI_KEY        its own Gemini key (required for live replies)
- *   ASSIST_GEMINI_MODEL      default "gemini-2.5-flash" (scanner defaults to
- *                            a different model, so the two never share quota)
- *   ASSIST_GEMINI_BASE_URL   default https://generativelanguage.googleapis.com/v1beta
+ *   Admin → AI Settings → "AI Reply Assistant" card   (database, swap any time
+ *                                                      without redeploying)
+ *   ASSIST_GEMINI_KEY        env fallback          (required for live replies)
+ *   ASSIST_GEMINI_MODEL      env fallback, becomes "{ASSISTANT_DEFAULT_MODEL}"
+ *   ASSIST_GEMINI_BASE_URL   env fallback, default
+ *                            https://generativelanguage.googleapis.com/v1beta
  *
  * It drafts suggested replies in the celebrity's voice that the team reviews,
  * edits and approves in the admin chat room before anything is sent. The draft
@@ -54,15 +58,6 @@ export function stylePresets(): readonly string[] {
   return STYLE_PRESETS;
 }
 
-/** The assistant's OWN Gemini key — never the scanner's. */
-function getGeminiKey(): string | null {
-  return process.env.ASSIST_GEMINI_KEY?.trim() || null;
-}
-
-function getGeminiModel(): string {
-  return process.env.ASSIST_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-}
-
 function shorten(text: string): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length > MAX_BODY_CHARS ? `${t.slice(0, MAX_BODY_CHARS)}…` : t;
@@ -78,19 +73,17 @@ function clean(text: string): string {
 }
 
 async function geminiComplete(system: string, user: string): Promise<string> {
-  const key = getGeminiKey();
-  if (!key) throw new Error("Gemini key is not configured for the reply assistant");
-  const base = (
-    process.env.ASSIST_GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com/v1beta"
-  ).replace(/\/+$/, "");
-  const model = getGeminiModel();
+  const cfg = await getAssistantConfig();
+  if (!cfg.key) throw new Error("Gemini key is not configured for the reply assistant");
+  const base = cfg.baseUrl;
+  const model = cfg.model;
 
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45_000);
   try {
     const res = await fetch(`${base}/models/${model}:generateContent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key },
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cfg.key },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
@@ -234,17 +227,18 @@ export async function suggestReply(conversationId: string): Promise<SuggestionRe
 
   const userPrompt = `Conversation so far (oldest to newest):\n${history}\n\nWrite the message the celebrity would send back now.`;
 
+  const cfg = await getAssistantConfig();
   const meta = {
     celebrityName: celebrity.name,
     style: finalStyle,
-    configured: Boolean(getGeminiKey()),
+    configured: Boolean(cfg.key),
   };
   try {
     const text = await geminiComplete(`${systemInstruction}\n\nRules:\n${rules}`, userPrompt);
     return {
       text: clean(text),
       provider: "gemini",
-      model: getGeminiModel(),
+      model: cfg.model,
       ...meta,
     };
   } catch {
@@ -334,9 +328,10 @@ export async function composeAutoReply(conversationId: string): Promise<{
 
   const userPrompt = `Recent chat (oldest to newest):\n${history}\n\nWrite the next thing you send ${fanFirstName} right now — short, personal, in your voice (1-3 sentences).`;
 
+  const cfg = await getAssistantConfig();
   try {
     const text = await geminiComplete(`${systemInstruction}\n\nRules:\n${rules}`, userPrompt);
-    return { text: clean(text), provider: "gemini", configured: Boolean(getGeminiKey()) };
+    return { text: clean(text), provider: "gemini", configured: Boolean(cfg.key) };
   } catch {
     return {
       text: fallbackReply({
@@ -346,7 +341,7 @@ export async function composeAutoReply(conversationId: string): Promise<{
         lastFanMessage: latestFan ? shorten(latestFan.body) : null,
       }),
       provider: "fallback",
-      configured: Boolean(getGeminiKey()),
+      configured: Boolean(cfg.key),
     };
   }
 }

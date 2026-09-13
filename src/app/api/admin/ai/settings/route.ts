@@ -4,13 +4,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
 import { getAiSettingsStatus, setAIModel, setGeminiKey, DEFAULT_AI_MODEL, AI_MODEL_OPTIONS, AI_PROVIDER_NAME } from "@/lib/ai/settings";
+import { getAssistantStatus, setAssistantKey, setAssistantModel, setAssistantBaseUrl } from "@/lib/ai/assistantConfig";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const settings = await getAiSettingsStatus();
-  return NextResponse.json({ settings });
+  const assistant = await getAssistantStatus();
+  return NextResponse.json({ settings, assistant });
 }
 
 export async function POST(request: NextRequest) {
@@ -32,7 +34,17 @@ export async function POST(request: NextRequest) {
   if (body.backupKey !== undefined && typeof body.backupKey === "string") {
     await setGeminiKey("backup", body.backupKey);
   }
+  if (body.assistantKey !== undefined && typeof body.assistantKey === "string") {
+    await setAssistantKey(body.assistantKey);
+  }
+  if (body.assistantModel !== undefined && typeof body.assistantModel === "string") {
+    await setAssistantModel(body.assistantModel);
+  }
+  if (body.assistantBaseUrl !== undefined && typeof body.assistantBaseUrl === "string") {
+    await setAssistantBaseUrl(body.assistantBaseUrl);
+  }
 
   const settings = await getAiSettingsStatus();
-  return NextResponse.json({ settings, provider: AI_PROVIDER_NAME });
+  const assistant = await getAssistantStatus();
+  return NextResponse.json({ settings, assistant, provider: AI_PROVIDER_NAME });
 }

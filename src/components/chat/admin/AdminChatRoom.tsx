@@ -470,8 +470,8 @@ export default function AdminChatRoom({
                 <p className="text-sm leading-relaxed text-white">{aiText}</p>
                 {!aiConfigured && (
                   <p className="text-[11px] leading-snug text-zinc-500">
-                    Live drafting isn&apos;t active yet — this is a saved draft. Add the assistant key (
-                    <span className="font-mono text-zinc-400">ASSIST_GEMINI_KEY</span>) to enable it.
+                    Live drafting isn&apos;t active yet — this is a saved draft. Paste the assistant Gemini key in{" "}
+                    <span className="font-mono text-zinc-400">Admin → AI Settings</span> to enable it.
                   </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
