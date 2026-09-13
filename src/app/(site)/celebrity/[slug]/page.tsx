@@ -11,7 +11,7 @@ import GooglePanel from "@/components/GooglePanel";
 import Logo from "@/components/Logo";
 import ChatNowButton from "@/components/chat/ChatNowButton";
 import { prisma } from "@/lib/db";
-import { fetchGoogleInfo, type GoogleInfo } from "@/lib/google-info";
+import { fetchGoogleInfoBounded, type GoogleInfo } from "@/lib/google-info";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
 import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
@@ -195,23 +195,33 @@ export default async function CelebrityPage({ params }: Props) {
   // once, stores the panel, then renders the same rich knowledge panel as the
   // other communities. Failures never break the page; they just leave the (rare)
   // no-data case blank until a later visit succeeds.
-  let panel: GoogleInfo | null = celebrity.googleInfo;
+  const panel: GoogleInfo | null = celebrity.googleInfo;
+
+  // Self-heal the knowledge panel in the BACKGROUND so a slow or unreachable
+  // third-party lookup (Wikipedia/Wikidata) can never stall the page render
+  // — the stored panel simply appears on the next ISR pass (revalidate = 60).
+  // Same pattern as the create route's background enrichment.
   if (!panel) {
-    try {
-      const info = await fetchGoogleInfo(celebrity.name, {
-        profession: celebrity.profession,
-        category: celebrity.category,
-      });
-      if (info) {
-        await prisma.celebrity.update({
-          where: { id: celebrity.id },
-          data: { googleInfo: JSON.stringify(info) },
-        });
-        panel = info;
+    void (async () => {
+      try {
+        const info = await fetchGoogleInfoBounded(
+          celebrity.name,
+          {
+            profession: celebrity.profession,
+            category: celebrity.category,
+          },
+          8000,
+        );
+        if (info) {
+          await prisma.celebrity.update({
+            where: { id: celebrity.id },
+            data: { googleInfo: JSON.stringify(info) },
+          });
+        }
+      } catch {
+        /* ignored — the rest of the profile still renders */
       }
-    } catch {
-      /* the rest of the profile still renders */
-    }
+    })();
   }
 
   // The four permanent, verified platform links (source of truth).

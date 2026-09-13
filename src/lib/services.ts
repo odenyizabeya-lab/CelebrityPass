@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { tryParseJson } from "./utils";
-import { dataUriDims, profileImageUrl, celebrityImageFlags } from "./images";
+import { celebrityImageFlags } from "./images";
 import { platformTotal, displayCountryCount } from "./display";
 import { displayFanCountFor } from "./fame";
 import { representedCountryList } from "./countries";
@@ -236,16 +236,46 @@ export async function listActiveCelebritySlugs(): Promise<{ slug: string }[]> {
 
 /** Full data for a single celebrity community. */
 export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail | null> {
+  // Deliberately select scalars EXCEPT the giant base64 profileImage/coverImage
+  // blobs: a full-row read transferred up to ~3MB per profile render. Presence
+  // is derived from the hash columns so image URLs stay exact and cacheable,
+  // and the /images/... routes do the single heavy read (cached) on demand.
   const celebrity = await prisma.celebrity.findUnique({
     where: { slug },
-    include: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      category: true,
+      country: true,
+      city: true,
+      profession: true,
+      bio: true,
+      googleInfo: true,
+      accentColor: true,
+      isFeatured: true,
+      isActive: true,
+      isVerified: true,
+      displayFanCount: true,
+      createdAt: true,
+      instagramFollowers: true,
+      tiktokFollowers: true,
+      facebookFollowers: true,
+      facebookUrl: true,
+      instagramUrl: true,
+      tiktokUrl: true,
+      googleUrl: true,
+      socialLinks: true,
+      cardDesign: true,
       memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
     },
   });
   if (!celebrity) return null;
 
   const totalCountries = await platformCountryTotal();
-  const profileDims = celebrity.profileImage ? dataUriDims(celebrity.profileImage) : null;
+  const flags = await celebrityImageFlags();
+  const hasProfile = flags.get(celebrity.slug)?.hasProfile ?? false;
+  const hasCover = flags.get(celebrity.slug)?.hasCover ?? false;
 
   return {
     id: celebrity.id,
@@ -258,12 +288,12 @@ export async function getCelebrityBySlug(slug: string): Promise<CelebrityDetail 
     bio: celebrity.bio,
     tagline: panelTagline(celebrity.googleInfo),
     googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
-    profileImage: celebrity.profileImage,
-    coverImage: celebrity.coverImage,
-    profileImageUrl: celebrity.profileImage ? profileImageUrl(celebrity.slug, celebrity.profileImage) : null,
-    profileImageW: profileDims?.w ?? 500,
-    profileImageH: profileDims?.h ?? 625,
-    coverImageUrl: celebrity.coverImage ? `/images/${celebrity.slug}/cover` : null,
+    profileImage: null,
+    coverImage: null,
+    profileImageUrl: hasProfile ? `/images/${celebrity.slug}/profile` : null,
+    profileImageW: hasProfile ? 600 : 500,
+    profileImageH: hasProfile ? 750 : 625,
+    coverImageUrl: hasCover ? `/images/${celebrity.slug}/cover` : null,
     accentColor: celebrity.accentColor,
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,

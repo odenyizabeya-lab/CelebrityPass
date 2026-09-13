@@ -377,6 +377,51 @@ async function resolveEntityLabels(ids: string[]): Promise<Record<string, string
  * day of every year: the moment a birthday passes, the age ticks up with no
  * re-fetch and no human action required.
  */
+/**
+ * Concurrent dedupe for the bounded fetch below: identical lookups share a
+ * single in-flight network request instead of hammering Wikipedia/Wikidata
+ * in parallel from every page view.
+ */
+const googleInfoInflight = new Map<string, Promise<GoogleInfo | null>>();
+
+function timeoutReject(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`google-info timeout after ${ms}ms`)), ms);
+  });
+}
+
+/**
+ * Bounded variant of `fetchGoogleInfo` for fast render paths. Worst case it
+ * returns null after `timeoutMs` so a slow or hung third-party enrichment can
+ * never stall a user-facing page — the knowledge panel simply appears on a
+ * later visit. Concurrent callers for the same name share one network call.
+ */
+export async function fetchGoogleInfoBounded(
+  name: string,
+  opts: { force?: boolean; profession?: string; category?: string } = {},
+  timeoutMs = 6000,
+): Promise<GoogleInfo | null> {
+  const key = normalizeForLookup(name);
+  if (!opts.force && cache.has(key)) {
+    const hit = cache.get(key)!;
+    if (Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  }
+
+  try {
+    if (opts.force) {
+      return await Promise.race([fetchGoogleInfo(name, opts), timeoutReject(timeoutMs)]);
+    }
+    let p = googleInfoInflight.get(key);
+    if (!p) {
+      p = fetchGoogleInfo(name, opts).finally(() => googleInfoInflight.delete(key));
+      googleInfoInflight.set(key, p);
+    }
+    return await Promise.race([p, timeoutReject(timeoutMs)]);
+  } catch {
+    return null;
+  }
+}
+
 export function liveAge(bornIso: string | null | undefined): number | null {
   if (!bornIso) return null;
   const m = /^(\d{1,4})-(\d{2})-(\d{2})/.exec(bornIso);
