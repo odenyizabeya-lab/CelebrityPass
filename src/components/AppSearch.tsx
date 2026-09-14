@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { fetchWithTimeout } from "@/lib/client-http";
 
@@ -17,6 +18,8 @@ type SearchItem = {
   profileImageUrl: string | null;
   isVerified: boolean;
   accentColor: string;
+  fanCount: number;
+  country: string;
 };
 
 const RECENT_KEY = "cp:recent-searches";
@@ -41,6 +44,29 @@ function saveRecent(q: string) {
   } catch {
     /* storage unavailable — skip history */
   }
+}
+
+function removeRecent(q: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(loadRecent().filter((x) => x !== q)));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Compact follower-style count ("1.2M fans") like a real social app. */
+function formatCount(n: number): string {
+  if (n < 1000) return `${n}`;
+  if (n < 1_000_000) {
+    const k = n / 1000;
+    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}K`;
+  }
+  if (n < 1_000_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 100 ? Math.round(m) : m.toFixed(1)}M`;
+  }
+  return `${(n / 1_000_000_000).toFixed(1)}B`;
 }
 
 /** Downscale + compress a camera/photo file so visual search stays fast. */
@@ -69,7 +95,7 @@ function AvatarFallback({ name, accent }: { name: string; accent: string }) {
   return (
     <span
       aria-hidden
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-bold text-white"
+      className="grid h-14 w-14 shrink-0 place-items-center rounded-full text-xl font-bold text-white"
       style={{ background: `linear-gradient(135deg, ${accent}, ${accent}66)` }}
     >
       {initial}
@@ -84,17 +110,17 @@ function ResultRow({ item, highlighted, onPress }: { item: SearchItem; highlight
       onMouseEnter={onPress}
       onFocus={onPress}
       onClick={() => saveRecent(item.name)}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
-        highlighted ? "bg-zinc-100" : "hover:bg-zinc-50"
+      className={`flex w-full items-center gap-3 border-b border-[#222d34] px-4 py-3 transition-colors sm:px-5 ${
+        highlighted ? "bg-white/[0.05]" : "active:bg-white/[0.05]"
       }`}
     >
       {item.profileImageUrl ? (
         <Image
           src={item.profileImageUrl}
           alt=""
-          width={44}
-          height={44}
-          className="h-11 w-11 shrink-0 rounded-full object-cover"
+          width={56}
+          height={56}
+          className="h-14 w-14 shrink-0 rounded-full object-cover"
           unoptimized
         />
       ) : (
@@ -102,16 +128,20 @@ function ResultRow({ item, highlighted, onPress }: { item: SearchItem; highlight
       )}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-bold text-zinc-900">{item.name}</span>
+          <span className="truncate text-[15px] font-bold text-white">{item.name}</span>
           {item.isVerified && <VerifiedBadge className="h-[1.1em] w-[1.1em] shrink-0" />}
         </span>
-        <span className="block truncate text-sm text-zinc-500">
+        <span className="mt-0.5 block truncate text-[13px] text-zinc-400">
           {item.category}
-          {item.tagline ? ` · ${item.tagline}` : item.profession ? ` · ${item.profession}` : ""}
+          {item.profession ? ` · ${item.profession}` : ""}
+          {item.country ? ` · ${item.country}` : ""}
         </span>
       </span>
-      <span className="ml-auto shrink-0 rounded-full bg-gradient-to-r from-primary-600 to-accent-500 px-3.5 py-1.5 text-xs font-bold text-white">
-        View Profile
+      <span className="flex shrink-0 items-center gap-2.5 text-right">
+        <span className="text-[11px] font-bold text-zinc-500">{formatCount(item.fanCount)} fans</span>
+        <svg className="h-5 w-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
       </span>
     </Link>
   );
@@ -131,8 +161,8 @@ type VoiceRecognition = {
 
 export default function AppSearch() {
   const router = useRouter();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const overlayInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recogRef = useRef<{ stop: () => void } | null>(null);
@@ -187,6 +217,26 @@ export default function AppSearch() {
     [],
   );
 
+  const closeAll = () => {
+    setOpen(false);
+    setVisual((v) => ({ ...v, open: false }));
+    setNotice(null);
+    setListening(false);
+    recogRef.current?.stop?.();
+  };
+
+  // Native-app behavior: full-screen search open = keyboard up + body locked.
+  useEffect(() => {
+    if (!open && !visual.open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const t = window.setTimeout(() => overlayInputRef.current?.focus(), 120);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.clearTimeout(t);
+    };
+  }, [open, visual.open]);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => runSearch(q), 250);
@@ -196,19 +246,12 @@ export default function AppSearch() {
   }, [q, runSearch]);
 
   useEffect(() => {
-    const onDocMouseDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeAll();
     };
-    document.addEventListener("mousedown", onDocMouseDown);
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [q, results, visual.open]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -220,7 +263,13 @@ export default function AppSearch() {
     } else {
       router.push("/celebrities");
     }
-    setOpen(false);
+    closeAll();
+  };
+
+  const goTo = (item: SearchItem) => {
+    pushRecent(item.name);
+    closeAll();
+    router.push(`/celebrity/${item.slug}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -233,9 +282,7 @@ export default function AppSearch() {
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (results[highlight]) {
-        pushRecent(results[highlight].name);
-        setOpen(false);
-        router.push(`/celebrity/${results[highlight].slug}`);
+        goTo(results[highlight]);
       } else {
         submitBrowse(q);
       }
@@ -243,6 +290,7 @@ export default function AppSearch() {
   };
 
   const startVoice = () => {
+    setOpen(true);
     setNotice(null);
     const w = window as unknown as {
       SpeechRecognition?: new () => VoiceRecognition;
@@ -289,6 +337,12 @@ export default function AppSearch() {
     }
   };
 
+  const openPhotoSearch = () => {
+    setOpen(true);
+    setVisual((v) => ({ ...v, open: false }));
+    window.setTimeout(() => fileInputRef.current?.click(), 150);
+  };
+
   const pickImage = async (file: File) => {
     const reader = new FileReader();
     reader.onload = async () => {
@@ -331,257 +385,315 @@ export default function AppSearch() {
     reader.readAsDataURL(file);
   };
 
-  const closeAll = () => {
-    setOpen(false);
-    setVisual((v) => ({ ...v, open: false }));
-    setNotice(null);
+  const startQuery = (term: string) => {
+    pushRecent(term);
+    setQ(term);
+    runSearch(term);
   };
 
-  const showState = open || visual.open;
+  const overlayOpen = open || visual.open;
   const emptyIdle = open && !q.trim() && !visual.open;
 
-  return (
-    <div ref={rootRef} className="relative z-20 mx-auto mt-9 w-full max-w-2xl">
-      <form
-        onSubmit={(e) => {
+  const headerIconCls =
+    "grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-300 transition hover:bg-white/[0.07] active:bg-white/[0.1]";
+
+  const hero = (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Open search"
+      onClick={() => setOpen(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          submitBrowse(q);
+          setOpen(true);
+        }
+      }}
+      className="relative z-20 mx-auto mt-9 flex w-full max-w-2xl cursor-pointer select-none items-center gap-2 rounded-3xl bg-white p-2 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/5 transition hover:bg-zinc-50 sm:p-2.5"
+    >
+      <svg className="ml-3 h-6 w-6 shrink-0 text-zinc-400 sm:ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+      </svg>
+      <span className="w-full min-w-0 flex-1 truncate py-3.5 text-left text-base font-medium text-zinc-400 sm:text-lg">
+        Search any celebrity…
+      </span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          startVoice();
         }}
-        className="flex items-center gap-2 rounded-3xl bg-white p-2 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/5 sm:p-2.5"
-        role="search"
+        aria-label="Voice search"
+        title="Voice search"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-zinc-600 transition hover:bg-zinc-100 sm:h-11 sm:w-11"
       >
-        <svg className="ml-3 h-6 w-6 shrink-0 text-zinc-400 sm:ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a4 4 0 004-4V8a4 4 0 10-8 0v6a4 4 0 004 4zm5-4a5 5 0 01-10 0m5 4v3m-3 0h6" />
         </svg>
-        <input
-          ref={inputRef}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-            setFetchedOnce(true);
-          }}
-          onFocus={() => {
-            setOpen(true);
-            setFetchedOnce(true);
-          }}
-          onKeyDown={onKeyDown}
-          placeholder="Search any celebrity…"
-          autoComplete="off"
-          spellCheck={false}
-          aria-label="Search celebrities"
-          className="w-full min-w-0 flex-1 bg-transparent py-3.5 text-base font-medium text-zinc-900 placeholder-zinc-400 outline-none sm:text-lg"
-        />
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={startVoice}
-            aria-label="Voice search"
-            title="Voice search"
-            className={`grid h-12 w-12 place-items-center rounded-2xl transition sm:h-11 sm:w-11 ${
-              listening ? "bg-red-600 text-white" : "text-zinc-600 hover:bg-zinc-100"
-            }`}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              {listening ? (
-                <rect x="9" y="2" width="6" height="12" rx="3" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a4 4 0 004-4V8a4 4 0 10-8 0v6a4 4 0 004 4zm5-4a5 5 0 01-10 0m5 4v3m-3 0h6" />
-              )}
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            aria-label="Search by photo"
-            title="Search by photo"
-            className="grid h-12 w-12 place-items-center rounded-2xl text-zinc-600 transition hover:bg-zinc-100 sm:h-11 sm:w-11"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.8 6.8h10.4A1.8 1.8 0 0119 8.6v9.6a1.8 1.8 0 01-1.8 1.8H6.8A1.8 1.8 0 015 18.2V8.6a1.8 1.8 0 011.8-1.8zm0 0l2.2-2.3a2 2 0 011.4-.6h3.2a2 2 0 011.4.6l2.2 2.3M12 16.2a3.3 3.3 0 100-6.6 3.3 3.3 0 000 6.6z" />
-            </svg>
-          </button>
-          <input
-            ref={(el) => {
-              if (el) el.value = "";
-            }}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            aria-hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void pickImage(f);
-              e.target.value = "";
-            }}
-          />
-          <span className="mx-1 hidden h-6 w-px bg-zinc-200 sm:block" />
-          <button
-            type="submit"
-            className="btn-grad grid h-12 place-items-center rounded-2xl px-4 font-bold text-white sm:h-11 sm:px-5 sm:text-sm"
-          >
-            <span className="hidden sm:inline">Search</span>
-            <svg className="h-5 w-5 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-          </button>
-        </div>
-      </form>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openPhotoSearch();
+        }}
+        aria-label="Search by photo"
+        title="Search by photo"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-zinc-600 transition hover:bg-zinc-100 sm:h-11 sm:w-11"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.8 6.8h10.4A1.8 1.8 0 0119 8.6v9.6a1.8 1.8 0 01-1.8 1.8H6.8A1.8 1.8 0 015 18.2V8.6a1.8 1.8 0 011.8-1.8zm0 0l2.2-2.3a2 2 0 011.4-.6h3.2a2 2 0 011.4.6l2.2 2.3M12 16.2a3.3 3.3 0 100-6.6 3.3 3.3 0 000 6.6z" />
+        </svg>
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        aria-hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void pickImage(f);
+          e.target.value = "";
+        }}
+      />
+      <span className="mx-1 hidden h-6 w-px bg-zinc-200 sm:block" />
+      <span className="btn-grad grid h-12 shrink-0 place-items-center rounded-2xl px-4 font-bold text-white sm:h-11 sm:px-5 sm:text-sm">
+        Search
+      </span>
+    </div>
+  );
 
-      {listening && (
-        <p className="mt-2 flex items-center justify-center gap-2 text-sm font-medium text-white">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
-          Listening… speak the celebrity name.
-        </p>
-      )}
-      {notice && !listening && (
-        <p className="mt-2 rounded-full bg-white px-4 py-2 text-center text-sm font-medium text-zinc-900 shadow-lg">{notice}</p>
-      )}
-
-      {showState && (
-        <div className="mt-2 overflow-hidden rounded-3xl bg-white shadow-[0_18px_50px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/5">
-          {visual.open ? (
-            /* ===== Visual search panel ===== */
-            <div className="p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                {visual.preview && (
-                  <Image
-                    src={visual.preview}
-                    alt="Selected photo"
-                    width={96}
-                    height={96}
-                    className="h-24 w-24 shrink-0 rounded-2xl object-cover ring-1 ring-zinc-200"
-                    unoptimized
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-zinc-900">Visual search</p>
-                  {visual.busy ? (
-                    <p className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
-                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-300 border-t-primary-600" />
-                      {visual.status}
-                    </p>
-                  ) : visual.status ? (
-                    <p className="mt-1 text-sm text-zinc-500">{visual.status}</p>
-                  ) : (
-                    <div className="mt-1">
-                      <p className="text-sm text-zinc-500">
-                        We recognized <span className="font-bold text-zinc-900">{visual.name ?? "this person"}</span>, but they
-                        don&apos;t have a CelebrityPass community yet. Try another photo or type a name.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => submitBrowse(q || (visual.name ?? ""))}
-                        className="mt-3 rounded-full bg-zinc-100 px-4 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
-                      >
-                        Search like this
-                      </button>
-                    </div>
-                  )}
-                </div>
+  const overlay = overlayOpen
+    ? createPortal(
+        <div className="search-overlay fixed inset-0 z-[100] flex flex-col bg-[#0b141a]">
+          {/* header */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-[#222d34] bg-[#111b21] px-3 pb-2 pt-[max(env(safe-area-inset-top),0.625rem)] sm:gap-3 sm:px-4">
+            <button type="button" onClick={closeAll} aria-label="Close search" className={headerIconCls}>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-[#202c33] px-3.5 py-1.5 ring-1 ring-inset ring-white/[0.06] transition focus-within:ring-white/20">
+              <svg className="h-5 w-5 shrink-0 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <input
+                ref={overlayInputRef}
+                autoFocus
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setOpen(true);
+                  setFetchedOnce(true);
+                }}
+                onKeyDown={onKeyDown}
+                placeholder="Search any celebrity…"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label="Search celebrities"
+                className="w-full min-w-0 flex-1 bg-transparent py-2 text-base font-medium text-white placeholder-zinc-400 outline-none sm:text-lg"
+              />
+              {q.length > 0 && (
                 <button
                   type="button"
-                  onClick={closeAll}
-                  aria-label="Close visual search"
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-zinc-500 hover:bg-zinc-100"
+                  onClick={() => setQ("")}
+                  aria-label="Clear search"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-zinc-300 transition hover:bg-white/20"
                 >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              </div>
+              )}
             </div>
-          ) : (
-            /* ===== Autocomplete dropdown ===== */
-            <div className="max-h-[70vh] overflow-y-auto p-1.5">
-              {loading && !results.length && fetchedOnce && (
-                <div className="flex items-center gap-3 px-4 py-4">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-primary-600" />
-                  <span className="text-sm font-medium text-zinc-500">Searching celebrities…</span>
-                </div>
-              )}
+            <button
+              type="button"
+              onClick={startVoice}
+              aria-label="Voice search"
+              title="Voice search"
+              className={`${headerIconCls} ${listening ? "bg-red-600 text-white hover:bg-red-600" : ""}`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {listening ? <rect x="9" y="2" width="6" height="12" rx="3" /> : <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a4 4 0 004-4V8a4 4 0 10-8 0v6a4 4 0 004 4zm5-4a5 5 0 01-10 0m5 4v3m-3 0h6" />}
+              </svg>
+            </button>
+            <button type="button" onClick={openPhotoSearch} aria-label="Search by photo" title="Search by photo" className={headerIconCls}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.8 6.8h10.4A1.8 1.8 0 0119 8.6v9.6a1.8 1.8 0 01-1.8 1.8H6.8A1.8 1.8 0 015 18.2V8.6a1.8 1.8 0 011.8-1.8zm0 0l2.2-2.3a2 2 0 011.4-.6h3.2a2 2 0 011.4.6l2.2 2.3M12 16.2a3.3 3.3 0 100-6.6 3.3 3.3 0 000 6.6z" />
+              </svg>
+            </button>
+          </div>
 
-              {!loading && q.trim() && results.length === 0 && (
-                <div className="px-4 py-6 text-center">
-                  <p className="text-base font-bold text-zinc-900">No celebrity found</p>
-                  <p className="mx-auto mt-1 max-w-xs text-sm text-zinc-500">
-                    Check the spelling or try another name — every celebrity on CelebrityPass is searchable here.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => submitBrowse(q)}
-                    className="mt-3 rounded-full bg-zinc-100 px-4 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
-                  >
-                    Browse the directory instead
-                  </button>
-                </div>
-              )}
-
-              {results.length > 0 && (
-                <div>
-                  <p className="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    {trending ? "Trending celebrities" : "Matching celebrities"}
-                  </p>
-                  <div onMouseLeave={() => setHighlight(-1)}>
-                    {results.map((item, i) => (
-                      <ResultRow key={item.id} item={item} highlighted={highlight === i && !loading} onPress={() => setHighlight(i)} />
-                    ))}
+          {/* body */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+            {visual.open ? (
+              /* ===== Visual search panel ===== */
+              <div className="p-5 sm:p-6">
+                <div className="flex items-start gap-4">
+                  {visual.preview && (
+                    <Image
+                      src={visual.preview}
+                      alt="Selected photo"
+                      width={112}
+                      height={112}
+                      className="h-28 w-28 shrink-0 rounded-2xl object-cover ring-1 ring-white/10"
+                      unoptimized
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-black text-white">Visual search</p>
+                    {visual.busy ? (
+                      <p className="mt-1.5 flex items-center gap-2 text-sm text-zinc-400">
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-600 border-t-[#00a884]" />
+                        {visual.status}
+                      </p>
+                    ) : visual.status ? (
+                      <p className="mt-1.5 text-sm text-zinc-400">{visual.status}</p>
+                    ) : (
+                      <div className="mt-1.5">
+                        <p className="text-sm text-zinc-400">
+                          We recognized <span className="font-bold text-white">{visual.name ?? "this person"}</span>, but they
+                          don&apos;t have a CelebrityPass community yet. Try another photo or type a name.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => submitBrowse(q || (visual.name ?? ""))}
+                          className="btn-grad mt-4 rounded-full px-5 py-2 text-sm font-bold text-white"
+                        >
+                          Search like this
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+            ) : (
+              <div className="min-h-full">
+                {loading && !results.length && fetchedOnce && (
+                  <div className="flex items-center gap-3 px-5 py-5">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-[#00a884]" />
+                    <span className="text-sm font-medium text-zinc-400">Searching celebrities…</span>
+                  </div>
+                )}
 
-              {emptyIdle && !loading && (
-                <div className="p-1.5">
-                  <div className="px-2 pt-2">
+                {!loading && q.trim() && results.length === 0 && (
+                  <div className="px-5 py-14 text-center">
+                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/[0.05]">
+                      <svg className="h-7 w-7 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                    </div>
+                    <p className="mt-4 text-lg font-bold text-white">No celebrity found</p>
+                    <p className="mx-auto mt-1 max-w-xs text-sm text-zinc-400">
+                      Check the spelling or try another name — every celebrity on CelebrityPass is searchable here.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => submitBrowse(q)}
+                      className="btn-grad mt-5 rounded-full px-5 py-2 text-sm font-bold text-white"
+                    >
+                      Browse the directory instead
+                    </button>
+                  </div>
+                )}
+
+                {emptyIdle && !loading && (
+                  <div className="pb-10">
                     {recent.length > 0 && (
-                        <>
-                          <p className="pb-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Recent searches</p>
-                          <div className="flex flex-wrap gap-2">
-                            {recent.map((r) => (
-                              <button
-                                key={r}
-                                type="button"
-                                onClick={() => {
-                                  pushRecent(r);
-                                  setQ(r);
-                                  runSearch(r);
-                                }}
-                                className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
-                              >
-                                <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-                                </svg>
-                                {r}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                      <p className="pb-1 pt-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Trending</p>
-                      <div className="flex flex-wrap gap-2 pb-2">
-                        {results.slice(0, 6).map((r) => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => {
-                              pushRecent(r.name);
-                              setQ(r.name);
-                              runSearch(r.name);
-                            }}
-                            className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-200"
+                      <div>
+                        <p className="px-4 pb-1 pt-5 text-xs font-bold uppercase tracking-wider text-zinc-500 sm:px-5">
+                          Recent searches
+                        </p>
+                        {recent.map((r) => (
+                          <div
+                            key={r}
+                            className="flex w-full items-center gap-3 border-b border-[#222d34] px-4 py-3.5 sm:px-5"
                           >
-                            {r.name}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => startQuery(r)}
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                            >
+                              <svg className="h-5 w-5 shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                              </svg>
+                              <span className="truncate text-[15px] font-medium text-white">{r}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeRecent(r);
+                                setRecent(loadRecent());
+                              }}
+                              aria-label={`Remove ${r} from recent searches`}
+                              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-300"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         ))}
                       </div>
+                    )}
+
+                    <p className="px-4 pb-1 pt-5 text-xs font-bold uppercase tracking-wider text-zinc-500 sm:px-5">Trending</p>
+                    {results.length > 0 ? (
+                      results.slice(0, 6).map((item, i) => (
+                        <ResultRow key={item.id} item={item} highlighted={highlight === i && !loading} onPress={() => setHighlight(i)} />
+                      ))
+                    ) : (
+                      <p className="px-4 py-8 text-center text-sm text-zinc-500 sm:px-5">No trending communities right now.</p>
+                    )}
+
+                    <div className="px-4 pt-8 sm:px-5">
+                      <button
+                        type="button"
+                        onClick={() => submitBrowse("")}
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+                      >
+                        Browse the directory
+                      </button>
                     </div>
                   </div>
                 )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+
+                {!emptyIdle && q.trim() && results.length > 0 && (
+                  <div>
+                    <p className="px-4 pb-1 pt-5 text-xs font-bold uppercase tracking-wider text-zinc-500 sm:px-5">
+                      {trending ? "Trending celebrities" : "Matching celebrities"}
+                    </p>
+                    <div onMouseLeave={() => setHighlight(-1)}>
+                      {results.map((item, i) => (
+                        <ResultRow key={item.id} item={item} highlighted={highlight === i && !loading} onPress={() => setHighlight(i)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {listening && (
+                  <p className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-zinc-300">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                    Listening… speak the celebrity name.
+                  </p>
+                )}
+                {notice && !listening && (
+                  <p className="px-5 py-3 text-sm font-medium text-zinc-400">{notice}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <>
+      {hero}
+      {overlay}
+    </>
   );
 }

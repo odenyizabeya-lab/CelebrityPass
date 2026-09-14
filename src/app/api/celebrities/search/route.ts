@@ -18,6 +18,8 @@ type CelebrityRow = {
   googleInfo: string | null;
   isVerified: boolean;
   accentColor: string;
+  displayFanCount: number | null;
+  country: string;
 };
 
 export type CelebritySearchItem = {
@@ -30,6 +32,8 @@ export type CelebritySearchItem = {
   profileImageUrl: string | null;
   isVerified: boolean;
   accentColor: string;
+  fanCount: number;
+  country: string;
 };
 
 function taglineOf(json: string | null): string | null {
@@ -49,6 +53,8 @@ function toItem(c: CelebrityRow, hasProfile: boolean): CelebritySearchItem {
     profileImageUrl: hasProfile ? `/images/${c.slug}/profile` : null,
     isVerified: c.isVerified,
     accentColor: c.accentColor,
+    fanCount: c.displayFanCount ?? 0,
+    country: c.country,
   };
 }
 
@@ -63,6 +69,7 @@ const SELECT = {
   googleInfo: true,
   isVerified: true,
   accentColor: true,
+  displayFanCount: true,
 } as const;
 
 // GET /api/celebrities/search?q=Tom

@@ -85,6 +85,21 @@ body {
   animation: inappToastIn 0.22s ease-out;
 }
 
+/* Full-screen native-app search overlay: slides up like a real app screen. */
+@keyframes searchSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.search-overlay {
+  animation: searchSheetIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);

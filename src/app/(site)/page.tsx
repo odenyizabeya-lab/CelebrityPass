@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Viewport } from "next";
 import CountUp from "@/components/CountUp";
 import CelebrityCard from "@/components/CelebrityCard";
 import AppSearch from "@/components/AppSearch";
@@ -11,6 +12,12 @@ import { formatMoney } from "@/lib/payments";
 import { isOnboarded } from "@/lib/onboarding";
 
 export const revalidate = 60;
+
+// Full-screen app search overlay: let the Android keyboard resize the viewport
+// exactly like the native chat app does, so nothing hides behind the keys.
+export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
+};
 
 // Global base membership: LEVEL 1 = Premium $1,000, LEVEL 2 = VIP $1,700 (USD).
 const PREMIUM_PRICE = 1000;
