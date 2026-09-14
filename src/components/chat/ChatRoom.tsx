@@ -480,13 +480,10 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
                 onClick={handleSend}
                 disabled={disabled}
                 className="grid h-11 w-11 shrink-0 place-items-center self-end rounded-full bg-[#00a884] text-white transition-all hover:bg-[#02c297] active:scale-90 disabled:opacity-40"
-                title="Send"
-                aria-label="Send"
+                title="Shift"
+                aria-label="Shift"
               >
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 2L11 13" />
-                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-                </svg>
+                <span className="text-[13px] font-bold leading-none tracking-[0.01em]">Shift</span>
               </button>
             ) : (
               <button
