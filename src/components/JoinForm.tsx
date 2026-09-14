@@ -120,7 +120,6 @@ export default function JoinForm({
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [country, setCountry] = useState("");
   const [level, setLevel] = useState(defaultLevel);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +133,7 @@ export default function JoinForm({
       const res = await fetchWithTimeout("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ celebritySlug: slug, name, email, password, country, membershipLevelId: level }),
+        body: JSON.stringify({ celebritySlug: slug, name, email, country, membershipLevelId: level }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -143,10 +142,6 @@ export default function JoinForm({
         return;
       }
       setLoading(false);
-      if (data.requiresLogin) {
-        router.push(`/login?next=/celebrity/${encodeURIComponent(slug)}/join`);
-        return;
-      }
       if (data.requiresPayment && data.payment) {
         router.push(`/checkout/${data.payment.id}`);
         return;
@@ -177,19 +172,6 @@ export default function JoinForm({
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.email")}</label>
           <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder={t("join.emailPlaceholder")} />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-zinc-300">
-            {t("join.password")} <span className="font-normal text-zinc-500">{t("common.optional")}</span>
-          </label>
-          <input
-            type="password"
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
-            placeholder={t("join.passwordHint")}
-          />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.country")}</label>

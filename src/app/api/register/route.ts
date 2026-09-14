@@ -37,11 +37,10 @@ export async function POST(request: NextRequest) {
     const authorized = current === fan.id;
     if (!fan.password && password) {
       fan = await prisma.fan.update({ where: { id: fan.id }, data: { password: hashPassword(password) } });
-    } else if (!authorized && fan.password && password && !verifyPassword(password, fan.password)) {
-      return NextResponse.json({ requiresLogin: true, email, celebritySlug: celebrity.slug }, { status: 200 });
-    } else if (!authorized && fan.password && !password) {
-      return NextResponse.json({ requiresLogin: true, email, celebritySlug: celebrity.slug }, { status: 200 });
     }
+    // NOTE: fan-card purchase is deliberately login-free (owner requirement).
+    // If this existing fan has a password we don't automatically set one here —
+    // the account stays untouched, we just let the guest checkout proceed below.
   } else {
     fan = await prisma.fan.create({
       data: {
