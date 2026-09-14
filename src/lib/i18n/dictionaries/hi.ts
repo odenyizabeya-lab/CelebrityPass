@@ -19,6 +19,7 @@ export const hi: Dict = {
     directory: "सेलिब्रिटी डायरेक्टरी",
     eventDiscovery: "इवेंट खोजें",
     membershipLevels: "सदस्यता स्तर",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "मल्टी-सेलिब्रिटी फैन सदस्यता प्लेटफ़ॉर्म",
@@ -145,6 +146,8 @@ export const hi: Dict = {
   footer: {
     tagline: "CelebrityPass वैध सेलिब्रिटी फैन कार्ड, इवेंट टिकट, कॉन्सर्ट, शो, VIP अनुभव और मीट-एंड-ग्रीट अनुभवों के लिए एक मनोरंजन प्लेटफ़ॉर्म है। एक खाता, आधिकारिक सत्यापित फैन कार्ड, और वास्तविक टिकट वाले इवेंट।",
     explore: "खोजें",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "खाता",
     legal: "कानूनी और सहायता",
     fanDashboard: "फैन डैशबोर्ड",

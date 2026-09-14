@@ -6,9 +6,10 @@ import { safeAsync } from "@/lib/safe-data";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Event Discovery — CelebrityPass",
+  title: "Event Discovery",
   description:
     "Search real concerts and events across multiple verified providers. CelebrityPass only shows publicly announced events — no fake listings.",
+  alternates: { canonical: "/discovery" },
 };
 
 export default async function EventDiscoveryPage() {

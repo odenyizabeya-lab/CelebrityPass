@@ -4,6 +4,7 @@ import LegalShell from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How CelebrityPass collects, uses, stores, and protects your personal data.",
+  alternates: { canonical: "/legal/privacy" },
 };
 
 export default function PrivacyPage() {

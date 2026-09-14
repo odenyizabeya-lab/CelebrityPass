@@ -19,6 +19,7 @@ export const fr: Dict = {
     directory: "Annuaire des célébrités",
     eventDiscovery: "Découvrir les événements",
     membershipLevels: "Niveaux d'adhésion",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "Plateforme d'adhésion de fans multi-célébrités",
@@ -145,6 +146,8 @@ export const fr: Dict = {
   footer: {
     tagline: "CelebrityPass est une plateforme de divertissement pour les cartes de fan légitimes, les billets d'événements, les concerts, les spectacles, les expériences VIP et les rencontres. Un compte, des cartes de fan vérifiées et de vrais événements.",
     explore: "Explorer",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "Compte",
     legal: "Légal & support",
     fanDashboard: "Tableau de bord fan",

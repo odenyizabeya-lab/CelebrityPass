@@ -19,6 +19,7 @@ export const zhHans: Dict = {
     directory: "名人目录",
     eventDiscovery: "活动浏览",
     membershipLevels: "会员等级",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "多明星粉丝会员平台",
@@ -145,6 +146,8 @@ export const zhHans: Dict = {
   footer: {
     tagline: "CelebrityPass 是一个娱乐平台，提供正规的明星粉丝卡、活动门票、演唱会、演出、VIP 体验和见面会体验。一个账户，官方认证粉丝卡，真实售票活动。",
     explore: "浏览",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "账户",
     legal: "法律与支持",
     fanDashboard: "粉丝面板",

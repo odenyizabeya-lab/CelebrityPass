@@ -32,6 +32,7 @@ const PUBLIC_PREFIXES = [
   "/download",
   "/discovery",
   "/faq",
+  "/memberships",
 ];
 
 const PUBLIC_FILE_NAMES = new Set([

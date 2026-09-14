@@ -4,6 +4,7 @@ import LegalShell from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Payments & Refunds",
   description: "How payments and refunds work on CelebrityPass, including Bank Transfer and ATM Card.",
+  alternates: { canonical: "/legal/payments" },
 };
 
 export default function PaymentsPage() {

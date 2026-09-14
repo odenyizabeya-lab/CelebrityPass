@@ -25,6 +25,7 @@ export const en = {
     directory: "Celebrity Directory",
     eventDiscovery: "Event Discovery",
     membershipLevels: "Membership Levels",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "Multi-celebrity fan membership platform",
@@ -151,6 +152,8 @@ export const en = {
   footer: {
     tagline: "CelebrityPass is an entertainment platform for legitimate celebrity fan cards, event tickets, concerts, shows, VIP experiences, and meet-and-greet experiences. One account, official verified fan cards, and real ticketed events.",
     explore: "Explore",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "Account",
     legal: "Legal & Support",
     fanDashboard: "Fan Dashboard",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import FaqList from "@/components/help/FaqList";
+import { FAQS } from "@/lib/faqs";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -12,6 +13,20 @@ export const metadata: Metadata = {
 export default function FaqPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: FAQS.map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          }),
+        }}
+      />
       <nav className="text-sm text-zinc-400">
         <Link href="/" className="transition hover:text-white">Home</Link>
         <span aria-hidden> · </span>

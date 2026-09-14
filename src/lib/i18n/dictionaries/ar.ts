@@ -19,6 +19,7 @@ export const ar: Dict = {
     directory: "دليل المشاهير",
     eventDiscovery: "استكشاف الفعاليات",
     membershipLevels: "مستويات العضوية",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "منصة عضوية المعجبين متعددة المشاهير",
@@ -145,6 +146,8 @@ export const ar: Dict = {
   footer: {
     tagline: "CelebrityPass منصة ترفيه لبطاقات معجبين المشاهير المشروعة وتذاكر الفعاليات والحفلات والعروض وتجارب VIP ولقاءات. حساب واحد، بطاقات معجبين رسمية موثقة، وفعاليات حقيقية بالتذاكر.",
     explore: "استكشف",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "الحساب",
     legal: "القانون والدعم",
     fanDashboard: "لوحة المعجب",

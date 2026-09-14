@@ -8,17 +8,50 @@ import TicketsSection from "@/components/tickets/TicketsSection";
 import { getEventById } from "@/lib/events/service";
 import { formatEventTime, friendlyTimezone, formatEventDate } from "@/lib/events/helpers";
 import { safeAsync } from "@/lib/safe-data";
+import { appUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+const APP_URL = appUrl();
+
 type Props = { params: Promise<{ slug: string; eventId: string }> };
 
+const STATUS_SCHEMA: Record<string, string> = {
+  UPCOMING: "https://schema.org/EventScheduled",
+  HAPPENING_NOW: "https://schema.org/EventScheduled",
+  CANCELLED: "https://schema.org/EventCancelled",
+  POSTPONED: "https://schema.org/EventPostponed",
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { eventId } = await params;
+  const { slug, eventId } = await params;
   const event = await safeAsync(async () => getEventById(eventId), null);
+  if (!event || event.celebritySlug !== slug)
+    return { title: "Event not found", robots: { index: false } };
+
+  const description =
+    event.description ||
+    `${event.name} featuring ${event.celebrityName}` +
+      (event.venue ? ` at ${event.venue}` : "") +
+      ". Details and status on CelebrityPass.";
+  const url = `${APP_URL}/celebrity/${event.celebritySlug}/event/${event.eventId}`;
+
   return {
-    title: event ? `${event.name} — ${event.celebrityName}` : "Event not found",
-    description: event?.description ?? undefined,
+    title: `${event.name} — ${event.celebrityName}`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      url,
+      siteName: "CelebrityPass",
+      title: `${event.name} — ${event.celebrityName}`,
+      description,
+    },
+    twitter: {
+      card: "summary",
+      title: `${event.name} — ${event.celebrityName}`,
+      description,
+    },
   };
 }
 
@@ -29,10 +62,47 @@ export default async function EventDetailsPage({ params }: Props) {
 
   const { date, weekday, time } = formatEventDate(event.startAt, event.timezone);
   const location = [event.venue, event.city, event.region, event.country].filter(Boolean).join(", ");
-  const shareUrl = `${process.env.NEXT_PUBLIC_BASE_URL || ""}/celebrity/${event.celebritySlug}/event/${event.eventId}`;
+  const shareUrl = `${APP_URL}/celebrity/${event.celebritySlug}/event/${event.eventId}`;
+  const eventStatusSchema = STATUS_SCHEMA[event.status];
+  const place: Record<string, string> = {};
+  if (event.venue) place.name = event.venue;
+  if (location) place.address = location;
 
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Event",
+            name: event.name,
+            ...(event.description ? { description: event.description } : {}),
+            startDate: event.startAt.toISOString(),
+            ...(event.endAt ? { endDate: event.endAt.toISOString() } : {}),
+            ...(eventStatusSchema ? { eventStatus: eventStatusSchema } : {}),
+            eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+            ...(Object.keys(place).length > 0 ? { location: { "@type": "Place", ...place } } : {}),
+            performer: { "@type": "Person", name: event.celebrityName, url: `${APP_URL}/celebrity/${event.celebritySlug}` },
+            organizer: { "@type": "Person", name: event.celebrityName, url: `${APP_URL}/celebrity/${event.celebritySlug}` },
+            url: shareUrl,
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: `${APP_URL}/` },
+              { "@type": "ListItem", position: 2, name: event.celebrityName, item: `${APP_URL}/celebrity/${event.celebritySlug}` },
+              { "@type": "ListItem", position: 3, name: event.name, item: shareUrl },
+            ],
+          }),
+        }}
+      />
       {/* header band */}
       <div
         className="h-44 w-full"

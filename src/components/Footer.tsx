@@ -24,6 +24,7 @@ export default function Footer() {
             <li><Link href="/" className="transition hover:text-white">{t("footer.home")}</Link></li>
             <li><Link href="/about" className="transition hover:text-white">{t("footer.about")}</Link></li>
             <li><Link href="/celebrities" className="transition hover:text-white">{t("footer.directory")}</Link></li>
+            <li><Link href="/memberships" className="transition hover:text-white">{t("footer.memberships")}</Link></li>
             <li><Link href="/discovery" className="transition hover:text-white">{t("footer.eventDiscovery")}</Link></li>
             <li><Link href="/#how-it-works" className="transition hover:text-white">{t("footer.howItWorks")}</Link></li>
             <li><Link href="/#membership" className="transition hover:text-white">{t("footer.membershipLevels")}</Link></li>

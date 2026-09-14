@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import CountUp from "@/components/CountUp";
 import CelebrityCard from "@/components/CelebrityCard";
 import AppSearch from "@/components/AppSearch";
@@ -9,9 +9,33 @@ import WelcomeScreen from "@/components/welcome/WelcomeScreen";
 import { getCelebritySummaries, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
 import { safeAsync } from "@/lib/safe-data";
 import { formatMoney } from "@/lib/payments";
+import { appUrl } from "@/lib/utils";
 import { isOnboarded } from "@/lib/onboarding";
 
 export const revalidate = 60;
+
+const BASE = appUrl();
+
+export const metadata: Metadata = {
+  title: "Official Celebrity Fan Cards & Communities",
+  description:
+    "Get an official digital fan card for your favorite celebrity's community. Celebrate your fandom with a unique verified Fan ID, membership level, and a shareable QR card page.",
+  alternates: { canonical: `${BASE}/` },
+  openGraph: {
+    type: "website",
+    url: BASE,
+    siteName: "CelebrityPass",
+    title: "Official Celebrity Fan Cards & Communities",
+    description:
+      "Celebrate your fandom in official celebrity communities. Get a verified digital fan card with your own unique Fan ID, membership level, and QR card page.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Official Celebrity Fan Cards & Communities",
+    description:
+      "Celebrate your fandom in official celebrity communities. Get a verified digital fan card with your own unique Fan ID, membership level, and QR card page.",
+  },
+};
 
 // Full-screen app search overlay: let the Android keyboard resize the viewport
 // exactly like the native chat app does, so nothing hides behind the keys.
@@ -251,6 +275,12 @@ export default async function HomePage() {
             <p className="mt-4 text-zinc-400">
               <T k="membership.sub" />
             </p>
+            <Link
+              href="/memberships"
+              className="mt-3 inline-block text-sm font-semibold text-primary-400 transition hover:text-primary-300"
+            >
+              Learn more about fan cards &amp; membership →
+            </Link>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">

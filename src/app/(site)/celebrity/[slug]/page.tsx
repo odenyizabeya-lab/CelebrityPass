@@ -162,7 +162,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ogTitle = c.name;
 
   return {
-    title: c.name,
+    title: `${c.name} — Official Fan Community & Fan Card`,
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -266,6 +266,11 @@ export default async function CelebrityPage({ params }: Props) {
   ].filter((t): t is { icon: "instagram" | "tiktok" | "facebook"; label: string; count: number | null; url: string } =>
     typeof t.url === "string" && (t.count ?? null) != null
   );
+  // Verified official profile URLs only — the same source of truth shown on
+  // the page. Never guessed or placeholder links (used for Person.sameAs).
+  const sameAs = [socials.facebook, socials.instagram, socials.tiktok].filter(
+    (u): u is string => typeof u === "string",
+  );
   const hasMemberships = celebrity.memberships.length > 0;
   const standardTiers = celebrity.memberships.filter((l) => (l.price ?? 0) < PREMIUM_MIN_PRICE);
   const premiumTiers = celebrity.memberships.filter((l) => (l.price ?? 0) >= PREMIUM_MIN_PRICE);
@@ -285,8 +290,23 @@ export default async function CelebrityPage({ params }: Props) {
               ...(celebrity.profession ? { jobTitle: celebrity.profession } : {}),
               ...(celebrity.country ? { address: { "@type": "PostalAddress", addressCountry: celebrity.country } } : {}),
               ...(isHttpUrl(celebrity.profileImage) ? { image: celebrity.profileImage } : {}),
+              ...(sameAs.length > 0 ? { sameAs } : {}),
               url: `${APP_URL}/celebrity/${celebrity.slug}`,
             },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: `${APP_URL}/` },
+              { "@type": "ListItem", position: 2, name: "Celebrities", item: `${APP_URL}/celebrities` },
+              { "@type": "ListItem", position: 3, name: celebrity.name, item: `${APP_URL}/celebrity/${celebrity.slug}` },
+            ],
           }),
         }}
       />

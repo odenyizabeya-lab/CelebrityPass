@@ -54,6 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { path: "/download", priority: 0.4 },
       { path: "/discovery", priority: 0.6 },
       { path: "/faq", priority: 0.5 },
+      { path: "/memberships", priority: 0.6 },
       { path: "/register", priority: 0.3 },
     ] as const).map((p) => ({
       url: `${BASE}${p.path}`,

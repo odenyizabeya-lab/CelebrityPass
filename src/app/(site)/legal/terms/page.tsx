@@ -4,6 +4,7 @@ import LegalShell from "@/components/legal/LegalShell";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: "The terms that govern your use of the CelebrityPass platform.",
+  alternates: { canonical: "/legal/terms" },
 };
 
 export default function TermsPage() {

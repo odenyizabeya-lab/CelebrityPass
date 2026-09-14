@@ -5,13 +5,31 @@ import CelebrityCard from "@/components/CelebrityCard";
 import EmptyState from "@/components/EmptyState";
 import { getCelebritySummaries, getSearchOptions, toCardCelebrity } from "@/lib/services";
 import { safeAsync } from "@/lib/safe-data";
+import { appUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const APP_URL = appUrl();
 
 export const metadata: Metadata = {
   title: "Celebrity Directory",
   description:
     "Browse official fan card communities for musicians, athletes, actors, artists, creators, and public figures.",
+  alternates: { canonical: `${APP_URL}/celebrities` },
+  openGraph: {
+    type: "website",
+    url: `${APP_URL}/celebrities`,
+    siteName: "CelebrityPass",
+    title: "Celebrity Directory",
+    description:
+      "Browse official fan card communities for musicians, athletes, actors, artists, creators, and public figures.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Celebrity Directory",
+    description:
+      "Browse official fan card communities for musicians, athletes, actors, artists, creators, and public figures.",
+  },
 };
 
 export default async function CelebritiesPage({
@@ -45,6 +63,25 @@ export default async function CelebritiesPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      {celebrities.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              name: "Celebrity Directory",
+              itemListElement: celebrities.map((c, i) => ({
+                "@type": "ListItem",
+                position: i + 1,
+                name: c.name,
+                url: `${APP_URL}/celebrity/${c.slug}`,
+                ...(c.profileImageUrl ? { image: `${APP_URL}${c.profileImageUrl}` } : {}),
+              })),
+            }),
+          }}
+        />
+      )}
       <div className="mb-10 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Fan Communities</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Celebrity Directory</h1>

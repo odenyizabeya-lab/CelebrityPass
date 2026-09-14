@@ -19,6 +19,7 @@ export const es: Dict = {
     directory: "Directorio de celebridades",
     eventDiscovery: "Descubre eventos",
     membershipLevels: "Niveles de membresía",
+    fanCards: "Fan Cards",
   },
   hero: {
     badge: "Plataforma de membresías de fans multi-celebridad",
@@ -145,6 +146,8 @@ export const es: Dict = {
   footer: {
     tagline: "CelebrityPass es una plataforma de entretenimiento para tarjetas de fan de celebridades legítimas, boletos de eventos, conciertos, shows, experiencias VIP y encuentros. Una cuenta, tarjetas de fan verificadas y eventos con boleto.",
     explore: "Explorar",
+    memberships: "Fan Cards & Membership",
+    membershipLevels: "Membership Levels",
     account: "Cuenta",
     legal: "Legal y soporte",
     fanDashboard: "Panel de fan",

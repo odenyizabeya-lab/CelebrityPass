@@ -14,7 +14,7 @@ export default function Header() {
     { href: "/celebrities", label: t("nav.celebrities") },
     { href: "/discovery", label: t("nav.events") },
     { href: "/#how-it-works", label: t("nav.howItWorks") },
-    { href: "/#membership", label: t("nav.membership") },
+    { href: "/memberships", label: t("nav.fanCards") },
     { href: "/faq", label: t("nav.faq") },
     { href: "/dashboard", label: t("nav.myCards") },
   ];

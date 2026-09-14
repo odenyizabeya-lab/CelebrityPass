@@ -5,6 +5,7 @@ import ContactForm from "@/components/legal/ContactForm";
 export const metadata: Metadata = {
   title: "Contact & Support",
   description: "How to contact the CelebrityPass support team.",
+  alternates: { canonical: "/legal/contact" },
 };
 
 export default function ContactPage() {
