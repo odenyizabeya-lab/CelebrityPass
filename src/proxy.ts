@@ -24,6 +24,7 @@ const PUBLIC_PREFIXES = [
   "/legal",
   // Public marketing/SEO pages (indexed by Google). Chat, checkout, orders,
   // onboarding, account and dashboard stay login-gated.
+  "/images",
   "/celebrities",
   "/celebrity",
   "/about",
@@ -33,6 +34,8 @@ const PUBLIC_PREFIXES = [
   "/discovery",
   "/faq",
   "/memberships",
+  // Static brand/PWA icons (icons are public assets; only icon files live here).
+  "/icons",
 ];
 
 const PUBLIC_FILE_NAMES = new Set([
