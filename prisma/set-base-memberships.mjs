@@ -1,7 +1,8 @@
-// Migration script: normalizes every celebrity community to the two paid base
-// membership levels (LEVEL 1 = Premium $1,000, LEVEL 2 = VIP $1,700) and
-// removes the deleted free tier / legacy base tiers. Idempotent — safe to run
-// repeatedly. Premium "Signature Experience" tiers ($2,500+) are untouched.
+// Migration script: normalizes every celebrity community to the five paid base
+// membership levels (LEVEL 1 = Silver $200, LEVEL 2 = Gold $350, LEVEL 3 = Platinum $500,
+// LEVEL 4 = Premium $1,000, LEVEL 5 = VIP $1,700) and removes the deleted free tier /
+// legacy base tiers. Idempotent — safe to run repeatedly. Premium "Signature Experience"
+// tiers ($2,500+) are untouched.
 //
 //   node prisma/set-base-memberships.mjs
 //

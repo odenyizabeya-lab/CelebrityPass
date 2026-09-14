@@ -77,11 +77,30 @@ async function findExistingCommunity(name: string): Promise<{ id: string; slug: 
 
 /**
  * Standard base membership tiers for every community. There is no free tier;
- * every fan card membership is a paid level — LEVEL 1 = Premium ($1,000),
- * LEVEL 2 = VIP ($1,700). Premium $2,500+ Signature Experiences are added
+ * every fan card membership is a paid level — LEVEL 1 = Silver ($200),
+ * LEVEL 2 = Gold ($350), LEVEL 3 = Platinum ($500), LEVEL 4 = Premium ($1,000),
+ * LEVEL 5 = VIP ($1,700). Premium $2,500+ Signature Experiences are added
  * separately at publish time.
  */
 const BASE_MEMBERSHIP_TIERS: PrepMembershipTier[] = [
+  {
+    name: "Silver",
+    description: "Official digital fan card membership — no meeting included.",
+    price: 200,
+    currency: "USD",
+  },
+  {
+    name: "Gold",
+    description: "Premium fan card with priority community news and recognition.",
+    price: 350,
+    currency: "USD",
+  },
+  {
+    name: "Platinum",
+    description: "Top-tier digital fan card with exclusive content and recognition.",
+    price: 500,
+    currency: "USD",
+  },
   {
     name: "Premium",
     description: "Premium fan card membership with exclusive community perks.",
@@ -102,21 +121,21 @@ type RawEventsSchema = Awaited<ReturnType<typeof researchEvents>>;
 /** Maps a raw Gemini profile into the exact ScanProfile type. */
 function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
   const membership =
-    Array.isArray(raw.base_memberships) && raw.base_memberships.length >= 2
-      ? raw.base_memberships.slice(0, 2)
+    Array.isArray(raw.base_memberships) && raw.base_memberships.length >= 5
+      ? raw.base_memberships.slice(0, 5)
       : BASE_MEMBERSHIP_TIERS;
 
   const cleanMembership = membership
     .map((m, i) => ({
-      name: asString(m?.name, 60) || BASE_MEMBERSHIP_TIERS[i]?.name || "Premium",
+      name: asString(m?.name, 60) || BASE_MEMBERSHIP_TIERS[i]?.name || "Silver",
       description: asString(m?.description, 300) || "Fan membership tier.",
       price:
         typeof m?.price === "number" && Number.isFinite(m.price) && m.price > 0
           ? m.price
-          : (BASE_MEMBERSHIP_TIERS[i]?.price ?? 1000),
+          : (BASE_MEMBERSHIP_TIERS[i]?.price ?? 200),
       currency: asString(m?.currency, 4) || "USD",
     }))
-    .slice(0, 2);
+    .slice(0, 5);
 
   return {
     name: asString(raw.name, 120) || name,

@@ -1,13 +1,55 @@
-// The two paid base membership levels shared by every celebrity community:
-//   LEVEL 1 = Premium ($1,000)
-//   LEVEL 2 = VIP    ($1,700)
-// There is NO free membership tier anymore — the old free "Member" level has
-// been removed platform-wide. These are the fan-card tiers below the premium
-// "Signature Experience" ladder ($2,500+), which is never touched here.
+// The five paid base membership levels shared by every celebrity community:
+//   LEVEL 1 = Silver    ($200)  — Official fan card, digital perks only.
+//   LEVEL 2 = Gold      ($350)  — Premium fan card + priority community news.
+//   LEVEL 3 = Platinum  ($500)  — Top-tier fan card, exclusive content + recognition.
+//   LEVEL 4 = Premium ($1,000)  — Premium fan card membership with community perks.
+//   LEVEL 5 = VIP    ($1,700)  — VIP fan card membership with top-tier community status.
+//
+// There is NO free membership tier. These are the fan-card tiers below the
+// premium "Signature Experience" ladder ($2,500+), which is never touched here.
+// No tier in this section promises an in-person meeting or event access.
 //
 // The {name} placeholder is replaced per tier description where needed.
 
 export const BASE_LEVELS = [
+  {
+    name: "Silver",
+    price: 200,
+    tagline: "Official fan card with digital community perks — no meeting included.",
+    benefits: [
+      "Official digital fan card for {name}",
+      "Unique verified Fan ID",
+      "Live card link + QR code",
+      "Community news and fan-only updates",
+      "No in-person meeting or event access is included",
+    ],
+  },
+  {
+    name: "Gold",
+    price: 350,
+    tagline: "Premium fan card with priority content and community recognition.",
+    benefits: [
+      "Everything in Silver, plus:",
+      "Exclusive Gold card design",
+      "Priority community news and alerts",
+      "Early access to digital content",
+      "Special recognition badge",
+      "No in-person meeting or event access is included",
+    ],
+  },
+  {
+    name: "Platinum",
+    price: 500,
+    tagline: "Top-tier fan card with full community status — the highest digital-only tier.",
+    benefits: [
+      "Everything in Gold, plus:",
+      "Exclusive Platinum card design",
+      "Top-tier community status and badge",
+      "Premium support access",
+      "Full exclusive digital content library",
+      "No in-person meeting or event access is included",
+    ],
+  },
   {
     name: "Premium",
     price: 1000,
@@ -39,12 +81,13 @@ export const BASE_LEVELS = [
 export const BASE_PRICE_MAX = 2500;
 
 /**
- * Normalizes every base membership tier for one celebrity to the two paid
+ * Normalizes every base membership tier for one celebrity to the five paid
  * standard levels above. Idempotent — safe to run any number of times.
  *
  * - Deletes legacy base tiers (the free tier and any old paid base tiers
- *   priced below the premium ladder) unless they are named Premium or VIP.
- * - Upserts Premium (LEVEL 1) and VIP (LEVEL 2) in place.
+ *   priced below the premium ladder) unless they are named Silver, Gold,
+ *   Platinum, Premium or VIP.
+ * - Upserts all five base levels in place.
  *
  * Premium tiers ($2,500+) are never created, updated or deleted by this
  * function — they are handled by upsertPremiumLevels() in premium-levels.mjs.

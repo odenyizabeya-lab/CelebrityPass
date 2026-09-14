@@ -426,7 +426,7 @@ socials supports EXACTLY four keys: facebook, instagram, tiktok, google.
 - followers: published follower counts ONLY when the search results show them; otherwise null (the platform fills realistic placeholders).
 - accent_color: suggest a fitting brand hex color (e.g. "#8b5cf6").
 - card_design: badge_text like "OFFICIAL FAN MEMBER", a short watermark, and an accent hex.
-- base_memberships: EXACTLY 2 paid tiers, matching this platform's standard membership scheme: LEVEL 1 "Premium" priced $1,000 USD and LEVEL 2 "VIP" priced $1,700 USD. There is NO free tier and no other base tier. Keep the names "Premium" and "VIP" exactly; provide an accessible, factual description per tier. Do NOT invent different prices.
+- base_memberships: 5 paid fan-card tiers, matching this platform's standard membership scheme: LEVEL 1 "Silver" $200, LEVEL 2 "Gold" $350, LEVEL 3 "Platinum" $500, LEVEL 4 "Premium" $1,000, LEVEL 5 "VIP" $1,700. There is NO free tier. Keep the names and prices exactly as listed above; provide an accessible, factual description per tier. Do NOT invent different prices.
 - source_urls: the real public URLs (authoritative: official site, verified socials, Wikipedia, reputable press) you actually used for evidence. Include at least 1 and at most 8.
 - Return null for anything you could NOT verify. Do not fabricate.`;
 

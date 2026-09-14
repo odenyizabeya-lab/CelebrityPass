@@ -19,9 +19,50 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
-// Global base membership: LEVEL 1 = Premium $1,000, LEVEL 2 = VIP $1,700 (USD).
-const PREMIUM_PRICE = 1000;
-const VIP_PRICE = 1700;
+// Global base membership tiers: LEVEL 1 = Silver $200, LEVEL 2 = Gold $350,
+// LEVEL 3 = Platinum $500, LEVEL 4 = Premium $1,000, LEVEL 5 = VIP $1,700 (USD).
+const BASE_TIERS = [
+  {
+    id: "silver",
+    nameKey: "membership.silverName",
+    level: 1,
+    price: 200,
+    perks: ["membership.silverPerk1", "membership.silverPerk2", "membership.silverPerk3", "membership.silverPerk4", "membership.silverPerk5"],
+    featured: false,
+  },
+  {
+    id: "gold",
+    nameKey: "membership.goldName",
+    level: 2,
+    price: 350,
+    perks: ["membership.goldPerk1", "membership.goldPerk2", "membership.goldPerk3", "membership.goldPerk4", "membership.goldPerk5"],
+    featured: false,
+  },
+  {
+    id: "platinum",
+    nameKey: "membership.platinumName",
+    level: 3,
+    price: 500,
+    perks: ["membership.platinumPerk1", "membership.platinumPerk2", "membership.platinumPerk3", "membership.platinumPerk4", "membership.platinumPerk5"],
+    featured: false,
+  },
+  {
+    id: "premium",
+    nameKey: "membership.premiumName",
+    level: 4,
+    price: 1000,
+    perks: ["membership.premiumPerk1", "membership.premiumPerk2", "membership.premiumPerk3", "membership.premiumPerk4", "membership.premiumPerk5"],
+    featured: false,
+  },
+  {
+    id: "vip",
+    nameKey: "membership.vipName",
+    level: 5,
+    price: 1700,
+    perks: ["membership.vipPerk1", "membership.vipPerk2", "membership.vipPerk3", "membership.vipPerk4", "membership.vipPerk5"],
+    featured: true,
+  },
+];
 
 export default async function HomePage() {
   // Data fetching never crashes the page: a DB/network failure resolves to empty
@@ -212,37 +253,8 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {[
-              {
-                id: "premium",
-                name: <T k="membership.premiumName" />,
-                level: <T k="membership.level" vars={{ n: 1 }} />,
-                price: formatMoney(PREMIUM_PRICE),
-                perks: [
-                  "membership.premiumPerk1",
-                  "membership.premiumPerk2",
-                  "membership.premiumPerk3",
-                  "membership.premiumPerk4",
-                  "membership.premiumPerk5",
-                ],
-                featured: false,
-              },
-              {
-                id: "vip",
-                name: <T k="membership.vipName" />,
-                level: <T k="membership.level" vars={{ n: 2 }} />,
-                price: formatMoney(VIP_PRICE),
-                perks: [
-                  "membership.vipPerk1",
-                  "membership.vipPerk2",
-                  "membership.vipPerk3",
-                  "membership.vipPerk4",
-                  "membership.vipPerk5",
-                ],
-                featured: true,
-              },
-            ].map((tier) => (
+          <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {BASE_TIERS.map((tier) => (
               <div
                 key={tier.id}
                 className={`glass card-hover relative rounded-3xl p-8 ${
@@ -254,9 +266,13 @@ export default async function HomePage() {
                     <T k="membership.mostPopular" />
                   </span>
                 )}
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-400">{tier.level}</p>
-                <h3 className="mt-1 text-2xl font-black text-white">{tier.name}</h3>
-                <p className="mt-2 text-3xl font-black text-white">{tier.price}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-400">
+                  <T k="membership.level" vars={{ n: tier.level }} />
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">
+                  <T k={tier.nameKey} />
+                </h3>
+                <p className="mt-2 text-3xl font-black text-white">{formatMoney(tier.price)}</p>
                 <ul className="mt-6 space-y-3">
                   {tier.perks.map((p) => (
                     <li key={p} className="flex items-start gap-2.5 text-sm text-zinc-300">

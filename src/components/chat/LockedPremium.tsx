@@ -4,7 +4,7 @@ export default function LockedPremium({
   feature,
   onGetCard,
   name,
-  price = "$1,000",
+  price = "$200",
 }: {
   feature: "voice" | "video";
   onGetCard: () => void;
