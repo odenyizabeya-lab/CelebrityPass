@@ -21,6 +21,9 @@ type Status = {
   webhookHashConfigured: boolean;
   webhookHashLast4: string;
   webhookHashSource: "db" | "env" | "";
+  encryptionKeyConfigured: boolean;
+  encryptionKeyLast4: string;
+  encryptionKeySource: "db" | "env" | "";
   apiBaseUrl: string;
   webhookUrl: string;
   encryptionEnabled: boolean;
@@ -66,6 +69,7 @@ export default function PaymentSettingsPane() {
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [webhookHash, setWebhookHash] = useState("");
+  const [encryptionKey, setEncryptionKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +124,7 @@ export default function PaymentSettingsPane() {
       if (clientId.trim()) payload.clientId = clientId.trim();
       if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
       if (webhookHash.trim()) payload.webhookHash = webhookHash.trim();
+      if (encryptionKey.trim()) payload.encryptionKey = encryptionKey.trim();
       const res = await fetch("/api/admin/payment-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,6 +135,7 @@ export default function PaymentSettingsPane() {
       setClientId("");
       setClientSecret("");
       setWebhookHash("");
+      setEncryptionKey("");
       setOk("Payment settings saved.");
       try {
         if (d.settings) {
@@ -205,7 +211,8 @@ export default function PaymentSettingsPane() {
           <div>
             <h2 className="text-lg font-black text-white">ATM Card processor</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Customers pay on Flutterwave&apos;s hosted page — card details never reach this site.
+              Fans enter their card on our checkout and their browser encrypts it (AES-256-GCM) before it ever leaves the device —
+              card numbers never reach this site.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -359,6 +366,33 @@ export default function PaymentSettingsPane() {
               <code className="text-zinc-300">{status?.webhookUrl}</code>, and ensure the API base URL matches the environment
               above (<code className="text-zinc-300">{status?.apiBaseUrl}</code>). Every webhook is signature-verified and then
               re-checked against <code className="text-zinc-300">{"GET /charges/{id}"}</code> before anything is settled.
+            </p>
+          </div>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-semibold text-zinc-300">Encryption Key</label>
+              <div className="flex items-center gap-2">
+                <SourceChip source={status?.encryptionKeySource} />
+                <KeyStatus configured={status?.encryptionKeyConfigured} />
+              </div>
+            </div>
+            <input
+              type="password"
+              autoComplete="off"
+              className={inputCls}
+              value={encryptionKey}
+              onChange={(e) => setEncryptionKey(e.target.value)}
+              placeholder={
+                status?.encryptionKeyConfigured
+                  ? `Current key ends in ${status.encryptionKeyLast4} — paste a new one to replace it`
+                  : "Paste your AES-256 Encryption Key (Base64)…"
+              }
+            />
+            <p className="mt-1.5 text-xs leading-5 text-zinc-500">
+              From your dashboard (<code className="text-zinc-300">Developers → Settings → API Keys</code>). This key encrypts card
+              fields <em>in the customer&apos;s browser</em> (AES-256-GCM) before they&apos;re sent to Flutterwave — no card number ever
+              reaches this site. It&apos;s safe to hand to the browser, same as a Stripe publishable key, and is required for ATM Card
+              to be enabled.
             </p>
           </div>
         </div>

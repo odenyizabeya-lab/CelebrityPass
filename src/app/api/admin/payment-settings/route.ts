@@ -53,12 +53,23 @@ export async function POST(request: NextRequest) {
 
   const webhookHash = typeof body.webhookHash === "string" ? body.webhookHash.trim() : undefined;
 
+  // The V4 Encryption Key is a base64 AES-256 key that the browser uses to
+  // encrypt card fields client-side. Any obvious paste errors are rejected.
+  const encryptionKey = typeof body.encryptionKey === "string" ? body.encryptionKey.trim() : undefined;
+  if (encryptionKey !== undefined && encryptionKey && !/^[A-Za-z0-9+/=]{16,}$/.test(encryptionKey)) {
+    return NextResponse.json(
+      { error: "That doesn't look like a Flutterwave Encryption Key (Base64). Copy it from Settings → API Keys." },
+      { status: 400 },
+    );
+  }
+
   await saveFlutterwaveSettings({
     enabled: body.enabled,
     environment: body.environment,
     clientId,
     clientSecret,
     webhookHash,
+    encryptionKey,
   });
 
   // The save succeeded — confirm the authoritative state. If the DB is briefly

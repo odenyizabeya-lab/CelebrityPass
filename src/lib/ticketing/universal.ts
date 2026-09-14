@@ -24,7 +24,7 @@
 
 import { listActiveBankAccounts, type PublicBankAccount } from "./banking";
 import { getGateway } from "./gateways";
-import { getFlutterwaveConfig } from "@/lib/payments/flutterwave";
+import { getFlutterwaveConfig, isFlutterwaveReady } from "@/lib/payments/flutterwave";
 
 // The two customer-facing methods. The ATM gateway brand is never surfaced.
 export const UNIVERSAL_METHOD_BANK = "bank-transfer";
@@ -86,7 +86,7 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
   let cardConnected: boolean;
   if (plan.kind === "FAN_CARD") {
     const fw = await getFlutterwaveConfig();
-    cardConnected = fw.enabled && (fw.environment === "test" || fw.environment === "live") && Boolean(fw.clientId) && Boolean(fw.clientSecret);
+    cardConnected = isFlutterwaveReady(fw);
   } else {
     const cardGateway = getGateway(UNIVERSAL_METHOD_CARD);
     cardConnected = Boolean(cardGateway && cardGateway.hasCredentials());

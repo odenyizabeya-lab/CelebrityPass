@@ -10,7 +10,8 @@ export default function PaymentSettingsPage() {
         <p className="mt-1 text-sm text-zinc-400">
           Configure the card processor behind the customer-facing &quot;ATM Card&quot; option. Credentials live
           server-side only — they are never exposed to the browser, never logged, and encrypted at rest when an
-          encryption key is set. Live payments only ever run in Live mode with live keys.
+          encryption key is set. Card numbers are encrypted in the customer&apos;s browser (AES-256-GCM) and never reach this site.
+          Live payments only ever run in Live mode with live keys.
         </p>
       </div>
       <div className="mt-6 max-w-3xl">

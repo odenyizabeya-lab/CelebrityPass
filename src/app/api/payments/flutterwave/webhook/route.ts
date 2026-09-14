@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
       body = null;
     }
   }
-  const event = String((body as { event?: unknown } | null)?.event ?? "");
+  // V4 webhooks put the event name in `type` (e.g. "charge.completed"); the
+  // legacy `event` field is also accepted for older payload shapes.
+  const event = String(((body as { type?: unknown } | null)?.type ?? (body as { event?: unknown } | null)?.event ?? "") || "");
   const data = (body as { data?: Record<string, unknown> } | null)?.data ?? {};
 
   const reference = typeof data?.reference === "string" ? data.reference : "";

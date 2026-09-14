@@ -8,6 +8,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import type { RealtimeMessage } from "@/hooks/useChatRealtime";
 
 const AI_STYLE_PRESETS = [
+  "Romantic and affectionate",
   "Friendly and warm",
   "Playful and fun",
   "Professional and polished",
