@@ -22,6 +22,16 @@ const PUBLIC_PREFIXES = [
   "/verify-email",
   "/unsubscribe",
   "/legal",
+  // Public marketing/SEO pages (indexed by Google). Chat, checkout, orders,
+  // onboarding, account and dashboard stay login-gated.
+  "/celebrities",
+  "/celebrity",
+  "/about",
+  "/security",
+  "/help",
+  "/download",
+  "/discovery",
+  "/faq",
 ];
 
 const PUBLIC_FILE_NAMES = new Set([
@@ -73,6 +83,14 @@ function isFanSessionValid(token: string | undefined): boolean {
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_FILE_NAMES.has(pathname)) return true;
   if (PUBLIC_FILE_NAMES.has(pathname.split("/").filter(Boolean).pop() ?? "")) {
+    return true;
+  }
+  // Private sub-paths of public prefixes must remain login-gated: fan cards
+  // (personal data), the join/purchase funnel, and ticket checkout.
+  if (pathname.includes("/fan/") || pathname.endsWith("/join")) {
+    return false;
+  }
+  if (pathname === "/") {
     return true;
   }
   return PUBLIC_PREFIXES.some(

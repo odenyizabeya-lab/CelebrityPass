@@ -13,6 +13,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     orderBy: { name: "asc" },
   });
 
+  const events = await prisma.celebrityEvent.findMany({
+    where: { celebrity: { isActive: true } },
+    select: { eventId: true, celebrity: { select: { slug: true } }, startAt: true, statusOverride: true },
+    orderBy: { startAt: "desc" },
+  });
+  const publicEvents = events.filter(
+    (e) => e.statusOverride !== "CANCELLED" && e.statusOverride !== "POSTPONED",
+  );
+
   return [
     {
       url: `${BASE}/`,
@@ -32,11 +41,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
       changeFrequency: "weekly" as const,
     })),
+    ...publicEvents.map((e) => ({
+      url: `${BASE}/celebrity/${e.celebrity.slug}/event/${e.eventId}`,
+      lastModified: e.startAt,
+      priority: 0.7,
+      changeFrequency: "weekly" as const,
+    })),
     ...([
       { path: "/about", priority: 0.5 },
       { path: "/security", priority: 0.4 },
       { path: "/help", priority: 0.5 },
       { path: "/download", priority: 0.4 },
+      { path: "/discovery", priority: 0.6 },
+      { path: "/faq", priority: 0.5 },
       { path: "/register", priority: 0.3 },
     ] as const).map((p) => ({
       url: `${BASE}${p.path}`,
