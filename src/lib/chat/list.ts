@@ -34,6 +34,7 @@ export interface FanConversationView {
     chatAccountType: string;
     chatAccountLabel: string | null;
     online: boolean;
+    isVerified: boolean;
   };
   lastMessage: {
     id: string;
@@ -60,6 +61,7 @@ interface ConversationRow {
   chatAccountType: string;
   chatAccountLabel: string | null;
   chatLastSeenAt: Date | null;
+  isVerified: boolean;
   lastMessageId: string | null;
   lastMessageType: string | null;
   lastMessageBody: string | null;
@@ -97,6 +99,7 @@ export async function listFanConversations(
       cel."chatAccountType",
       cel."chatAccountLabel",
       cel."chatLastSeenAt",
+      cel."isVerified",
       lm.id            AS "lastMessageId",
       lm.type          AS "lastMessageType",
       lm.body          AS "lastMessageBody",
@@ -149,6 +152,7 @@ export async function listFanConversations(
       chatAccountType: r.chatAccountType,
       chatAccountLabel: r.chatAccountLabel,
       online: !!(r.chatLastSeenAt && r.chatLastSeenAt > fiveMinAgo),
+      isVerified: r.isVerified,
     },
     lastMessage: r.lastMessageId
       ? {

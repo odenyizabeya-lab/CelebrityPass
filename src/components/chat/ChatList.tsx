@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { FanConversationView } from "@/lib/chat/list";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "";
@@ -157,13 +158,18 @@ export default function ChatList({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p
-                    className={`truncate text-base ${
-                      c.unread > 0 ? "font-bold text-white" : "font-medium text-zinc-200"
-                    }`}
-                  >
-                    {c.celebrity.name}
-                  </p>
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <p
+                      className={`truncate text-base ${
+                        c.unread > 0 ? "font-bold text-white" : "font-medium text-zinc-200"
+                      }`}
+                    >
+                      {c.celebrity.name}
+                    </p>
+                    {c.celebrity.isVerified && (
+                      <VerifiedBadge className="h-4 w-4 shrink-0" />
+                    )}
+                  </span>
                   <span className="shrink-0 text-xs text-zinc-500">
                     {formatWhen(c.lastMessageAt)}
                   </span>

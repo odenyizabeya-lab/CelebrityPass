@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface IncomingNotification {
   type: "incoming";
@@ -10,7 +11,7 @@ interface IncomingNotification {
   messageId: string;
   preview: string;
   createdAt: string;
-  celebrity: { id: string; slug: string; name: string; profileImageUrl: string | null };
+  celebrity: { id: string; slug: string; name: string; isVerified: boolean; profileImageUrl: string | null };
 }
 
 interface Toast {
@@ -20,6 +21,7 @@ interface Toast {
   name: string;
   slug: string;
   preview: string;
+  isVerified: boolean;
   profileImageUrl: string | null;
 }
 
@@ -114,6 +116,7 @@ export default function InAppNotifications() {
         name: event.celebrity.name,
         slug: event.celebrity.slug,
         preview: event.preview || "New message",
+        isVerified: event.celebrity.isVerified,
         profileImageUrl: event.celebrity.profileImageUrl,
       };
 
@@ -340,7 +343,10 @@ export default function InAppNotifications() {
           <Avatar name={t.name} url={t.profileImageUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-bold text-white">{t.name}</p>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <p className="truncate text-sm font-bold text-white">{t.name}</p>
+                {t.isVerified && <VerifiedBadge className="h-3.5 w-3.5 shrink-0" />}
+              </span>
               <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-[#00a884]">
                 Reply
               </span>

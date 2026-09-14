@@ -111,13 +111,15 @@ export async function GET(request: Request) {
               celebrityId: string;
               celebritySlug: string;
               celebrityName: string;
+              celebrityVerified: boolean;
             }[]
           >`
             SELECT m."id", m."body", m."type", m."createdAt",
                    c."id"      AS "conversationId",
                    cel."id"    AS "celebrityId",
                    cel."slug"  AS "celebritySlug",
-                   cel."name"  AS "celebrityName"
+                   cel."name"  AS "celebrityName",
+                   cel."isVerified" AS "celebrityVerified"
             FROM "ChatMessage" m
             JOIN "ChatConversation" c ON c."id" = m."conversationId"
             JOIN "Celebrity" cel ON cel."id" = c."celebrityId"
@@ -151,6 +153,7 @@ export async function GET(request: Request) {
                 id: msg.celebrityId,
                 slug: msg.celebritySlug,
                 name: msg.celebrityName,
+                isVerified: msg.celebrityVerified,
                 profileImageUrl:
                   imageFlags.get(msg.celebritySlug)?.hasProfile
                     ? `/images/${msg.celebritySlug}/profile`

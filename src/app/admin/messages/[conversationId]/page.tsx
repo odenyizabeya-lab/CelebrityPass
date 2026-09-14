@@ -25,6 +25,7 @@ export default async function AdminMessagePage({
           accentColor: true,
           profileImage: true,
           chatAccountLabel: true,
+          isVerified: true,
         },
       },
     },

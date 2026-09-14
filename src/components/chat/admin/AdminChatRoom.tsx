@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MessageBubble from "@/components/chat/MessageBubble";
 import AdminCallOverlay from "@/components/chat/admin/AdminCallOverlay";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import type { RealtimeMessage } from "@/hooks/useChatRealtime";
 
 const AI_STYLE_PRESETS = [
@@ -61,6 +62,7 @@ export default function AdminChatRoom({
     accentColor: string;
     profileImage: string | null;
     chatAccountLabel: string | null;
+    isVerified: boolean;
   };
   fan: { name: string; email: string; country: string | null };
 }) {
@@ -376,7 +378,10 @@ export default function AdminChatRoom({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-white">{celebrity.name}</p>
+          <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
+            <span className="truncate">{celebrity.name}</span>
+            {celebrity.isVerified && <VerifiedBadge className="h-3.5 w-3.5 shrink-0" />}
+          </p>
           <p className="truncate text-xs text-zinc-500">
             {celebrity.chatAccountLabel ?? "Team"} · replying to {fan.name} ({fan.email})
           </p>

@@ -24,6 +24,7 @@ export interface AdminConversationView {
     profession: string;
     accentColor: string;
     profileImage: string | null;
+    isVerified: boolean;
   };
   lastMessage: {
     senderType: string;
@@ -45,6 +46,7 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
           name: true,
           profession: true,
           accentColor: true,
+          isVerified: true,
           // profileImage blob intentionally not selected (see list.ts).
         },
       },
@@ -104,6 +106,7 @@ export async function listAdminConversations(): Promise<AdminConversationView[]>
       profileImage: imageFlags.get(c.celebrity.slug)?.hasProfile
         ? `/images/${c.celebrity.slug}/profile`
         : null,
+      isVerified: c.celebrity.isVerified,
     },
     lastMessage: c.messages[0]
       ? {

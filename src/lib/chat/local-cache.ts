@@ -236,6 +236,7 @@ export interface CachedConversationCelebrity {
   chatAccountType: string;
   chatAccountLabel: string | null;
   online: boolean;
+  isVerified: boolean;
 }
 
 export interface CachedConversationLastMessage {
@@ -310,6 +311,7 @@ function sanitizeConversationView(raw: unknown): CachedConversationView | null {
       chatAccountLabel:
         typeof celRaw.chatAccountLabel === "string" ? celRaw.chatAccountLabel : null,
       online: Boolean(celRaw.online),
+      isVerified: Boolean(celRaw.isVerified),
     },
     lastMessage,
   };
