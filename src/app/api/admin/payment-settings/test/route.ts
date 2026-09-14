@@ -1,5 +1,5 @@
-// POST /api/admin/payment-settings/test — test Flutterwave credentials.
-//   body: { clientId?: string, clientSecret?: string, environment?: "test" | "live" }
+// POST /api/admin/payment-settings/test — test Flutterwave V3 credentials.
+//   body: { secretKey?: string, environment?: "test" | "live" }
 // Uses the provided values, or the saved/environment values when omitted. The
 // key is sent to Flutterwave only in the Authorization header and is never
 // echoed back, logged, or included in any message.
@@ -13,11 +13,10 @@ export async function POST(request: NextRequest) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
-  const clientId = body?.clientId && typeof body.clientId === "string" ? String(body.clientId).trim() : "";
-  const clientSecret = body?.clientSecret && typeof body.clientSecret === "string" ? String(body.clientSecret).trim() : "";
+  const secretKey = body?.secretKey && typeof body.secretKey === "string" ? String(body.secretKey).trim() : "";
   const environment = body?.environment === "test" || body?.environment === "live" ? body.environment : "";
 
-  const result = await testFlutterwaveConnection({ clientId, clientSecret, environment });
+  const result = await testFlutterwaveConnection({ secretKey, environment });
 
   return NextResponse.json({ ok: result.ok, code: result.code, message: result.message, mode: result.mode });
 }

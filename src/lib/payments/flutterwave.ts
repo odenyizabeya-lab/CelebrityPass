@@ -1,72 +1,63 @@
-// Flutterwave V4 payment backend for the "ATM Card" checkout path (fan cards).
+// Flutterwave V3 payment backend for the "ATM Card" checkout path (fan cards).
 //
 // The customer-facing name is "ATM Card" — the Flutterwave brand is never shown
-// to fans. Card numbers NEVER reach this server: the browser encrypts the card
-// fields (AES-256-GCM, WebCrypto) with the dashboard Encryption Key, and only
-// the ciphertext + a one-time nonce are posted here.
+// to fans. This is the legacy V3 "Standard" hosted-checkout flow — NOT the v4
+// client-credentials + client-side-encryption flow. There is no card data on
+// this server and no browser-side encryption: the fan pays on Flutterwave's own
+// hosted payment page.
 //
-// This is the V4 API — NOT the legacy V3 /v3/payments / public/secret-key flow.
-// Credentials are a v4 Client ID + Client Secret from Settings → API Keys
-// (UUIDs, no FLWPUBK-/FLWSECK- prefix). Auth is OAuth2 client-credentials:
-//   POST https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token
-// The token expires after 600s and is cached in memory until 60s before expiry.
+// Flow (V3 Standard hosted checkout):
+//   1. This app creates a payment server-side:
+//      POST https://api.flutterwave.com/v3/payments
+//      (tx_ref, amount, currency, redirect_url, customer, customizations)
+//   2. Flutterwave returns a hosted link (data.link) — we redirect the fan there.
+//   3. The fan pays on Flutterwave's page; Flutterwave redirects the fan back to
+//      our redirect_url (?status=&tx_ref=&transaction_id=) and fires a webhook.
+//   4. The webhook (`charge.completed`, verified via `verif-hash` / the
+//      `flutterwave-signature` header) + a server-side GET /transactions/{id}/verify
+//      re-check are the ONLY things that settle a payment.
+//   5. The callback route just shows a "confirming" page that polls the payment
+//      status — settlement is never driven from the browser redirect.
 //
-// Flow (V4 "general flow" — the hosted /checkout/sessions page is not shipped
-// on the live API, so fan cards charge through the charges flow instead):
-//   1. Browser encrypts the card → POST the ciphertext + nonce to this app.
-//   2. createFlutterwaveCustomer()    → POST /customers
-//   3. createFlutterwavePaymentMethod() → POST /payment-methods (encrypted card)
-//   4. createFlutterwaveCharge()      → POST /charges
-//   5. The customer authorizes via next_action:
-//        redirect_url (3DS) → redirect the fan to the issuer's page
-//        requires_pin / requires_otp / requires_additional_fields (AVS)
-//        → authorizeFlutterwaveCharge() (PUT /charges/{id})
-//   6. webhook `charge.completed` (HMAC-SHA256 over the raw body) + a server-side
-//      GET /charges/{id} re-check are the ONLY things that settle a payment.
-//   7. The callback route ONLY shows the customer a "confirming" page that polls
-//      the payment status — settlement is never driven from the browser redirect.
+// Credentials are the legacy V3 Public Key + Secret Key from Settings → API Keys
+// (FLWPUBK-… / FLWSECK-…). Only the Secret Key is required for hosted checkout;
+// the Public Key is accepted too (needed for the Inline/JS checkout, not shipped).
+// Test keys (FLWSECK_TEST-…) only work against the test environment.
 //
-// Payment.lookup key: gatewayRef stores the txRef ("CP-<paymentId>"), which is
-// exactly the `reference` used for the charge, so the webhook and its server-side
-// re-verification can always find this payment.
+// Payment.lookup key: gatewayRef stores the tx_ref ("CP-<paymentId>"), which is
+// exactly the `tx_ref` used when creating the payment, so the webhook and its
+// server-side re-verification can always find this payment.
 //
 // Credential handling lives here and nothing else:
 //   - Credentials are stored in the AppSetting table (server-side only),
 //     encrypted at rest when AI_KEY_ENCRYPTION_KEY / SOCIAL_TOKEN_ENCRYPTION_KEY is set.
 //   - They are NEVER returned to the browser (only booleans + a masked last-4),
 //     never logged, and never included in error messages.
-//   - The Encryption Key is a client-side AES key (like a Stripe publishable
-//     key): it is safe to hand to the browser so the fan's card data can be
-//     encrypted before it ever leaves their device. It is delivered only while
-//     the fan is on their own pending checkout page.
 //   - Env-var overrides (recommended for production):
 //       FLUTTERWAVE_ENABLED, FLUTTERWAVE_ENVIRONMENT (test|live),
-//       FLUTTERWAVE_CLIENT_ID, FLUTTERWAVE_CLIENT_SECRET, FLUTTERWAVE_WEBHOOK_HASH,
-//       FLUTTERWAVE_ENCRYPTION_KEY.
+//       FLUTTERWAVE_SECRET_KEY, FLUTTERWAVE_PUBLIC_KEY, FLUTTERWAVE_WEBHOOK_HASH.
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/utils";
 
-/** Flutterwave V4 identity provider — OAuth2 client-credentials token endpoint. */
-export const FW_TOKEN_URL = "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token";
-
-/** Base API URL per environment (official V4 Environments doc). */
-export function flutterwaveApiBaseUrl(environment: "test" | "live" | ""): string {
-  if (environment === "live") return "https://f4bexperience.flutterwave.com";
-  return "https://developersandbox-api.flutterwave.com";
+/**
+ * V3 uses a single API base for test and live; environment selects the keys.
+ * (Kept as a function for parity with the old v4 route and so tests can stub it.)
+ */
+export function flutterwaveApiBaseUrl(_environment: "test" | "live" | ""): string {
+  void _environment;
+  return "https://api.flutterwave.com/v3";
 }
 
 export const FW_SETTING_ENABLED = "flutterwave.enabled";
 export const FW_SETTING_ENVIRONMENT = "flutterwave.environment";
-export const FW_SETTING_CLIENT_ID = "flutterwave.client_id";
-export const FW_SETTING_CLIENT_SECRET = "flutterwave.client_secret";
+export const FW_SETTING_SECRET_KEY = "flutterwave.secret_key";
+export const FW_SETTING_PUBLIC_KEY = "flutterwave.public_key";
 export const FW_SETTING_WEBHOOK_HASH = "flutterwave.webhook_hash";
-export const FW_SETTING_ENCRYPTION_KEY = "flutterwave.encryption_key";
 
 const ENC_PREFIX = "enc1.";
 
 const REQUEST_TIMEOUT_MS = 25_000;
-const TOKEN_LEEWAY_MS = 60_000;
 
 /** Encryption secret for at-rest secrets; falls back to the AI/social-token one. */
 function decryptionKey(): string {
@@ -128,14 +119,12 @@ async function setSetting(key: string, value: string): Promise<void> {
 export type FlutterwaveConfig = {
   enabled: boolean;
   environment: "test" | "live" | "";
-  clientId: string;
-  clientSecret: string;
+  secretKey: string;
+  publicKey: string;
   webhookHash: string;
-  encryptionKey: string;
-  clientIdSource: "db" | "env" | "";
-  clientSecretSource: "db" | "env" | "";
+  secretKeySource: "db" | "env" | "";
+  publicKeySource: "db" | "env" | "";
   webhookHashSource: "db" | "env" | "";
-  encryptionKeySource: "db" | "env" | "";
   encryptionEnabled: boolean;
 };
 
@@ -150,35 +139,33 @@ export async function getFlutterwaveConfig(opts?: { strict?: boolean }): Promise
   const env = {
     enabled: (process.env.FLUTTERWAVE_ENABLED ?? "").trim().toLowerCase() === "true",
     environment: (process.env.FLUTTERWAVE_ENVIRONMENT ?? "").trim().toLowerCase() as "test" | "live" | "",
-    clientId: (process.env.FLUTTERWAVE_CLIENT_ID ?? "").trim(),
-    clientSecret: (process.env.FLUTTERWAVE_CLIENT_SECRET ?? "").trim(),
+    secretKey: (process.env.FLUTTERWAVE_SECRET_KEY ?? "").trim(),
+    publicKey: (process.env.FLUTTERWAVE_PUBLIC_KEY ?? "").trim(),
     webhookHash: (process.env.FLUTTERWAVE_WEBHOOK_HASH ?? "").trim(),
-    encryptionKey: (process.env.FLUTTERWAVE_ENCRYPTION_KEY ?? "").trim(),
   };
 
   try {
-    const [enabled, environment, storedId, storedSecret, storedHash, storedEncryptionKey] = await Promise.all([
+    const [enabled, environment, storedSecret, storedPublic, storedHash] = await Promise.all([
       getSetting(FW_SETTING_ENABLED, { strict }),
       getSetting(FW_SETTING_ENVIRONMENT, { strict }),
-      getSetting(FW_SETTING_CLIENT_ID, { strict }),
-      getSetting(FW_SETTING_CLIENT_SECRET, { strict }),
+      getSetting(FW_SETTING_SECRET_KEY, { strict }),
+      getSetting(FW_SETTING_PUBLIC_KEY, { strict }),
       getSetting(FW_SETTING_WEBHOOK_HASH, { strict }),
-      getSetting(FW_SETTING_ENCRYPTION_KEY, { strict }),
     ]);
 
     const secret = decryptStoredKey(storedSecret);
+    const pub = decryptStoredKey(storedPublic);
     const hash = decryptStoredKey(storedHash);
-    const encryptionKey = decryptStoredKey(storedEncryptionKey);
 
     // Migrate legacy plaintext rows to encrypted form once an encryption key is available.
     if (secret && !storedSecret.startsWith(ENC_PREFIX) && decryptionKey()) {
-      await setSetting(FW_SETTING_CLIENT_SECRET, encryptStoredKey(secret));
+      await setSetting(FW_SETTING_SECRET_KEY, encryptStoredKey(secret));
+    }
+    if (pub && !storedPublic.startsWith(ENC_PREFIX) && decryptionKey()) {
+      await setSetting(FW_SETTING_PUBLIC_KEY, encryptStoredKey(pub));
     }
     if (hash && !storedHash.startsWith(ENC_PREFIX) && decryptionKey()) {
       await setSetting(FW_SETTING_WEBHOOK_HASH, encryptStoredKey(hash));
-    }
-    if (encryptionKey && !storedEncryptionKey.startsWith(ENC_PREFIX) && decryptionKey()) {
-      await setSetting(FW_SETTING_ENCRYPTION_KEY, encryptStoredKey(encryptionKey));
     }
 
     const dbEnvironment: "test" | "live" | "" = environment === "live" ? "live" : environment === "test" ? "test" : "";
@@ -186,24 +173,21 @@ export async function getFlutterwaveConfig(opts?: { strict?: boolean }): Promise
     return {
       enabled: env.enabled || enabled === "true",
       environment: env.environment || dbEnvironment,
-      clientId: env.clientId || storedId,
-      clientSecret: env.clientSecret || secret,
+      secretKey: env.secretKey || secret,
+      publicKey: env.publicKey || pub,
       webhookHash: env.webhookHash || hash,
-      encryptionKey: env.encryptionKey || encryptionKey,
-      clientIdSource: env.clientId ? "env" : storedId ? "db" : "",
-      clientSecretSource: env.clientSecret ? "env" : secret ? "db" : "",
+      secretKeySource: env.secretKey ? "env" : secret ? "db" : "",
+      publicKeySource: env.publicKey ? "env" : pub ? "db" : "",
       webhookHashSource: env.webhookHash ? "env" : hash ? "db" : "",
-      encryptionKeySource: env.encryptionKey ? "env" : encryptionKey ? "db" : "",
       encryptionEnabled: Boolean(decryptionKey()),
     };
   } catch (e) {
     if (strict) throw e;
     return {
       ...env,
-      clientIdSource: env.clientId ? "env" : "",
-      clientSecretSource: env.clientSecret ? "env" : "",
+      secretKeySource: env.secretKey ? "env" : "",
+      publicKeySource: env.publicKey ? "env" : "",
       webhookHashSource: env.webhookHash ? "env" : "",
-      encryptionKeySource: env.encryptionKey ? "env" : "",
       encryptionEnabled: Boolean(decryptionKey()),
     };
   }
@@ -214,13 +198,12 @@ export function isFlutterwaveReady(config: FlutterwaveConfig): boolean {
   return (
     config.enabled &&
     (config.environment === "test" || config.environment === "live") &&
-    Boolean(config.clientId) &&
-    Boolean(config.clientSecret) &&
-    Boolean(config.encryptionKey)
+    Boolean(config.secretKey) &&
+    Boolean(config.webhookHash)
   );
 }
 
-/** Mask a secret for display: "9543••••2a1f" / "••••" when short. */
+/** Mask a secret for display: "abcd••••wxyz" / "••••" when short. */
 export function maskSecret(secret: string): string {
   if (!secret) return "";
   const trimmed = secret.trim();
@@ -231,19 +214,15 @@ export function maskSecret(secret: string): string {
 export type FlutterwaveStatus = {
   enabled: boolean;
   environment: "test" | "live" | "";
-  clientId: string;
-  clientIdConfigured: boolean;
-  clientIdLast4: string;
-  clientIdSource: "db" | "env" | "";
-  clientSecretConfigured: boolean;
-  clientSecretLast4: string;
-  clientSecretSource: "db" | "env" | "";
+  secretKeyConfigured: boolean;
+  secretKeyLast4: string;
+  secretKeySource: "db" | "env" | "";
+  publicKeyConfigured: boolean;
+  publicKeyLast4: string;
+  publicKeySource: "db" | "env" | "";
   webhookHashConfigured: boolean;
   webhookHashLast4: string;
   webhookHashSource: "db" | "env" | "";
-  encryptionKeyConfigured: boolean;
-  encryptionKeyLast4: string;
-  encryptionKeySource: "db" | "env" | "";
   apiBaseUrl: string;
   webhookUrl: string;
   encryptionEnabled: boolean;
@@ -258,19 +237,15 @@ export async function getFlutterwaveStatus(): Promise<FlutterwaveStatus> {
   return {
     enabled: c.enabled,
     environment: c.environment,
-    clientId: c.clientId,
-    clientIdConfigured: Boolean(c.clientId),
-    clientIdLast4: maskSecret(c.clientId),
-    clientIdSource: c.clientIdSource,
-    clientSecretConfigured: Boolean(c.clientSecret),
-    clientSecretLast4: maskSecret(c.clientSecret),
-    clientSecretSource: c.clientSecretSource,
+    secretKeyConfigured: Boolean(c.secretKey),
+    secretKeyLast4: maskSecret(c.secretKey),
+    secretKeySource: c.secretKeySource,
+    publicKeyConfigured: Boolean(c.publicKey),
+    publicKeyLast4: maskSecret(c.publicKey),
+    publicKeySource: c.publicKeySource,
     webhookHashConfigured: Boolean(c.webhookHash),
     webhookHashLast4: maskSecret(c.webhookHash),
     webhookHashSource: c.webhookHashSource,
-    encryptionKeyConfigured: Boolean(c.encryptionKey),
-    encryptionKeyLast4: maskSecret(c.encryptionKey),
-    encryptionKeySource: c.encryptionKeySource,
     apiBaseUrl: flutterwaveApiBaseUrl(c.environment),
     webhookUrl: `${appUrl()}/api/payments/flutterwave/webhook`,
     encryptionEnabled: c.encryptionEnabled,
@@ -278,92 +253,28 @@ export async function getFlutterwaveStatus(): Promise<FlutterwaveStatus> {
   };
 }
 
-/** Persist admin-saved Flutterwave settings. The secret/hash/key are encrypted at rest. */
+/** Persist admin-saved Flutterwave settings. The secret/pub/hash are encrypted at rest. */
 export async function saveFlutterwaveSettings(params: {
   enabled?: boolean;
   environment?: "test" | "live";
-  clientId?: string;
-  clientSecret?: string;
+  secretKey?: string;
+  publicKey?: string;
   webhookHash?: string;
-  encryptionKey?: string;
 }): Promise<void> {
   if (typeof params.enabled === "boolean") await setSetting(FW_SETTING_ENABLED, params.enabled ? "true" : "false");
   if (params.environment === "test" || params.environment === "live") await setSetting(FW_SETTING_ENVIRONMENT, params.environment);
-  if (params.clientId !== undefined) await setSetting(FW_SETTING_CLIENT_ID, params.clientId.trim());
-  if (params.clientSecret !== undefined) await setSetting(FW_SETTING_CLIENT_SECRET, params.clientSecret.trim() ? encryptStoredKey(params.clientSecret.trim()) : "");
-  if (params.webhookHash !== undefined) await setSetting(FW_SETTING_WEBHOOK_HASH, params.webhookHash.trim() ? encryptStoredKey(params.webhookHash.trim()) : "");
-  if (params.encryptionKey !== undefined)
-    await setSetting(FW_SETTING_ENCRYPTION_KEY, params.encryptionKey.trim() ? encryptStoredKey(params.encryptionKey.trim()) : "");
+  if (params.secretKey !== undefined) await setSetting(FW_SETTING_SECRET_KEY, params.secretKey.trim() ? encryptStoredKey(params.secretKey.trim()) : "");
+  if (params.publicKey !== undefined) await setSetting(FW_SETTING_PUBLIC_KEY, params.publicKey.trim() ? encryptStoredKey(params.publicKey.trim()) : "");
+  if (params.webhookHash !== undefined)
+    await setSetting(FW_SETTING_WEBHOOK_HASH, params.webhookHash.trim() ? encryptStoredKey(params.webhookHash.trim()) : "");
 }
 
-// ---------------------------------------------------------------------------
-// OAuth2 client-credentials token (V4)
-// ---------------------------------------------------------------------------
-
-type FwTokenFailure = { code: "invalid_credentials" | "network" | "timeout" | "server" | "unconfigured" | "http_error"; message: string };
-
-/** Cache the V4 access token until 60s before its 600s expiry. */
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function acquireToken(config: {
-  clientId: string;
-  clientSecret: string;
-  signal?: AbortSignal;
-}): Promise<{ ok: true; token: string } | { ok: false; failure: FwTokenFailure }> {
-  if (!config.clientId || !config.clientSecret) {
-    return { ok: false, failure: { code: "unconfigured", message: "The card processor isn't configured yet." } };
-  }
-  if (cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_LEEWAY_MS) {
-    return { ok: true, token: cachedToken.token };
-  }
-
-  try {
-    const res = await fetch(FW_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        grant_type: "client_credentials",
-      }).toString(),
-      signal: config.signal,
-      cache: "no-store",
-    });
-
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail = String(data?.error_description || data?.error || data?.message || "").slice(0, 160);
-      if (res.status === 401 || res.status === 403 || res.status === 400) {
-        return { ok: false, failure: { code: "invalid_credentials", message: `Flutterwave rejected these credentials (${res.status})${detail ? ` — ${detail}` : ""}.` } };
-      }
-      return { ok: false, failure: { code: "http_error", message: `The identity server returned HTTP ${res.status}.` } };
-    }
-
-    const token = typeof data?.access_token === "string" && data.access_token ? data.access_token : "";
-    const expiresIn = Number(data?.expires_in) > 0 ? Number(data.expires_in) : 600;
-    if (!token) {
-      return { ok: false, failure: { code: "server", message: "The identity server returned no access token." } };
-    }
-    cachedToken = { token, expiresAt: Date.now() + expiresIn * 1000 };
-    return { ok: true, token };
-  } catch (err) {
-    const aborted = (err as Error)?.name === "AbortError";
-    return {
-      ok: false,
-      failure: { code: aborted ? "timeout" : "network", message: aborted ? "The identity server did not respond in time. Try again." : "Could not reach the Flutterwave identity server (network error)." },
-    };
-  }
-}
-
-/** Flutterwave V4 requires X-Trace-Id; retrying checkout calls with X-Idempotency-Key is safe. */
-function fwHeaders(token: string, idempotencyKey?: string): Record<string, string> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    "X-Trace-Id": crypto.randomUUID(),
-  };
-  if (idempotencyKey) headers["X-Idempotency-Key"] = idempotencyKey;
-  return headers;
+/** Format check only — V3 keys carry the FLWPUBK-/FLWSECK- prefix; obvious paste errors are rejected. */
+export function isPlausibleFlutterwaveKey(kind: "public_key" | "secret_key", key: string): boolean {
+  const t = key.trim();
+  if (!t) return false;
+  if (kind === "public_key") return /^FLWPUBK(_TEST)?-.{8,}$/.test(t);
+  return /^FLWSECK(_TEST)?-.{8,}$/.test(t);
 }
 
 async function fwFetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
@@ -376,83 +287,37 @@ async function fwFetchWithTimeout(url: string, init: RequestInit): Promise<Respo
   }
 }
 
-// ---------------------------------------------------------------------------
-// Card charges (V4 general flow)
-// ---------------------------------------------------------------------------
-
-/** Card fields already AES-256-GCM encrypted in the browser, plus the nonce. */
-export type FwEncryptedCard = {
-  nonce: string;
-  encrypted_card_number: string;
-  encrypted_expiry_month: string;
-  encrypted_expiry_year: string;
-  encrypted_cvv: string;
-};
-
-export type FwCustomerAddress = {
-  country: string;
-  city: string;
-  line1: string;
-  line2?: string;
-  postal_code: string;
-  state: string;
-};
-
-export type FwNextAction =
-  // 3DS / External 3DS — send the customer to the issuer's page.
-  | { kind: "redirect"; url: string }
-  // AVS — the customer must provide billing-address fields before the charge
-  // (and the charge) can be authorized via PUT /charges/{id}.
-  | { kind: "avs"; fields: string[] }
-  // Card PIN (encrypted in the browser) is required to authorize the charge.
-  | { kind: "pin" }
-  // One-time-passcode is required to authorize the charge.
-  | { kind: "otp" };
-
-export type FwAuthorizePayload =
-  | { type: "avs"; avs: { address: FwCustomerAddress } }
-  | { type: "pin"; pin: { nonce: string; encrypted_pin: string } }
-  | { type: "otp"; otp: { code: string } };
-
-const SUCCESS_CHARGE_STATUSES = new Set(["succeeded", "success", "successful", "completed"]);
-const FAILED_CHARGE_STATUSES = new Set(["failed", "cancelled", "declined", "expired", "abandoned"]);
-
-function parseChargeStatus(status: unknown): "succeeded" | "failed" | "pending" {
-  const s = String(status ?? "").toLowerCase();
-  if (SUCCESS_CHARGE_STATUSES.has(s)) return "succeeded";
-  if (FAILED_CHARGE_STATUSES.has(s)) return "failed";
-  return "pending";
+/** V3 secret-key auth: every call is authorized with the Secret Key as a Bearer token. */
+function v3Headers(secretKey: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${secretKey}`,
+    "Content-Type": "application/json",
+  };
 }
 
-/** Normalize a raw V4 charge payload into the next step the customer must take. */
-function parseNextAction(data: Record<string, unknown>): { status: "succeeded" | "failed" | "pending"; nextAction: FwNextAction | null } {
-  const status = parseChargeStatus(data?.status);
-  const na = (data?.next_action ?? {}) as Record<string, unknown>;
-  const type = String(na?.type ?? "");
+// ---------------------------------------------------------------------------
+// Hosted checkout (Standard flow)
+// ---------------------------------------------------------------------------
 
-  if (type === "redirect_url") {
-    const redirect = (na?.redirect_url ?? {}) as Record<string, unknown>;
-    if (typeof redirect?.url === "string" && redirect.url) {
-      return { status, nextAction: { kind: "redirect", url: redirect.url } };
-    }
-  }
-  if (type === "requires_additional_fields") {
-    const req = (na?.requires_additional_fields ?? {}) as Record<string, unknown>;
-    const fields = Array.isArray(req?.fields) ? (req.fields as unknown[]).map((f) => String(f)) : [];
-    return { status, nextAction: { kind: "avs", fields } };
-  }
-  if (type === "requires_pin") return { status, nextAction: { kind: "pin" } };
-  if (type === "requires_otp") return { status, nextAction: { kind: "otp" } };
+export type FwHostedCheckoutInput = {
+  txRef: string;
+  amount: number;
+  currency: string;
+  redirectUrl: string;
+  customer: {
+    name: string;
+    email: string;
+    phonenumber?: string;
+  };
+  title: string;
+  description?: string;
+};
 
-  return { status, nextAction: null };
-}
+export type FwHostedCheckoutResult =
+  | { ok: true; link: string; txRef: string; status: "new" | "pending" | "failed" | string }
+  | { ok: false; error: string };
 
-async function fwRequest<T = Record<string, unknown>>(
-  config: FlutterwaveConfig,
-  token: string,
-  path: string,
-  init: { method: "GET" | "POST" | "PUT"; body?: unknown; idempotencyKey?: string },
-): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
+async function v3Request(config: FlutterwaveConfig, path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
   const base = flutterwaveApiBaseUrl(config.environment);
   let res: Response;
   try {
@@ -460,7 +325,7 @@ async function fwRequest<T = Record<string, unknown>>(
       method: init.method,
       headers: Object.fromEntries(
         Object.entries({
-          ...fwHeaders(token, init.idempotencyKey),
+          ...v3Headers(config.secretKey),
           ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
         }).filter(([, v]) => v !== undefined),
       ),
@@ -472,169 +337,83 @@ async function fwRequest<T = Record<string, unknown>>(
 
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    const detail = String(body?.error?.message || body?.data?.error_message || body?.message || "").slice(0, 200);
+    const detail = String(body?.message || body?.error?.message || "").slice(0, 200);
     if (res.status === 401 || res.status === 403) {
       return { ok: false, error: "The card processor credentials are invalid — please use Bank Transfer for now." };
     }
-    if (res.status === 422 || String(body?.error?.type ?? "").includes("CLIENT_ENCRYPTION_ERROR")) {
-      return { ok: false, error: `The card processor could not decrypt this card${detail ? ` (${detail})` : ""}. Check the card and try again.` };
-    }
     return { ok: false, error: `The payment provider couldn't complete this${detail ? ` (${detail})` : ""}. Please try again or use Bank Transfer.` };
   }
-  if (typeof body?.data !== "object" || body?.data === null) {
-    return { ok: false, error: "The payment provider returned an empty response." };
-  }
-  return { ok: true, data: body.data as Record<string, unknown> };
+  return { ok: true, data: body as Record<string, unknown> };
 }
 
-export type FwCreateCardChargeInput = {
-  txRef: string;
-  amount: number;
-  currency: string;
-  redirectUrl: string;
-  customer: {
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone?: { countryCode: string; number: string };
-  };
-  address: FwCustomerAddress;
-  encryptedCard: FwEncryptedCard;
-};
-
-export type FwCreateCardChargeResult =
-  | { ok: true; chargeId: string; reference: string; status: "succeeded" | "failed" | "pending"; nextAction: FwNextAction | null }
-  | { ok: false; error: string };
-
 /**
- * Create a V4 customer, bind the encrypted card as a payment method, and start
- * a charge. Returns the charge id + the next_action the fan must complete.
+ * Create a V3 hosted payment. Returns the link the fan must be redirected to;
+ * Flutterwave collects the card details on their own page — card data never
+ * touches this server. The same tx_ref can be asked for again without creating
+ * a duplicate (the webhook matches the payment by this exact reference).
  */
-export async function createFlutterwaveCardCharge(input: FwCreateCardChargeInput): Promise<FwCreateCardChargeResult> {
+export async function createFlutterwaveHostedCheckout(input: FwHostedCheckoutInput): Promise<FwHostedCheckoutResult> {
   const config = await getFlutterwaveConfig();
 
-  const fail = (error: string): FwCreateCardChargeResult => ({ ok: false, error });
-  if (!config.enabled) return fail("Card payments are not enabled on this site yet.");
-  if (!isFlutterwaveReady(config) || !config.encryptionKey) {
-    return fail("The card processor isn't configured yet — please use Bank Transfer.");
+  if (!config.enabled) return { ok: false, error: "Card payments are not enabled on this site yet." };
+  if (!isFlutterwaveReady(config)) {
+    return { ok: false, error: "The card processor isn't configured yet — please use Bank Transfer." };
   }
 
-  const token = await acquireToken({ clientId: config.clientId, clientSecret: config.clientSecret });
-  if (!token.ok) return fail(token.failure.message);
+  const amount = Math.round(Number(input.amount) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "This payment has no amount to charge." };
 
-  // 1. Customer (idempotent per txRef — safe retries never create a duplicate).
-  const customer = await fwRequest(config, token.token, "/customers", {
+  const res = await v3Request(config, "/payments", {
     method: "POST",
-    idempotencyKey: `cp-${input.txRef}`,
     body: {
-      email: input.customer.email.toLowerCase(),
-      name: { first: input.customer.firstName.slice(0, 64), last: input.customer.lastName.slice(0, 64) },
-      ...(input.customer.phone ? { phone: { country_code: input.customer.phone.countryCode, number: input.customer.phone.number } } : {}),
-      address: {
-        country: input.address.country.toUpperCase().slice(0, 2),
-        city: input.address.city,
-        line1: input.address.line1,
-        ...(input.address.line2?.trim() ? { line2: input.address.line2 } : {}),
-        postal_code: input.address.postal_code,
-        state: input.address.state,
+      tx_ref: input.txRef,
+      amount,
+      currency: (input.currency || "USD").toUpperCase().slice(0, 3),
+      redirect_url: input.redirectUrl,
+      customer: {
+        name: (input.customer.name || "Fan").trim().slice(0, 200),
+        email: (input.customer.email || "").toLowerCase().trim().slice(0, 254),
+        ...(input.customer.phonenumber ? { phonenumber: input.customer.phonenumber.trim().slice(0, 20) } : {}),
+      },
+      customizations: {
+        title: (input.title || "Payment").slice(0, 200),
+        ...(input.description ? { description: input.description.slice(0, 255) } : {}),
       },
     },
   });
-  if (!customer.ok) return fail(customer.error);
-  const customerId = String(customer.data.id ?? "");
-  if (!customerId) return fail("The payment provider returned no customer.");
+  if (!res.ok) return res;
 
-  // 2. Payment method (encrypted card, idempotent per txRef).
-  const paymentMethod = await fwRequest(config, token.token, "/payment-methods", {
-    method: "POST",
-    idempotencyKey: `pm-${input.txRef}`,
-    body: { type: "card", card: input.encryptedCard },
-  });
-  if (!paymentMethod.ok) return fail(paymentMethod.error);
-  const paymentMethodId = String(paymentMethod.data.id ?? "");
-  if (!paymentMethodId) return fail("The payment provider returned no payment method.");
+  const link = String(res.data?.link ?? "");
+  if (!link) return { ok: false, error: "The payment provider returned no payment link." };
 
-  // 3. Charge.
-  const amount = Math.round(Number(input.amount) * 100) / 100;
-  if (!Number.isFinite(amount) || amount <= 0) return fail("This payment has no amount to charge.");
-
-  const charge = await fwRequest(config, token.token, "/charges", {
-    method: "POST",
-    idempotencyKey: `chg-${input.txRef}`,
-    body: {
-      reference: input.txRef,
-      currency: (input.currency || "USD").toUpperCase().slice(0, 3),
-      customer_id: customerId,
-      payment_method_id: paymentMethodId,
-      redirect_url: input.redirectUrl,
-      amount,
-      meta: { title: "CelebrityPass fan card" },
-    },
-  });
-  if (!charge.ok) return fail(charge.error);
-
-  const chargeId = String(charge.data.id ?? "");
-  if (!chargeId) return fail("The payment provider returned no charge.");
-  const { status, nextAction } = parseNextAction(charge.data);
-  return { ok: true, chargeId, reference: input.txRef, status, nextAction };
-}
-
-export type FwAuthorizeChargeResult =
-  | { ok: true; chargeId: string; status: "succeeded" | "failed" | "pending"; nextAction: FwNextAction | null }
-  | { ok: false; error: string };
-
-/**
- * Authorize a pending V4 charge (AVS address, encrypted PIN, or OTP).
- * Returns the same step shape as the initial charge so the client can continue
- * the state machine (e.g. PIN → OTP → 3DS redirect).
- */
-export async function authorizeFlutterwaveCharge(chargeId: string, authorization: FwAuthorizePayload): Promise<FwAuthorizeChargeResult> {
-  const config = await getFlutterwaveConfig();
-  if (!config.enabled || !isFlutterwaveReady(config) || !config.encryptionKey) {
-    return { ok: false, error: "The card processor isn't configured — please use Bank Transfer." };
-  }
-  const token = await acquireToken({ clientId: config.clientId, clientSecret: config.clientSecret });
-  if (!token.ok) return { ok: false, error: token.failure.message };
-
-  const res = await fwRequest(config, token.token, `/charges/${encodeURIComponent(chargeId)}`, {
-    method: "PUT",
-    body: { authorization },
-  });
-  if (!res.ok) return { ok: false, error: res.error };
-
-  const { status, nextAction } = parseNextAction(res.data);
-  return { ok: true, chargeId, status, nextAction };
+  return { ok: true, link, txRef: input.txRef, status: String(res.data?.status ?? "pending") };
 }
 
 // ---------------------------------------------------------------------------
-// Server-side verification (V4 charges)
+// Transaction verification
 // ---------------------------------------------------------------------------
 
-export type FwVerifiedCharge = {
+export type FwVerifiedTransaction = {
   id: string;
-  reference: string;
+  txRef: string;
   amount: number;
   currency: string;
   status: string;
 };
 
-export type FwVerifyResult = { ok: true; charge: FwVerifiedCharge } | { ok: false; error: string };
+export type FwVerifyResult = { ok: true; tx: FwVerifiedTransaction } | { ok: false; error: string };
 
-/** Re-query a V4 charge by its id to confirm status/amount/currency server-side. */
-export async function verifyFlutterwaveCharge(chargeId: string): Promise<FwVerifyResult> {
-  if (!chargeId) return { ok: false, error: "No charge id to verify." };
+/** Re-query a V3 transaction by its id to confirm status/amount/currency server-side. */
+export async function verifyFlutterwaveTransaction(transactionId: string): Promise<FwVerifyResult> {
+  if (!transactionId) return { ok: false, error: "No transaction id to verify." };
   const config = await getFlutterwaveConfig();
-  const base = flutterwaveApiBaseUrl(config.environment);
-  if (!config.clientId || !config.clientSecret || !base) return { ok: false, error: "The card processor isn't configured." };
-
-  const token = await acquireToken({ clientId: config.clientId, clientSecret: config.clientSecret });
-  if (!token.ok) return { ok: false, error: token.failure.message };
+  if (!config.secretKey) return { ok: false, error: "The card processor isn't configured." };
 
   let res: Response;
   try {
-    res = await fwFetchWithTimeout(`${base}/charges/${encodeURIComponent(chargeId)}`, {
+    res = await fwFetchWithTimeout(`${flutterwaveApiBaseUrl(config.environment)}/transactions/${encodeURIComponent(transactionId)}/verify`, {
       method: "GET",
-      headers: fwHeaders(token.token),
+      headers: v3Headers(config.secretKey),
     });
   } catch {
     return { ok: false, error: "Could not reach the payment provider to verify the charge." };
@@ -642,16 +421,16 @@ export async function verifyFlutterwaveCharge(chargeId: string): Promise<FwVerif
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    return { ok: false, error: data?.error?.message || data?.message || `Flutterwave charge verification failed (HTTP ${res.status}).` };
+    return { ok: false, error: data?.message || `Flutterwave verification failed (HTTP ${res.status}).` };
   }
   const d = data?.data;
-  if (!d) return { ok: false, error: "Flutterwave returned an empty charge verification response." };
+  if (!d) return { ok: false, error: "Flutterwave returned an empty verification response." };
 
   return {
     ok: true,
-    charge: {
-      id: String(d.id ?? chargeId),
-      reference: String(d.reference ?? ""),
+    tx: {
+      id: String(d.id ?? transactionId),
+      txRef: String(d.tx_ref ?? ""),
       amount: Number(d.amount) || 0,
       currency: String(d.currency ?? "").toUpperCase(),
       status: String(d.status ?? "").toLowerCase(),
@@ -660,14 +439,14 @@ export async function verifyFlutterwaveCharge(chargeId: string): Promise<FwVerif
 }
 
 // ---------------------------------------------------------------------------
-// Webhooks (V4)
+// Webhooks
 // ---------------------------------------------------------------------------
 
 /**
- * Verify a Flutterwave V4 webhook. The `flutterwave-signature` header holds
- * base64(HMAC-SHA256(rawBody, secretHash)). Legacy `x-verif-hash` (V3-style
- * dashboards) is also accepted when the header is present. Constant-time
- * compare, fail closed — the raw request body must be hashed, not the JSON.
+ * Verify a Flutterwave webhook. `flutterwave-signature` is base64(HMAC-SHA256(
+ * rawBody, secretHash)); `verif-hash` / `x-verif-hash` is the legacy V3 static
+ * header (raw value == secret hash). Constant-time compare, fail closed — the
+ * raw request body must be hashed, never the parsed JSON.
  */
 export async function verifyFlutterwaveWebhook(input: {
   rawBody: string;
@@ -699,21 +478,8 @@ export async function verifyFlutterwaveWebhook(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Credential sanity checks (V4)
+// Credential sanity checks
 // ---------------------------------------------------------------------------
-
-/**
- * Format check only — V4 Client ID / Client Secret are opaque strings (the
- * dashboard shows Client ID as a UUID, Client Secret as a long token). We just
- * reject obvious paste errors (spaces, way-too-short strings) so a full call to
- * the identity server can genuinely validate them.
- */
-export function isPlausibleFlutterwaveKey(kind: "client_id" | "client_secret", key: string): boolean {
-  const t = key.trim();
-  if (!t) return false;
-  if (kind === "client_id") return /^[A-Za-z0-9_-]{12,}$/.test(t);
-  return /^[A-Za-z0-9_-]{16,}$/.test(t);
-}
 
 // ---------------------------------------------------------------------------
 // Connection test
@@ -726,39 +492,29 @@ export type FwTestResult = {
   mode: "test" | "live" | "";
 };
 
-/** Prove V4 credentials work: acquire an access token, then probe the API. */
+/** Prove V3 credentials work: read from the payments endpoint with the Secret Key. */
 export async function testFlutterwaveConnection(opts: {
-  clientId?: string;
-  clientSecret?: string;
+  secretKey?: string;
   environment?: "test" | "live" | "";
 }): Promise<FwTestResult> {
   const config = await getFlutterwaveConfig();
-  const id = opts.clientId?.trim() || config.clientId;
-  const secret = opts.clientSecret?.trim() || config.clientSecret;
+  const secret = opts.secretKey?.trim() || config.secretKey;
   const mode: "test" | "live" | "" = opts.environment || config.environment;
 
-  if (!id && !secret) {
+  if (!secret) {
     return {
       ok: false,
       code: "none",
-      message: "No Flutterwave V4 credentials are configured yet. Paste your Client ID and Client Secret above (or set FLUTTERWAVE_CLIENT_ID / FLUTTERWAVE_CLIENT_SECRET in the environment), then test.",
+      message: "No Flutterwave V3 Secret Key is configured yet. Paste your Secret Key (FLWSECK-…) above (or set FLUTTERWAVE_SECRET_KEY in the environment), then test.",
       mode,
     };
   }
-  if (!id || !secret) {
-    return {
-      ok: false,
-      code: "none",
-      message: "Both a Client ID and a Client Secret are required. Enter both, then test.",
-      mode,
-    };
-  }
-  if (!isPlausibleFlutterwaveKey("client_id", id) || !isPlausibleFlutterwaveKey("client_secret", secret)) {
+  if (!isPlausibleFlutterwaveKey("secret_key", secret)) {
     return {
       ok: false,
       code: "format",
       message:
-        "That doesn't look like a Flutterwave v4 credential. From Settings → API Keys copy the Client ID (a UUID like 9543ec71-…) and the Client Secret. The v3 Public/Secret keys (FLWPUBK-… / FLWSECK-…) are NOT accepted here. The value was NOT sent to Flutterwave.",
+        "That doesn't look like a Flutterwave v3 Secret Key (it should start with FLWSECK-… or FLWSECK_TEST-…). The v4 Client ID/Secret are not accepted here. The value was NOT sent to Flutterwave.",
       mode,
     };
   }
@@ -766,20 +522,10 @@ export async function testFlutterwaveConnection(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
 
-  const token = await acquireToken({ clientId: id, clientSecret: secret, signal: controller.signal });
-  if (!token.ok) {
-    clearTimeout(timer);
-    const f = token.failure;
-    if (f.code === "unconfigured") return { ok: false, code: "none", message: f.message, mode };
-    if (f.code === "invalid_credentials") return { ok: false, code: "invalid_key", message: f.message, mode };
-    return { ok: false, code: f.code, message: f.message, mode };
-  }
-
-  // Lightweight read to confirm the token works against the chosen environment.
   let res: Response | null = null;
   try {
-    res = await fetch(`${flutterwaveApiBaseUrl(mode)}/charges?page=1&size=1`, {
-      headers: fwHeaders(token.token),
+    res = await fetch(`${flutterwaveApiBaseUrl(mode)}/payments`, {
+      headers: v3Headers(secret),
       signal: controller.signal,
       cache: "no-store",
     });
@@ -810,13 +556,13 @@ export async function testFlutterwaveConnection(opts: {
       ok: false,
       code: "invalid_key",
       mode,
-      message: `Flutterwave rejected these credentials as invalid (HTTP ${res.status}). Double-check they were copied fully and match the selected ${mode || ""} environment.`,
+      message: `Flutterwave rejected these credentials as invalid (HTTP ${res.status}). Double-check the key was copied fully and matches the selected ${mode || ""} environment (test keys are FLWSECK_TEST-…).`,
     };
   }
   return {
     ok: false,
     code: "server",
     mode,
-    message: `Flutterwave returned HTTP ${res.status}. The credentials may be valid, but the account needs attention (for example, disabled or unauthorized).`,
+    message: `Flutterwave returned HTTP ${res.status}. The key may be valid, but the account needs attention (for example, disabled or unauthorized).`,
   };
 }

@@ -3,8 +3,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { formatMoney } from "@/lib/payments";
 import { useLanguage } from "@/lib/i18n/language-context";
-import { encryptFlutterwaveCard, encryptFlutterwavePin } from "@/lib/payments/flutterwave-client";
-import { ISO_COUNTRY_CODES } from "@/lib/payments/flutterwave-countries";
 import BankAccountCard from "./BankAccountCard";
 
 export type MethodOption = {
@@ -134,29 +132,15 @@ export default function UniversalCheckout(props: Props) {
   const [proofName, setProofName] = useState<string | null>(null);
   const [proofData, setProofData] = useState<string | null>(null);
 
-  // Card fields
+  // Card fields (ticket legacy gateway path only)
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
 
-  // Flutterwave V4 browser-encrypted card flow (fan cards only)
-  const [fwSetup, setFwSetup] = useState<{
-    encryptionKey: string;
-    redirectUrl: string;
-    customerCountry?: string;
-    customerEmail?: string;
-  } | null>(null);
-  const [chargeId, setChargeId] = useState<string | null>(null);
-  const [authStep, setAuthStep] = useState<"pin" | "otp" | "avs" | null>(null);
-  const [pin, setPin] = useState("");
-  const [otp, setOtp] = useState("");
-  // Billing address (required by the card processor; also reused for AVS)
-  const [billCountry, setBillCountry] = useState("");
-  const [billCity, setBillCity] = useState("");
-  const [billLine1, setBillLine1] = useState("");
-  const [billPostal, setBillPostal] = useState("");
-  const [billState, setBillState] = useState("");
+  // Fan cards (FAN_CARD) pay through the Flutterwave V3 hosted page: the fan is
+  // redirected to Flutterwave's own checkout, so no card fields are collected here.
+  const [hostedBusy, setHostedBusy] = useState(false);
 
   const [refCopied, setRefCopied] = useState(false);
 
@@ -315,87 +299,11 @@ export default function UniversalCheckout(props: Props) {
     }
   };
 
-  // ---- Flutterwave V4 browser-encrypted card flow helpers ------------------
-  const fwBillingAddress = () => ({
-    country: billCountry.trim(),
-    city: billCity.trim(),
-    line1: billLine1.trim(),
-    postal_code: billPostal.trim(),
-    state: billState.trim(),
-  });
-
-  const fwBillingValid = () =>
-    ["country", "city", "line1", "postal_code", "state"].every((k) => {
-      const v = (fwBillingAddress() as Record<string, string>)[k];
-      return typeof v === "string" && v.trim().length > 0;
-    });
-
-  const fwDriveNextAction = (action: { kind: string; url?: string } | null, id: string | null) => {
-    if (!id) {
-      if (fwSetup?.redirectUrl) window.location.assign(fwSetup.redirectUrl);
-      return;
-    }
-    if (!action) {
-      if (fwSetup?.redirectUrl) window.location.assign(fwSetup.redirectUrl);
-      return;
-    }
-    if (action.kind === "redirect" && action.url) {
-      window.location.assign(action.url);
-      return;
-    }
-    if (action.kind === "avs") {
-      setChargeId(id);
-      setAuthStep("avs");
-      return;
-    }
-    if (action.kind === "pin") {
-      setPin("");
-      setChargeId(id);
-      setAuthStep("pin");
-      return;
-    }
-    if (action.kind === "otp") {
-      setOtp("");
-      setChargeId(id);
-      setAuthStep("otp");
-      return;
-    }
-    // Unknown/inert step — go confirm; the webhook settles.
-    if (fwSetup?.redirectUrl) window.location.assign(fwSetup.redirectUrl);
-  };
-
-  const fwSubmitAuthorization = async (authorization: unknown) => {
-    if (!chargeId) return;
-    setError(null);
-    setProcessing(true);
-    try {
-      const res = await fetch(`/api/payments/${props.purchaseId}/flutterwave/authorize`, {
-        method: "POST",
-        signal: AbortSignal.timeout(45_000),
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chargeId, authorization }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setAuthStep(null);
-        setError(data.error ?? "Card payment could not be completed.");
-        return;
-      }
-      if (data.status === "failed") {
-        setAuthStep(null);
-        setChargeId(null);
-        setError("Your bank declined this transaction. Please try again or use Bank Transfer.");
-        return;
-      }
-      fwDriveNextAction(data.nextAction, data.chargeId);
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const payByCardFanCard = async (e: React.FormEvent) => {
+  // ---- Fan-card Flutterwave V3 hosted checkout ----------------------------
+  // The payment happens on Flutterwave's own secure page. We only POST to
+  // create the checkout and then redirect the fan there — no card data is ever
+  // collected on this site, nothing is encrypted or stored client-side.
+  const startHostedCardPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
@@ -403,97 +311,32 @@ export default function UniversalCheckout(props: Props) {
       setError("This purchase is missing its payment reference.");
       return;
     }
-    if (!cardName.trim()) { setError("Enter the cardholder name."); return; }
-    const exp = /^(\d{2})\/(\d{2})$/.exec(cardExpiry);
-    if (!exp) { setError("Enter expiry as MM/YY."); return; }
-    if (!/^\d{3,4}$/.test(cardCvc)) { setError("Enter a valid security code."); return; }
-    if (!fwBillingValid()) {
-      setError("Enter the full billing address for this card — your bank needs it to authorize the payment.");
-      return;
-    }
-    setProcessing(true);
+    setHostedBusy(true);
     try {
-      // 1. Client-safe setup: AES-GCM key (browser-side encryption only) +
-      //    fan profile prefill + the page the fan returns to after payment.
-      const setupRes = await fetch(`/api/payments/${props.purchaseId}/flutterwave`, {
-        method: "GET",
-        signal: AbortSignal.timeout(30_000),
-        cache: "no-store",
-      });
-      const setup = await setupRes.json();
-      if (!setupRes.ok || !setup.ok) {
-        setError(setup.error ?? "Card payments aren't available right now.");
-        return;
-      }
-      setFwSetup({
-        encryptionKey: setup.encryptionKey,
-        redirectUrl: setup.redirectUrl,
-        customerCountry: setup.customer?.country ?? "",
-        customerEmail: setup.customer?.email ?? "",
-      });
-      if (!cardName.trim() && setup.customer?.name) setCardName(setup.customer.name);
-      if (!billCountry.trim() && setup.customer?.country) setBillCountry(setup.customer.country);
-
-      // 2. Encrypt the card in the browser — raw numbers never leave the device.
-      const encryptedCard = await encryptFlutterwaveCard(
-        { number: cardNumber.replace(/\s/g, ""), expiryMonth: exp[1], expiryYear: exp[2], cvc: cardCvc },
-        setup.encryptionKey,
-      );
-
-      // 3. Create the V4 charge (customer + payment method + charge).
       const res = await fetch(`/api/payments/${props.purchaseId}/flutterwave`, {
         method: "POST",
         signal: AbortSignal.timeout(45_000),
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ encryptedCard, billingAddress: fwBillingAddress() }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Card payment could not be started.");
+        setError(data.error ?? "Card payment could not be started. Please use Bank Transfer.");
         return;
       }
       if (data.alreadyPaid && data.redirectUrl) {
         window.location.assign(data.redirectUrl);
         return;
       }
-      if (data.status === "failed") {
-        setChargeId(null);
-        setError("Your bank declined this transaction. Please try again or use Bank Transfer.");
+      if (!data.link) {
+        setError("The payment page didn't return a link. Please try again or use Bank Transfer.");
         return;
       }
-      fwDriveNextAction(data.nextAction, data.chargeId);
+      window.location.assign(data.link);
     } catch {
       setError("Network error. Please try again.");
     } finally {
-      setProcessing(false);
+      setHostedBusy(false);
     }
-  };
-
-  const submitPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!/^\d{4}$/.test(pin)) { setError("Enter the 4-digit card PIN."); return; }
-    if (!fwSetup) { setError("Card payment isn't ready — please start the payment again."); return; }
-    try {
-      const enc = await encryptFlutterwavePin(pin, fwSetup.encryptionKey);
-      await fwSubmitAuthorization({ type: "pin", pin: enc });
-    } catch {
-      setError("Could not encrypt your PIN. Please try again.");
-    }
-  };
-
-  const submitOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!/^\d{4,8}$/.test(otp)) { setError("Enter the one-time password from your bank."); return; }
-    await fwSubmitAuthorization({ type: "otp", otp: { code: otp } });
-  };
-
-  const submitAvs = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fwBillingValid()) { setError("Enter the full billing address for this card."); return; }
-    await fwSubmitAuthorization({
-      type: "avs",
-      avs: { address: fwBillingAddress() },
-    });
   };
 
   if (submitted) {
@@ -766,185 +609,37 @@ export default function UniversalCheckout(props: Props) {
 
       {method === "atm-card" && cardAvailable && (
         props.kind === "FAN_CARD" ? (
-          authStep === "pin" ? (
-            <form onSubmit={submitPin} className="space-y-6">
-              <div>
-                <StepHeader
-                  n={2}
-                  title="Enter your card PIN"
-                  subtitle={`Your bank needs the card's PIN to authorize a payment of ${total}.`}
-                />
+          <form onSubmit={startHostedCardPayment} className="space-y-6">
+            <div>
+              <StepHeader
+                n={2}
+                title="Card payment"
+                subtitle={`Pay ${total} securely with your ATM, debit or credit card.`}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-zinc-400">
+              You&apos;ll finish paying on our secure payment partner&apos;s page — your card details never touch this
+              site. Your fan card is issued automatically once the payment is confirmed.
+            </div>
+
+            {error && (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
+                {error}
               </div>
-              <Field label="4-digit card PIN">
-                <input
-                  autoFocus
-                  required
-                  inputMode="numeric"
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                  className={`${inputCls} font-mono tracking-[0.5em]`}
-                  placeholder="••••"
-                />
-              </Field>
-              {error && (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
-                  {error}
-                </div>
-              )}
+            )}
+
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-500">{t("checkout.secureNote")}</p>
               <button
                 type="submit"
-                disabled={processing}
+                disabled={hostedBusy}
                 className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
               >
-                {processing ? "Authorizing…" : "Continue payment"}
+                {hostedBusy ? "Preparing secure payment…" : `Continue to secure payment · ${total}`}
               </button>
-            </form>
-          ) : authStep === "otp" ? (
-            <form onSubmit={submitOtp} className="space-y-6">
-              <div>
-                <StepHeader
-                  n={2}
-                  title="Verification code"
-                  subtitle="We sent a one-time password to your phone. Enter it to authorize the payment."
-                />
-              </div>
-              <Field label="One-time password">
-                <input
-                  autoFocus
-                  required
-                  inputMode="numeric"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                  className={`${inputCls} font-mono tracking-[0.3em]`}
-                  placeholder="••••••"
-                />
-              </Field>
-              {error && (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
-                  {error}
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={processing}
-                className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
-              >
-                {processing ? "Verifying…" : "Authorize payment"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={authStep === "avs" ? submitAvs : payByCardFanCard} className="space-y-6">
-              <div>
-                <StepHeader
-                  n={2}
-                  title={authStep === "avs" ? "Confirm your billing address" : "Card payment"}
-                  subtitle={
-                    authStep === "avs"
-                      ? `Your bank needs your billing address to finish authorizing a payment of ${total}.`
-                      : `Enter your card details to pay ${total} securely.`
-                  }
-                />
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-zinc-400">
-                Your card number never reaches this site — it&apos;s encrypted in your browser before anything is sent, and your
-                fan card is issued automatically once the payment is confirmed.
-              </div>
-
-              {authStep !== "avs" && (
-                <div className="space-y-5">
-                  <Field label={t("checkout.nameOnCard")}>
-                    <input required value={cardName} onChange={(e) => setCardName(e.target.value)} className={inputCls} placeholder={t("checkout.nameOnCard")} />
-                  </Field>
-                  <Field label={t("checkout.cardNumber")}>
-                    <input
-                      required
-                      inputMode="numeric"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      className={`${inputCls} font-mono tracking-wider`}
-                      placeholder="4242 4242 4242 4242"
-                    />
-                  </Field>
-                  <div className="grid grid-cols-2 gap-5">
-                    <Field label={t("checkout.expiry")}>
-                      <input required inputMode="numeric" value={cardExpiry} onChange={(e) => setCardExpiry(formatExpiry(e.target.value))} className={`${inputCls} font-mono`} placeholder="MM/YY" />
-                    </Field>
-                    <Field label={t("checkout.cvc")}>
-                      <input required inputMode="numeric" value={cardCvc} onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))} className={`${inputCls} font-mono`} placeholder="123" />
-                    </Field>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-5">
-                <StepHeader
-                  n={authStep === "avs" ? 3 : 3}
-                  title="Billing address"
-                  subtitle="Use the address your bank has on file for this card — it's required to authorize the payment."
-                />
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Country">
-                    <select
-                      required
-                      value={billCountry}
-                      onChange={(e) => setBillCountry(e.target.value)}
-                      className={`${inputCls} appearance-none`}
-                    >
-                      <option value="" disabled>
-                        Select country…
-                      </option>
-                      {Object.entries(ISO_COUNTRY_CODES)
-                        .sort((a, b) => a[0].localeCompare(b[0]))
-                        .map(([name, code]) => (
-                          <option key={code} value={code}>
-                            {name}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                  <Field label="City">
-                    <input required value={billCity} onChange={(e) => setBillCity(e.target.value)} className={inputCls} placeholder="e.g. New York" />
-                  </Field>
-                  <div className="sm:col-span-2">
-                    <Field label="Street address">
-                      <input required value={billLine1} onChange={(e) => setBillLine1(e.target.value)} className={inputCls} placeholder="e.g. 221B Baker Street" />
-                    </Field>
-                  </div>
-                  <Field label="State / region">
-                    <input required value={billState} onChange={(e) => setBillState(e.target.value)} className={inputCls} placeholder="e.g. NY" />
-                  </Field>
-                  <Field label="ZIP / postal code">
-                    <input required value={billPostal} onChange={(e) => setBillPostal(e.target.value)} className={inputCls} placeholder="e.g. 10001" />
-                  </Field>
-                </div>
-              </div>
-
-              {error && (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <p className="text-sm text-zinc-500">{t("checkout.secureNote")}</p>
-                <button
-                  type="submit"
-                  disabled={processing}
-                  className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
-                >
-                  {processing
-                    ? authStep === "avs"
-                      ? "Authorizing…"
-                      : t("checkout.processing")
-                    : authStep === "avs"
-                    ? "Continue payment"
-                    : `${t("checkout.payNow")} · ${total}`}
-                </button>
-              </div>
-            </form>
-          )
+            </div>
+          </form>
         ) : (
           <form onSubmit={payByCard} className="space-y-6">
           <div>

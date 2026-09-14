@@ -1,5 +1,5 @@
-// GET /api/admin/payment-settings — masked Flutterwave status for the dashboard.
-// POST /api/admin/payment-settings — save Flutterwave credentials (server-side only,
+// GET /api/admin/payment-settings — masked Flutterwave V3 status for the dashboard.
+// POST /api/admin/payment-settings — save Flutterwave V3 credentials (server-side only,
 // never echoed back to the browser; secrets are masked and encrypted at rest).
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
@@ -35,41 +35,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "enabled must be a boolean." }, { status: 400 });
   }
 
-  const clientId = typeof body.clientId === "string" ? body.clientId.trim() : undefined;
-  if (clientId !== undefined && clientId && !isPlausibleFlutterwaveKey("client_id", clientId)) {
+  const secretKey = typeof body.secretKey === "string" ? body.secretKey.trim() : undefined;
+  if (secretKey !== undefined && secretKey && !isPlausibleFlutterwaveKey("secret_key", secretKey)) {
     return NextResponse.json(
-      { error: "That doesn't look like a Flutterwave v4 Client ID (a UUID like 9543ec71-…). Copy it from Settings → API Keys." },
+      { error: "That doesn't look like a Flutterwave v3 Secret Key (should start with FLWSECK-… or FLWSECK_TEST-…). Copy it from Settings → API Keys." },
       { status: 400 },
     );
   }
 
-  const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret.trim() : undefined;
-  if (clientSecret !== undefined && clientSecret && !isPlausibleFlutterwaveKey("client_secret", clientSecret)) {
+  const publicKey = typeof body.publicKey === "string" ? body.publicKey.trim() : undefined;
+  if (publicKey !== undefined && publicKey && !isPlausibleFlutterwaveKey("public_key", publicKey)) {
     return NextResponse.json(
-      { error: "That doesn't look like a Flutterwave v4 Client Secret. Copy it from Settings → API Keys." },
+      { error: "That doesn't look like a Flutterwave v3 Public Key (should start with FLWPUBK-… or FLWPUBK_TEST-…). Copy it from Settings → API Keys." },
       { status: 400 },
     );
   }
 
   const webhookHash = typeof body.webhookHash === "string" ? body.webhookHash.trim() : undefined;
 
-  // The V4 Encryption Key is a base64 AES-256 key that the browser uses to
-  // encrypt card fields client-side. Any obvious paste errors are rejected.
-  const encryptionKey = typeof body.encryptionKey === "string" ? body.encryptionKey.trim() : undefined;
-  if (encryptionKey !== undefined && encryptionKey && !/^[A-Za-z0-9+/=]{16,}$/.test(encryptionKey)) {
-    return NextResponse.json(
-      { error: "That doesn't look like a Flutterwave Encryption Key (Base64). Copy it from Settings → API Keys." },
-      { status: 400 },
-    );
-  }
-
   await saveFlutterwaveSettings({
     enabled: body.enabled,
     environment: body.environment,
-    clientId,
-    clientSecret,
+    secretKey,
+    publicKey,
     webhookHash,
-    encryptionKey,
   });
 
   // The save succeeded — confirm the authoritative state. If the DB is briefly

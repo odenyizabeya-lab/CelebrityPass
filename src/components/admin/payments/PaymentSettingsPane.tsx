@@ -11,19 +11,15 @@ const okCls = "mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px
 type Status = {
   enabled: boolean;
   environment: "test" | "live" | "";
-  clientId: string;
-  clientIdConfigured: boolean;
-  clientIdLast4: string;
-  clientIdSource: "db" | "env" | "";
-  clientSecretConfigured: boolean;
-  clientSecretLast4: string;
-  clientSecretSource: "db" | "env" | "";
+  secretKeyConfigured: boolean;
+  secretKeyLast4: string;
+  secretKeySource: "db" | "env" | "";
+  publicKeyConfigured: boolean;
+  publicKeyLast4: string;
+  publicKeySource: "db" | "env" | "";
   webhookHashConfigured: boolean;
   webhookHashLast4: string;
   webhookHashSource: "db" | "env" | "";
-  encryptionKeyConfigured: boolean;
-  encryptionKeyLast4: string;
-  encryptionKeySource: "db" | "env" | "";
   apiBaseUrl: string;
   webhookUrl: string;
   encryptionEnabled: boolean;
@@ -66,10 +62,9 @@ export default function PaymentSettingsPane() {
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [environment, setEnvironment] = useState<"test" | "live">("test");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
+  const [secretKey, setSecretKey] = useState("");
+  const [publicKey, setPublicKey] = useState("");
   const [webhookHash, setWebhookHash] = useState("");
-  const [encryptionKey, setEncryptionKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,10 +116,9 @@ export default function PaymentSettingsPane() {
     setBusy(true);
     try {
       const payload: Record<string, string | boolean> = { enabled, environment };
-      if (clientId.trim()) payload.clientId = clientId.trim();
-      if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
+      if (secretKey.trim()) payload.secretKey = secretKey.trim();
+      if (publicKey.trim()) payload.publicKey = publicKey.trim();
       if (webhookHash.trim()) payload.webhookHash = webhookHash.trim();
-      if (encryptionKey.trim()) payload.encryptionKey = encryptionKey.trim();
       const res = await fetch("/api/admin/payment-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,10 +126,9 @@ export default function PaymentSettingsPane() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Could not save payment settings.");
-      setClientId("");
-      setClientSecret("");
+      setSecretKey("");
+      setPublicKey("");
       setWebhookHash("");
-      setEncryptionKey("");
       setOk("Payment settings saved.");
       try {
         if (d.settings) {
@@ -168,8 +161,7 @@ export default function PaymentSettingsPane() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: clientId.trim() || undefined,
-          clientSecret: clientSecret.trim() || undefined,
+          secretKey: secretKey.trim() || undefined,
           environment,
         }),
       });
@@ -211,7 +203,7 @@ export default function PaymentSettingsPane() {
           <div>
             <h2 className="text-lg font-black text-white">ATM Card processor</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Fans enter their card on our checkout and their browser encrypts it (AES-256-GCM) before it ever leaves the device —
+              Fans start a payment here and are taken to Flutterwave&apos;s own secure checkout page to enter their card details —
               card numbers never reach this site.
             </p>
           </div>
@@ -288,54 +280,58 @@ export default function PaymentSettingsPane() {
       <div className="glass rounded-2xl p-6">
         <h2 className="text-lg font-black text-white">Flutterwave credentials</h2>
         <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-          From your Flutterwave dashboard (<code className="text-zinc-300">Developers → Settings → API Keys</code>), the{" "}
-          <strong className="text-zinc-200">v4 view</strong>: an <strong className="text-zinc-200">Client ID</strong> (UUID like
-          <code className="text-primary-300"> 9543ec71-…</code>) and a <strong className="text-zinc-200">Client Secret</strong>. This is the new v4 API —
-          the legacy v3 <strong className="text-zinc-200">Public Key / Secret Key</strong> (<code className="text-zinc-300">FLWPUBK-…</code> /{" "}
-          <code className="text-zinc-300">FLWSECK-…</code>) are <em>not</em> accepted here. Secrets are server-side only — never sent back to the
+          From your Flutterwave dashboard (<code className="text-zinc-300">Settings → API Keys</code>), the classic{" "}
+          <strong className="text-zinc-200">v3 view</strong>: a <strong className="text-zinc-200">Secret Key</strong> and{" "}
+          <strong className="text-zinc-200">Public Key</strong> (<code className="text-zinc-300">FLWSECK-…</code> /{" "}
+          <code className="text-zinc-300">FLWPUBK-…</code>, test keys use the{" "}
+          <code className="text-zinc-300">FLWSECK_TEST-…</code> / <code className="text-zinc-300">FLWPUBK_TEST-…</code> prefix). The
+          Secret Key authorizes every API call and the webhook signature. Secrets are server-side only — never sent back to the
           browser, never logged, and never included in error messages. Recommended: set{" "}
-          <code className="text-zinc-300">FLUTTERWAVE_CLIENT_SECRET</code> in the server environment so no secret is stored in a database. Keys saved here end
-          up in the database; set <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the environment to encrypt them at rest.
+          <code className="text-zinc-300">FLUTTERWAVE_SECRET_KEY</code> (and <code className="text-zinc-300">FLUTTERWAVE_PUBLIC_KEY</code>)
+          in the server environment so no secret is stored in a database. Keys saved here end up in the database; set{" "}
+          <code className="text-zinc-300">AI_KEY_ENCRYPTION_KEY</code> in the environment to encrypt them at rest.
         </p>
 
         <div className="mt-5 space-y-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Client ID</label>
+              <label className="text-sm font-semibold text-zinc-300">Secret Key</label>
               <div className="flex items-center gap-2">
-                <SourceChip source={status?.clientIdSource} />
-                <KeyStatus configured={status?.clientIdConfigured} />
-              </div>
-            </div>
-            <input
-              type="text"
-              autoComplete="off"
-              className={inputCls}
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              placeholder={
-                status?.clientIdConfigured
-                  ? `Current Client ID ends in ${status.clientIdLast4} — paste a new one to replace it`
-                  : "Paste your Flutterwave v4 Client ID (UUID)…"
-              }
-            />
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Client Secret</label>
-              <div className="flex items-center gap-2">
-                <SourceChip source={status?.clientSecretSource} />
-                <KeyStatus configured={status?.clientSecretConfigured} />
+                <SourceChip source={status?.secretKeySource} />
+                <KeyStatus configured={status?.secretKeyConfigured} />
               </div>
             </div>
             <input
               type="password"
               autoComplete="off"
               className={inputCls}
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
               placeholder={
-                status?.clientSecretConfigured ? `New Client Secret — current key ends in ${status.clientSecretLast4}` : "Paste your Flutterwave v4 Client Secret…"
+                status?.secretKeyConfigured
+                  ? `New Secret Key — current key ends in ${status.secretKeyLast4}`
+                  : "Paste your Flutterwave v3 Secret Key (FLWSECK-… or FLWSECK_TEST-…)…"
+              }
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-semibold text-zinc-300">Public Key</label>
+              <div className="flex items-center gap-2">
+                <SourceChip source={status?.publicKeySource} />
+                <KeyStatus configured={status?.publicKeyConfigured} />
+              </div>
+            </div>
+            <input
+              type="password"
+              autoComplete="off"
+              className={inputCls}
+              value={publicKey}
+              onChange={(e) => setPublicKey(e.target.value)}
+              placeholder={
+                status?.publicKeyConfigured
+                  ? `New Public Key — current key ends in ${status.publicKeyLast4}`
+                  : "Paste your Flutterwave v3 Public Key (FLWPUBK-… or FLWPUBK_TEST-…)…"
               }
             />
           </div>
@@ -360,39 +356,12 @@ export default function PaymentSettingsPane() {
               }
             />
             <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-              Set this in the Flutterwave dashboard (<code className="text-zinc-300">Developers → Settings → Webhooks</code>) — it&apos;s the value
+              Set this in the Flutterwave dashboard (<code className="text-zinc-300">Settings → Webhooks</code>) — it&apos;s the value
               Flutterwave HMAC-SHA256-signs every payload with (your signature appears in the{" "}
               <code className="text-zinc-300">flutterwave-signature</code> header). Point the webhook at{" "}
               <code className="text-zinc-300">{status?.webhookUrl}</code>, and ensure the API base URL matches the environment
               above (<code className="text-zinc-300">{status?.apiBaseUrl}</code>). Every webhook is signature-verified and then
-              re-checked against <code className="text-zinc-300">{"GET /charges/{id}"}</code> before anything is settled.
-            </p>
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Encryption Key</label>
-              <div className="flex items-center gap-2">
-                <SourceChip source={status?.encryptionKeySource} />
-                <KeyStatus configured={status?.encryptionKeyConfigured} />
-              </div>
-            </div>
-            <input
-              type="password"
-              autoComplete="off"
-              className={inputCls}
-              value={encryptionKey}
-              onChange={(e) => setEncryptionKey(e.target.value)}
-              placeholder={
-                status?.encryptionKeyConfigured
-                  ? `Current key ends in ${status.encryptionKeyLast4} — paste a new one to replace it`
-                  : "Paste your AES-256 Encryption Key (Base64)…"
-              }
-            />
-            <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-              From your dashboard (<code className="text-zinc-300">Developers → Settings → API Keys</code>). This key encrypts card
-              fields <em>in the customer&apos;s browser</em> (AES-256-GCM) before they&apos;re sent to Flutterwave — no card number ever
-              reaches this site. It&apos;s safe to hand to the browser, same as a Stripe publishable key, and is required for ATM Card
-              to be enabled.
+              re-checked against <code className="text-zinc-300">{"GET /transactions/{id}/verify"}</code> before anything is settled.
             </p>
           </div>
         </div>
