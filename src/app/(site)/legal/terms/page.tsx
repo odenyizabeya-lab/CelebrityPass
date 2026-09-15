@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LegalShell from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
@@ -100,9 +101,9 @@ export default function TermsPage() {
       <p>
         The service may rely on third-party services (for example, hosting, payment processing, and email delivery) to
         operate. Your use of the service and your personal data are handled in line with our{" "}
-        <a href="/legal/privacy" className="text-primary-400 underline">Privacy Policy</a>. Payments are governed by
+        <Link href="/legal/privacy" className="text-primary-400 underline">Privacy Policy</Link>. Payments are governed by
         our{" "}
-        <a href="/legal/payments" className="text-primary-400 underline">Payments &amp; Refunds</a>{" "}
+        <Link href="/legal/payments" className="text-primary-400 underline">Payments &amp; Refunds</Link>{" "}
         page.
       </p>
 
@@ -119,7 +120,7 @@ export default function TermsPage() {
       <h2 className="text-base font-bold text-white">11. Contact</h2>
       <p>
         Questions about these Terms can be sent through our{" "}
-        <a href="/legal/contact" className="text-primary-400 underline">Contact &amp; Support</a>{" "}
+        <Link href="/legal/contact" className="text-primary-400 underline">Contact &amp; Support</Link>{" "}
         page or by emailing{" "}
         <a href="mailto:support@celebritypass.app" className="text-primary-400 underline">
           support@celebritypass.app

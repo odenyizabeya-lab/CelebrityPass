@@ -56,9 +56,9 @@ export default function LoginForm() {
         <>
           <p className="text-sm text-zinc-500">
             {t("auth.noAccount")}{" "}
-            <a href={`/register${nextQuery}`} className={appScreenLinkClass}>
+            <Link href={`/register${nextQuery}`} className={appScreenLinkClass}>
               {t("auth.createOne")}
-            </a>
+            </Link>
           </p>
           <p className="text-[11px] leading-relaxed text-zinc-600">
             Official fan communities · Digital fan cards · VIP experiences
@@ -124,12 +124,12 @@ export default function LoginForm() {
           />
 
           <div className="flex items-center justify-between gap-2 text-[13px]">
-            <a href={`/forgot-email${nextQuery}`} className="text-zinc-400 transition hover:text-white">
+            <Link href={`/forgot-email${nextQuery}`} className="text-zinc-400 transition hover:text-white">
               {t("auth.forgotEmail")}
-            </a>
-            <a href="/reset-password" className="font-semibold text-primary-400 transition hover:text-primary-300">
+            </Link>
+            <Link href="/reset-password" className="font-semibold text-primary-400 transition hover:text-primary-300">
               {t("auth.forgotPassword")}
-            </a>
+            </Link>
           </div>
 
           <button

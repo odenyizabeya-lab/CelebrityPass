@@ -18,7 +18,7 @@ The `app-release.aab`/`app-release.apk` are **signed and installable NOW**, but 
 
 | Item | Result |
 |------|--------|
-| App identity | `com.celebritypass.app` (applicationId + namespace), label "CelebrityPass" |
+| App identity | `com.kcoai.app` (applicationId + namespace), label "CelebrityPass" |
 | Version | versionCode 1, versionName "1.0.0" |
 | Android SDK | compileSdk 36, targetSdk 36 (meets current Play requirement), minSdk 24 |
 | Permissions | INTERNET only — no camera/location/contacts. Reviewed & minimal |

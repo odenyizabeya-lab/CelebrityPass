@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 import { listAdminCards } from "@/lib/services";
 import CardRowActions from "@/components/admin/CardRowActions";
 import IssueCardForm from "@/components/admin/IssueCardForm";
@@ -48,9 +49,9 @@ export default async function AdminCardsPage({ searchParams }: { searchParams: P
           Filter
         </button>
         {(sp.q || sp.status) && (
-          <a href="/admin/cards" className="rounded-full px-4 py-3 text-sm font-semibold text-zinc-400 transition hover:text-white">
+          <Link href="/admin/cards" className="rounded-full px-4 py-3 text-sm font-semibold text-zinc-400 transition hover:text-white">
             Clear
-          </a>
+          </Link>
         )}
       </form>
 

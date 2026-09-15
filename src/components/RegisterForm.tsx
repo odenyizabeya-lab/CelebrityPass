@@ -83,19 +83,19 @@ export default function RegisterForm() {
         <>
           <p className="text-sm text-zinc-500">
             {t("auth.hasAccount")}{" "}
-            <a href={`/login${nextQuery}`} className={appScreenLinkClass}>
+            <Link href={`/login${nextQuery}`} className={appScreenLinkClass}>
               {t("auth.signIn")}
-            </a>
+            </Link>
           </p>
           <p className="text-[11px] leading-relaxed text-zinc-600">
             {t("auth.agree")}{" "}
-            <a href="/legal/terms" className="text-zinc-500 underline transition hover:text-zinc-300">
+            <Link href="/legal/terms" className="text-zinc-500 underline transition hover:text-zinc-300">
               {t("auth.termsLink")}
-            </a>{" "}
+            </Link>{" "}
             {t("auth.and")}{" "}
-            <a href="/legal/privacy" className="text-zinc-500 underline transition hover:text-zinc-300">
+            <Link href="/legal/privacy" className="text-zinc-500 underline transition hover:text-zinc-300">
               {t("auth.privacyLink")}
-            </a>.
+            </Link>.
           </p>
         </>
       }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LegalShell from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
@@ -93,7 +94,7 @@ export default function PrivacyPage() {
         When you delete your account, we permanently remove your account, fan cards, and associated payment rows
         through our deletion flow. You can delete your account <strong>in the app</strong> (sign in and open Account
         Settings &rsaquo; Delete account) or <strong>on the web</strong> by submitting a deletion request on the{" "}
-        <a href="/legal/rights" className="text-primary-400 underline">User Rights &amp; Data Requests</a> page — no
+        <Link href="/legal/rights" className="text-primary-400 underline">User Rights &amp; Data Requests</Link> page — no
         app download or sign-in is required. Deletion is permanent and cannot be undone. For legitimate reasons such as
         tax, anti-fraud, or regulatory compliance, some financial records may be retained only as long as the law
         requires, and we will tell you when we need to retain them.
@@ -112,9 +113,9 @@ export default function PrivacyPage() {
         (HTTPS), hashed account credentials, signed session cookies, restricted server-side access to payment
         verification tools, and least-privilege access to sensitive data. No method of transmission or storage is
         completely secure, so we cannot guarantee absolute security. For more detail, see our{" "}
-        <a href="/security" className="text-primary-400 underline">
+        <Link href="/security" className="text-primary-400 underline">
           Security &amp; Trust
-        </a>{" "}
+        </Link>{" "}
         page.
       </p>
 
@@ -122,14 +123,14 @@ export default function PrivacyPage() {
       <p>
         Depending on your location, you may have rights to access, correct, delete, or restrict the processing of your
         personal data, and to withdraw consent. To exercise these rights, use our{" "}
-        <a href="/legal/rights" className="text-primary-400 underline">
+        <Link href="/legal/rights" className="text-primary-400 underline">
           User Rights &amp; Data Requests
-        </a>{" "}
+        </Link>{" "}
         page, or contact us at the address below. We will respond within a reasonable time. If you are signed in, you
         can update your details or delete your account directly from{" "}
-        <a href="/account" className="text-primary-400 underline">
+        <Link href="/account" className="text-primary-400 underline">
           Account Settings
-        </a>
+        </Link>
         .
       </p>
 
@@ -152,13 +153,13 @@ export default function PrivacyPage() {
           support@celebritypass.app
         </a>
         , use our{" "}
-        <a href="/legal/contact" className="text-primary-400 underline">
+        <Link href="/legal/contact" className="text-primary-400 underline">
           Contact &amp; Support
-        </a>{" "}
+        </Link>{" "}
         page (choose the <strong>Privacy</strong> category), or use the{" "}
-        <a href="/legal/rights" className="text-primary-400 underline">
+        <Link href="/legal/rights" className="text-primary-400 underline">
           User Rights &amp; Data Requests
-        </a>{" "}
+        </Link>{" "}
         page.
       </p>
     </LegalShell>

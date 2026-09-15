@@ -102,8 +102,8 @@ export default function ChatShell() {
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#222d34] bg-[#111b21] px-4">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href="/"
-            aria-label="Back to home"
+            href="/dashboard"
+            aria-label="Back to dashboard"
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:text-white"
           >
             <svg

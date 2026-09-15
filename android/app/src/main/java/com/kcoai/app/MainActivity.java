@@ -1,4 +1,4 @@
-package com.celebritypass.app;
+package com.kcoai.app;
 
 import android.content.Context;
 import android.graphics.Color;

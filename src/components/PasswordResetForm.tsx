@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { fetchWithTimeout } from "@/lib/client-http";
 import AuthScreen from "@/components/auth/AuthScreen";
@@ -104,20 +105,20 @@ export default function PasswordResetForm() {
       footer={
         <p className="text-sm text-zinc-500">
           Remembered your password?{" "}
-          <a href="/login" className={appScreenLinkClass}>
+          <Link href="/login" className={appScreenLinkClass}>
             Sign in
-          </a>
+          </Link>
         </p>
       }
     >
       <div className="app-screen-in">
-        <a
+        <Link
           href="/login"
           className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-white"
         >
           <ArrowLeftIcon />
           Back
-        </a>
+        </Link>
         <h1 className="text-3xl font-black tracking-tight sm:text-[2rem]">
           {hasToken ? "Choose a new password" : "Reset your password"}
         </h1>

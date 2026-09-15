@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 import { formatMoney } from "@/lib/payments";
 import PaymentRowActions from "@/components/admin/PaymentRowActions";
 
@@ -14,7 +15,10 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
 
   let payments = await prisma.payment.findMany({
     where,
-    include: { fan: { select: { name: true, email: true } }, card: { select: { fanNumber: true } } },
+    include: {
+      fan: { select: { name: true, email: true } },
+      card: { select: { fanNumber: true, celebrity: { select: { slug: true } } } },
+    },
     orderBy: { createdAt: "desc" },
   });
   if (q) {
@@ -62,9 +66,9 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
           Filter
         </button>
         {(sp.q || sp.status) && (
-          <a href="/admin/payments" className="rounded-full px-4 py-3 text-sm font-semibold text-zinc-400 transition hover:text-white">
+          <Link href="/admin/payments" className="rounded-full px-4 py-3 text-sm font-semibold text-zinc-400 transition hover:text-white">
             Clear
-          </a>
+          </Link>
         )}
       </form>
 
@@ -92,7 +96,16 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
                     <td className="px-5 py-3.5">
                       <p className="text-sm font-semibold text-white">{p.description}</p>
                       <p className="text-xs text-zinc-500">
-                        {p.card ? <a href={`#`} className="font-mono text-primary-300">{p.card.fanNumber}</a> : "card not issued"}
+                        {p.card ? (
+                          <a
+                            href={`/celebrity/${p.card.celebrity.slug}/fan/${p.card.fanNumber}`}
+                            className="font-mono text-primary-300 transition hover:text-primary-200"
+                          >
+                            {p.card.fanNumber}
+                          </a>
+                        ) : (
+                          "card not issued"
+                        )}
                       </p>
                     </td>
                     <td className="px-5 py-3.5">

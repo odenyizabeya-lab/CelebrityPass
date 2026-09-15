@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import type { Celebrity } from "@prisma/client";
 import { slugify, tryParseJson, type CardDesign, type SocialLinks } from "@/lib/utils";
@@ -592,9 +593,9 @@ const submit = async (e: React.FormEvent) => {
           <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
             <p>
               {scanMessage}{" "}
-              <a href="/admin/ai-settings" className="underline">
+              <Link href="/admin/ai-settings" className="underline">
                 Open AI Settings
-              </a>
+              </Link>
             </p>
             {scanDetail && <p className="mt-2 text-xs leading-5 text-rose-200/80">{scanDetail}</p>}
           </div>

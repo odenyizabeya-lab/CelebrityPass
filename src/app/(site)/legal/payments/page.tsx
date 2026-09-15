@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LegalShell from "@/components/legal/LegalShell";
 
 export const metadata: Metadata = {
@@ -62,9 +63,9 @@ export default function PaymentsPage() {
       <h2 className="text-base font-bold text-white">4. Requesting a Refund</h2>
       <p>
         To request a refund, contact us through the{" "}
-        <a href="/legal/contact" className="text-primary-400 underline">
+        <Link href="/legal/contact" className="text-primary-400 underline">
           Contact &amp; Support
-        </a>{" "}
+        </Link>{" "}
         page with your order reference. Refunds are processed to the original payment method where possible. Refund
         times depend on the payment method and bank.
       </p>

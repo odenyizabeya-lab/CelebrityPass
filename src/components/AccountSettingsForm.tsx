@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { fetchWithTimeout } from "@/lib/client-http";
 
 type Fan = {
@@ -185,7 +186,7 @@ export default function AccountSettingsForm({ initialFan }: { initialFan: Fan })
         </div>
         <p className="mt-3 text-xs text-zinc-500">
           Prefer not to sign in? You can also submit a deletion request via our{" "}
-          <a href="/legal/rights" className="text-primary-400 underline">User Rights &amp; Data Requests</a> page.
+          <Link href="/legal/rights" className="text-primary-400 underline">User Rights &amp; Data Requests</Link> page.
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { FAQS, type Faq } from "@/lib/faqs";
 
 export default function HelpCenter() {
@@ -63,7 +64,7 @@ export default function HelpCenter() {
           <h3 className="text-lg font-bold text-white">No results found</h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
             We couldn&apos;t find an article matching your search. Try different keywords, or contact our{" "}
-            <a href="/legal/contact" className="text-primary-400 underline">support team</a>.
+            <Link href="/legal/contact" className="text-primary-400 underline">support team</Link>.
           </p>
         </div>
       ) : (

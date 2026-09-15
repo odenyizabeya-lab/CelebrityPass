@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { fetchWithTimeout } from "@/lib/client-http";
@@ -52,20 +53,20 @@ export default function ForgotEmailForm() {
     <AuthScreen
       footer={
         <p className="text-sm text-zinc-500">
-          <a href={`/login?next=${encodeURIComponent(safeNext)}`} className={appScreenLinkClass}>
+          <Link href={`/login?next=${encodeURIComponent(safeNext)}`} className={appScreenLinkClass}>
             {t("auth.forgotEmailBack")}
-          </a>
+          </Link>
         </p>
       }
     >
       <div className="app-screen-in">
-        <a
+        <Link
           href="/login"
           className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-white"
         >
           <ArrowLeftIcon />
           Back
-        </a>
+        </Link>
         <h1 className="text-3xl font-black tracking-tight sm:text-[2rem]">{t("auth.forgotEmailTitle")}</h1>
         <p className="mt-1.5 text-[15px] text-zinc-400">{t("auth.forgotEmailSub")}</p>
 

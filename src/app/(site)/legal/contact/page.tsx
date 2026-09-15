@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LegalShell from "@/components/legal/LegalShell";
 import ContactForm from "@/components/legal/ContactForm";
 
@@ -47,9 +48,9 @@ export default function ContactPage() {
           <p className="mt-2 text-sm text-zinc-400">
             Requests to access, correct, or delete your personal data.
           </p>
-          <a href="/legal/rights" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
+          <Link href="/legal/rights" className="mt-3 inline-block text-sm font-semibold text-primary-400 underline">
             User Rights &amp; Data Requests
-          </a>
+          </Link>
         </div>
 
         <div className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
