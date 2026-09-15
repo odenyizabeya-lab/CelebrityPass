@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db";
 import { fetchGoogleInfoBounded, type GoogleInfo } from "@/lib/google-info";
 import { formatFollowerCount } from "@/lib/followers";
 import { formatMoney } from "@/lib/payments";
-import { getCelebrityBySlug, listActiveCelebritySlugs, type CelebrityDetail } from "@/lib/services";
+import { getCelebrityBySlug, type CelebrityDetail } from "@/lib/services";
 import { canonicalSocialLinks, type CanonicalSocialLinks } from "@/lib/social/resolve";
 import { safeAsync } from "@/lib/safe-data";
 import { tryParseJson } from "@/lib/utils";
@@ -141,11 +141,17 @@ async function cardQrSvg(text: string): Promise<string> {
 
 type Props = { params: Promise<{ slug: string }> };
 
-/** Pre-render every public community so navigation is instant (prefetched, no server roundtrip on click). */
+/**
+ * Pages are rendered at runtime and revalidated (ISR, revalidate = 60) — full
+ * paths served from the CDN cache between revalidations, first hit rendered on
+ * demand. We deliberately do NOT bake all 685 paths at build time: each
+ * prerender round-trips the (slow, pooled) Supabase connection, and 685 × 3
+ * queries in one build exceeds Vercel's build-time budget. The sitemap covers
+ * every public slug for indexing, and dynamicParams=true means any active
+ * community still renders on first visit.
+ */
 export async function generateStaticParams() {
-  // Best-effort: if the DB is unreachable during build, fall back to no static
-  // params (the page is dynamic elsewhere anyway) rather than failing the build.
-  return safeAsync(async () => listActiveCelebritySlugs(), []);
+  return [];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
