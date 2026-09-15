@@ -7,76 +7,86 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl= env("MIGRATION_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("MIGRATION_DATABASE_URL")
 }
 
 // A community for one celebrity. One celebrity = one community.
 model Celebrity {
-  id             String            @id @default(cuid())
-  slug           String            @unique
+  id                   String                  @id @default(cuid())
+  slug                 String                  @unique
   // Canonical, case/space/punctuation-insensitive lookup key for duplicate
   // prevention. "Tom Cruise", "tom cruise", " TOM   CRUISE! " all normalize to
   // the same value, so the same celebrity can never be added twice.
-  nameKey        String            @unique
-  name           String
-  category       String            // Actor | Musician | Athlete | Creator | Public Figure | Artist
-  country        String
-  city           String?
-  profession     String
-  bio            String?           // admin-written biography paragraph shown at the top of the public community page
-  googleInfo     String?            // cached JSON from Wikipedia/Wikidata (age, works, overview, images — the Google-style knowledge panel)
-  profileImage   String?           // URL or data URI
+  nameKey              String                  @unique
+  name                 String
+  category             String // Actor | Musician | Athlete | Creator | Public Figure | Artist
+  country              String
+  city                 String?
+  profession           String
+  bio                  String? // admin-written biography paragraph shown at the top of the public community page
+  googleInfo           String? // cached JSON from Wikipedia/Wikidata (age, works, overview, images — the Google-style knowledge panel)
+  profileImage         String? // URL or data URI
   // SHA-256 of the uploaded profile/cover image bytes. Unique so the exact same
   // image file can never be stored twice (NULL = auto-generated/storage-less).
-  profileImageHash String?          @unique
-  coverImage     String?           // URL or data URI
-  coverImageHash String?           @unique
-  accentColor    String            @default("#8b5cf6")
-  isFeatured     Boolean           @default(false)
-  isActive       Boolean           @default(true)
-  isVerified     Boolean           @default(false) // auto-verified for every published celebrity (social-style blue badge on the name line)
-  socialLinks    String?           // legacy JSON string; new canonical links live in the 4 columns below
+  profileImageHash     String?                 @unique
+  coverImage           String? // URL or data URI
+  coverImageHash       String?                 @unique
+  // Image provenance. A photo is only imageVerified=true when it was assigned
+  // by the automated pipeline from a source whose license we could verify.
+  // imageStatus: null (placeholder) | "verified" | "image_not_verified".
+  imageVerified        Boolean                 @default(false)
+  imageStatus          String?
+  imageSource          String? // source tag, e.g. "wikimedia-commons"
+  imageSourceUrl       String? // page that hosts the image + its license
+  imageLicense         String? // short license, e.g. "CC BY-SA 4.0"
+  imageAttribution     String? // photographer / author for the credit line
+  imageMediaUrl        String? // original media URL for audit
+  accentColor          String                  @default("#8b5cf6")
+  isFeatured           Boolean                 @default(false)
+  isActive             Boolean                 @default(true)
+  isVerified           Boolean                 @default(false) // auto-verified for every published celebrity (social-style blue badge on the name line)
+  socialLinks          String? // legacy JSON string; new canonical links live in the 4 columns below
   // Permanent verified official platform links (source of truth). Never
   // guessed, never fan pages. Leave null when unverified — the AI scan fills
   // these for every new celebrity via identify -> research -> verify -> save.
-  facebookUrl    String?
-  instagramUrl   String?
-  tiktokUrl      String?
-  googleUrl      String?           // verified Google presence / Knowledge Panel result
-  cardDesign     String?           // JSON string for this celebrity's fan-card design
-  website        String?
-  instagramFollowers Int?          // public follower counts, admin-editable
-  tiktokFollowers    Int?
-  facebookFollowers  Int?
-  followersUpdatedAt DateTime?
-  socialAutoPost  Boolean         @default(true) // eligible for automatic social posting
-  displayFanCount Int?            @unique // auto-assigned Registered Fans figure (unique per celebrity, never shared)
+  facebookUrl          String?
+  instagramUrl         String?
+  tiktokUrl            String?
+  googleUrl            String? // verified Google presence / Knowledge Panel result
+  cardDesign           String? // JSON string for this celebrity's fan-card design
+  website              String?
+  instagramFollowers   Int? // public follower counts, admin-editable
+  tiktokFollowers      Int?
+  facebookFollowers    Int?
+  followersUpdatedAt   DateTime?
+  socialAutoPost       Boolean                 @default(true) // eligible for automatic social posting
+  displayFanCount      Int?                    @unique // auto-assigned Registered Fans figure (unique per celebrity, never shared)
   // Chat presence + account-type for this celebrity's chat room.
-  chatAccountType String         @default("TEAM") // OFFICIAL | TEAM | SYSTEM
-  chatAccountLabel String?       // optional "About" line shown above the chat input
-  chatLastSeenAt  DateTime?      // last activity by the authorized team (drives online/offline)
+  chatAccountType      String                  @default("TEAM") // OFFICIAL | TEAM | SYSTEM
+  chatAccountLabel     String? // optional "About" line shown above the chat input
+  chatLastSeenAt       DateTime? // last activity by the authorized team (drives online/offline)
   // Replies the "✨ AI Reply" assistant drafts in this celebrity's voice.
   // Free-form style/tone chosen by the team (e.g. "Warm & friendly"). null = default.
-  chatAiStyle     String?
+  chatAiStyle          String?
   // Whether the always-on AI chat can reply for this celebrity. Off = manual
   // mode: the only replies come from the admin/team in the admin inbox.
-  chatAutoReplyEnabled Boolean @default(true)
-  fans           FanCard[]
-  memberships    MembershipLevel[]
-  payments       Payment[]
-  events         CelebrityEvent[]
-  socialArticles SocialArticle[]
-  announcements  EmailAnnouncement[]
-  chatSelections FanCelebritySelection[]
-  chatConversations ChatConversation[]
-  chatBlocks     ChatBlock[]
-  calls          ChatCall[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  chatAutoReplyEnabled Boolean                 @default(true)
+  fans                 FanCard[]
+  memberships          MembershipLevel[]
+  payments             Payment[]
+  events               CelebrityEvent[]
+  socialArticles       SocialArticle[]
+  announcements        EmailAnnouncement[]
+  chatSelections       FanCelebritySelection[]
+  chatConversations    ChatConversation[]
+  chatBlocks           ChatBlock[]
+  calls                ChatCall[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
 
-@@index([category])
+  @@index([category])
   @@index([country])
   @@index([isActive])
   @@index([name])
@@ -84,19 +94,19 @@ model Celebrity {
 
 // Membership tiers offered by a celebrity's community.
 model MembershipLevel {
-  id          String      @id @default(cuid())
-  celebrityId String
-  celebrity   Celebrity   @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  benefits    String?
-  price       Float?
-  currency    String      @default("USD")
-  displayOrder Int        @default(0)
-  isActive    Boolean     @default(true)
-  socialAutoPost Boolean  @default(true) // eligible for automatic social posting
-  cards       FanCard[]
-  payments    Payment[]
+  id             String    @id @default(cuid())
+  celebrityId    String
+  celebrity      Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  benefits       String?
+  price          Float?
+  currency       String    @default("USD")
+  displayOrder   Int       @default(0)
+  isActive       Boolean   @default(true)
+  socialAutoPost Boolean   @default(true) // eligible for automatic social posting
+  cards          FanCard[]
+  payments       Payment[]
 
   @@index([celebrityId])
 }
@@ -104,13 +114,13 @@ model MembershipLevel {
 // A registered fan account. One account can safely own many cards
 // (one per celebrity community) thanks to the FanCard links below.
 model Fan {
-  id        String    @id @default(cuid())
-  name      String
-  email     String    @unique
-  password  String?   // hashed, required for dashboard login
-  phone     String?
-  country   String?
-  isActive  Boolean   @default(true)
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String? // hashed, required for dashboard login
+  phone    String?
+  country  String?
+  isActive Boolean @default(true)
 
   // Email verification + notification preferences. Transactional emails
   // (account, security, payment confirmations) are always sent; every other
@@ -125,26 +135,26 @@ model Fan {
   unsubscribedAt       DateTime?
 
   // Fan last activity — drives "online / last seen" in chat (no raw location/device data).
-  lastSeenAt                 DateTime?
+  lastSeenAt                DateTime?
   // "Choose Your Celebrities" onboarding: true once the picker was shown & saved (or skipped).
-  onboardingCelebritiesDone  Boolean   @default(false)
+  onboardingCelebritiesDone Boolean   @default(false)
   // Chat notification preference (in-app + email for new messages).
-  chatNotify                 Boolean   @default(true)
+  chatNotify                Boolean   @default(true)
 
-  cards        FanCard[]
-  payments     Payment[]
-  ticketOrders TicketOrder[]
-  emailMessages EmailMessage[]
+  cards              FanCard[]
+  payments           Payment[]
+  ticketOrders       TicketOrder[]
+  emailMessages      EmailMessage[]
   emailVerifications EmailVerificationToken[]
-  chatSelections FanCelebritySelection[]
-  chatConversations ChatConversation[]
-  chatMessages  ChatMessage[]
-  chatBlocks    ChatBlock[]
-  messageReports MessageReport[]
-  pushSubscriptions PushSubscription[]
-  chatCalls     ChatCall[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  chatSelections     FanCelebritySelection[]
+  chatConversations  ChatConversation[]
+  chatMessages       ChatMessage[]
+  chatBlocks         ChatBlock[]
+  messageReports     MessageReport[]
+  pushSubscriptions  PushSubscription[]
+  chatCalls          ChatCall[]
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 }
 
 // A WebRTC voice/video call between a fan and the celebrity's team, together
@@ -163,8 +173,8 @@ model ChatCall {
   updatedAt      DateTime  @updatedAt
 
   conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  celebrity    Celebrity         @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
-  fan          Fan?              @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  celebrity    Celebrity        @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  fan          Fan?             @relation(fields: [fanId], references: [id], onDelete: SetNull)
   signals      ChatCallSignal[]
 
   @@index([conversationId, createdAt])
@@ -173,9 +183,9 @@ model ChatCall {
 model ChatCallSignal {
   id        String   @id @default(cuid())
   callId    String
-  from      String   // fan | team
-  type      String   // offer | answer | ice | cancel | reject | end
-  payload   String?  // JSON-encoded SDP or ICE candidate
+  from      String // fan | team
+  type      String // offer | answer | ice | cancel | reject | end
+  payload   String? // JSON-encoded SDP or ICE candidate
   createdAt DateTime @default(now())
 
   call ChatCall @relation(fields: [callId], references: [id], onDelete: Cascade)
@@ -187,14 +197,14 @@ model ChatCallSignal {
 // deliver chat messages while the fan is offline. Android's Capacitor wrapper
 // uses FCM instead (see docs); subscriptions here cover the browser/PWA path.
 model PushSubscription {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   fanId     String
-  endpoint  String    @unique
+  endpoint  String   @unique
   p256dh    String
   auth      String
   userAgent String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   fan Fan @relation(fields: [fanId], references: [id], onDelete: Cascade)
 
@@ -204,56 +214,55 @@ model PushSubscription {
 // A membership card issued to a fan under a specific celebrity.
 // fanId + celebrityId always keeps a card attached to the right community.
 model FanCard {
-  id                String            @id @default(cuid())
-  fanNumber         String            @unique // e.g. FC-000001 (globally unique)
+  id                String           @id @default(cuid())
+  fanNumber         String           @unique // e.g. FC-000001 (globally unique)
   fanId             String
   celebrityId       String
   membershipLevelId String?
-  fan               Fan               @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  celebrity         Celebrity         @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
-  membershipLevel   MembershipLevel?  @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
-  status            String            @default("ACTIVE") // ACTIVE | SUSPENDED | EXPIRED
+  fan               Fan              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity         Celebrity        @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  membershipLevel   MembershipLevel? @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
+  status            String           @default("ACTIVE") // ACTIVE | SUSPENDED | EXPIRED
   cardUrl           String?
-  qrCode            String?           // data URI
-  registeredAt      DateTime          @default(now())
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  qrCode            String? // data URI
+  registeredAt      DateTime         @default(now())
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   payments          Payment[]
-
-  @@index([celebrityId])
-  @@index([fanId])
-  @@index([status])
 
   // A fan can hold at most ONE card per celebrity community. Enforced at the
   // database level so concurrent registrations can never create duplicates.
   @@unique([fanId, celebrityId])
+  @@index([celebrityId])
+  @@index([fanId])
+  @@index([status])
 }
 
 // A payment for a fan card membership. Free levels can be issued without a
 // Payment row; paid levels create a PENDING payment that becomes the fan card
 // after it is marked PAID.
 model Payment {
-  id                String            @id @default(cuid())
+  id                String           @id @default(cuid())
   fanId             String
   cardId            String?
   celebrityId       String?
   membershipLevelId String?
-  fan               Fan               @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  card              FanCard?          @relation(fields: [cardId], references: [id], onDelete: SetNull)
-  celebrity         Celebrity?        @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
-  membershipLevel   MembershipLevel?  @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
+  fan               Fan              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  card              FanCard?         @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  celebrity         Celebrity?       @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
+  membershipLevel   MembershipLevel? @relation(fields: [membershipLevelId], references: [id], onDelete: SetNull)
   amount            Float
-  currency          String            @default("USD")
-  status            String            @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
-  provider          String            @default("mock")    // mock | stripe | flutterwave | paypal | bank
-  gatewayRef        String?           @unique // provider charge reference id — a charge can never settle twice
-description       String?           // e.g. "Taylor Swift — Swiftie Gold"
-  createdAt         DateTime          @default(now())
+  currency          String           @default("USD")
+  status            String           @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  provider          String           @default("mock") // mock | stripe | flutterwave | paypal | bank
+  gatewayRef        String?          @unique // provider charge reference id — a charge can never settle twice
+  description       String? // e.g. "Taylor Swift — Swiftie Gold"
+  createdAt         DateTime         @default(now())
   paidAt            DateTime?
 
   bankTransferProofs BankTransferProof[]
 
-@@index([fanId])
+  @@index([fanId])
   @@index([status])
   @@index([cardId])
   @@index([celebrityId])
@@ -284,28 +293,28 @@ model FanCelebritySelection {
 // celebrity side is operated by the celebrity's authorized team (or an
 // official/system account) — the UI always labels that honestly.
 model ChatConversation {
-  id                 String    @id @default(cuid())
+  id                 String          @id @default(cuid())
   fanId              String
   celebrityId        String
-  status             String    @default("ACTIVE") // ACTIVE | BLOCKED_BY_FAN | BLOCKED_BY_TEAM | ARCHIVED
-  mutedByFan         Boolean   @default(false)
-  pinnedByFan        Boolean   @default(false)
+  status             String          @default("ACTIVE") // ACTIVE | BLOCKED_BY_FAN | BLOCKED_BY_TEAM | ARCHIVED
+  mutedByFan         Boolean         @default(false)
+  pinnedByFan        Boolean         @default(false)
   lastMessagePreview String?
   lastMessageAt      DateTime?
-  lastMessageSender  String?   // "fan" | "team" | "system"
+  lastMessageSender  String? // "fan" | "team" | "system"
   // The AI assistant's running memory of this fan and their chats together
   // (hopes, money situation, family, favorite things, promises made, love talk,
   // plans). Never fan emails/phones/payment — only what is talked about in the
   // chat, so replies can remember and naturally build on past conversations.
-  aiMemory           String    @default("")
-  fan                Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  celebrity          Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  aiMemory           String          @default("")
+  fan                Fan             @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  celebrity          Celebrity       @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
   messages           ChatMessage[]
   readState          ChatReadState?
   reports            MessageReport[]
   calls              ChatCall[]
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@unique([fanId, celebrityId])
   @@index([celebrityId])
@@ -316,27 +325,27 @@ model ChatConversation {
 // (conversationId, clientId) unique constraint makes retries idempotent, so a
 // flaky connection can never create a duplicate message.
 model ChatMessage {
-  id             String         @id @default(cuid())
+  id             String           @id @default(cuid())
   conversationId String
   conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   // Who wrote it: a fan, the celebrity's authorized team, or the system.
-  senderType     String         // "fan" | "team" | "system"
+  senderType     String // "fan" | "team" | "system"
   fanId          String?
-  fan            Fan?           @relation(fields: [fanId], references: [id], onDelete: SetNull)
-  teamEmail      String?        // admin email of the authorized team member (senderType = "team")
-  clientId       String         // sender-generated unique id (dedupe)
-  type           String         @default("text") // text | image | voice | video | call | system
-  body           String         @default("")
-  attachmentJson String?        // JSON: { bucket, key, mime, size, width?, height?, durationSec?, name? }
-  status         String         @default("SENT") // PENDING | SENT | FAILED (server-side delivery state)
+  fan            Fan?             @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  teamEmail      String? // admin email of the authorized team member (senderType = "team")
+  clientId       String // sender-generated unique id (dedupe)
+  type           String           @default("text") // text | image | voice | video | call | system
+  body           String           @default("")
+  attachmentJson String? // JSON: { bucket, key, mime, size, width?, height?, durationSec?, name? }
+  status         String           @default("SENT") // PENDING | SENT | FAILED (server-side delivery state)
   deliveredAt    DateTime?
   readAt         DateTime?
   repliedToId    String?
-  repliedTo      ChatMessage?   @relation("ChatReplies", fields: [repliedToId], references: [id], onDelete: SetNull)
-  replies        ChatMessage[]  @relation("ChatReplies")
+  repliedTo      ChatMessage?     @relation("ChatReplies", fields: [repliedToId], references: [id], onDelete: SetNull)
+  replies        ChatMessage[]    @relation("ChatReplies")
   editedAt       DateTime?
   deletedAt      DateTime?
-  createdAt      DateTime       @default(now())
+  createdAt      DateTime         @default(now())
   reports        MessageReport[]
 
   @@unique([conversationId, clientId])
@@ -347,14 +356,14 @@ model ChatMessage {
 // participant has seen (or had delivered). Keeps read/delivered cheap and
 // correct at any conversation size.
 model ChatReadState {
-  id               String          @id @default(cuid())
-  conversationId   String          @unique
-  conversation     ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  fanLastReadAt    DateTime?
-  teamLastReadAt   DateTime?
-  fanDeliveredUpTo DateTime?
+  id                String           @id @default(cuid())
+  conversationId    String           @unique
+  conversation      ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fanLastReadAt     DateTime?
+  teamLastReadAt    DateTime?
+  fanDeliveredUpTo  DateTime?
   teamDeliveredUpTo DateTime?
-  updatedAt        DateTime        @updatedAt
+  updatedAt         DateTime         @updatedAt
 }
 
 // A fan-initiated (or platform) block between a fan and one celebrity. While a
@@ -366,7 +375,7 @@ model ChatBlock {
   celebrityId String
   fan         Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
   celebrity   Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
-  reason      String?   // "none" | "spam" | "abuse" | "harassment" | "other"
+  reason      String? // "none" | "spam" | "abuse" | "harassment" | "other"
   details     String?
   createdAt   DateTime  @default(now())
 
@@ -378,17 +387,17 @@ model ChatBlock {
 // Fan- or team-reported content. Never auto-bans anyone — reports surface in
 // the admin moderation view for a human decision.
 model MessageReport {
-  id             String          @id @default(cuid())
+  id             String           @id @default(cuid())
   conversationId String
   conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   messageId      String?
-  message        ChatMessage?    @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  message        ChatMessage?     @relation(fields: [messageId], references: [id], onDelete: SetNull)
   reporterFanId  String?
-  reporterFan    Fan?            @relation(fields: [reporterFanId], references: [id], onDelete: SetNull)
+  reporterFan    Fan?             @relation(fields: [reporterFanId], references: [id], onDelete: SetNull)
   reason         String
   details        String?
-  status         String          @default("OPEN") // OPEN | REVIEWED | DISMISSED
-  createdAt      DateTime        @default(now())
+  status         String           @default("OPEN") // OPEN | REVIEWED | DISMISSED
+  createdAt      DateTime         @default(now())
 
   @@index([status])
   @@index([conversationId])
@@ -409,46 +418,46 @@ model AppSetting {
 // API credentials are ALWAYS read from backend env vars at runtime — never
 // stored in plaintext in the DB and never shipped to the frontend.
 model EventSource {
-  id          String   @id @default(cuid())
-  key         String   @unique // stable machine key, e.g. "admin", "ticketing-api"
-  name        String
-  enabled     Boolean  @default(true)
-  kind        String   @default("manual") // manual | api | feed | import
-  baseUrl     String?  // public provider endpoint or site (not secrets)
-  configJson  String?  // non-secret config, e.g. options/endpoint params
+  id                     String            @id @default(cuid())
+  key                    String            @unique // stable machine key, e.g. "admin", "ticketing-api"
+  name                   String
+  enabled                Boolean           @default(true)
+  kind                   String            @default("manual") // manual | api | feed | import
+  baseUrl                String? // public provider endpoint or site (not secrets)
+  configJson             String? // non-secret config, e.g. options/endpoint params
   // Credential PLACEHOLDERS: we store only a flag + masked hint. The real value
   // must live in an env var referenced by envKey.
-  envKey      String?  // name of the env var that holds the credential
-  hasCredentials Boolean @default(false)
-  description String?
-  lastSyncAt  DateTime?
-  lastSyncStatus String? // idle | running | ok | error
-  lastSyncMessage String?
+  envKey                 String? // name of the env var that holds the credential
+  hasCredentials         Boolean           @default(false)
+  description            String?
+  lastSyncAt             DateTime?
+  lastSyncStatus         String? // idle | running | ok | error
+  lastSyncMessage        String?
   // Ticket-inventory sync is tracked separately from event sync.
-  supportsTickets Boolean @default(false)
-  ticketsLastSyncAt DateTime?
-  ticketsLastSyncStatus String?
+  supportsTickets        Boolean           @default(false)
+  ticketsLastSyncAt      DateTime?
+  ticketsLastSyncStatus  String?
   ticketsLastSyncMessage String?
-  events      EventSourceLink[]
-  ticketInventory TicketInventory[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  events                 EventSourceLink[]
+  ticketInventory        TicketInventory[]
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 }
 
 // Many-to-many link between a celebrity event and its source(s). Lets us
 // dedupe the same event discovered from multiple providers and preserve the
 // original public source URL per discovery.
 model EventSourceLink {
-  id        String      @id @default(cuid())
-  eventId   String
-  sourceId  String
-  externalId String?    // provider's own id for this event (used for matching)
-  sourceUrl String?     // original public source/listing URL
-  rawJson   String?     // raw payload snapshot from the provider (for re-sync)
-  event     CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  source    EventSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  firstSeenAt DateTime  @default(now())
-  updatedAt DateTime    @updatedAt
+  id          String         @id @default(cuid())
+  eventId     String
+  sourceId    String
+  externalId  String? // provider's own id for this event (used for matching)
+  sourceUrl   String? // original public source/listing URL
+  rawJson     String? // raw payload snapshot from the provider (for re-sync)
+  event       CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source      EventSource    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  firstSeenAt DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@unique([eventId, sourceId])
   @@index([sourceId])
@@ -457,58 +466,58 @@ model EventSourceLink {
 
 // A publicly announced celebrity event. Only public information is stored.
 model CelebrityEvent {
-  id             String   @id @default(cuid())
-  eventId        String   @unique // unique internal id, e.g. "evt_xxxx"
-  celebrityId    String
-  celebrity      Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  eventId     String    @unique // unique internal id, e.g. "evt_xxxx"
+  celebrityId String
+  celebrity   Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
 
-  name           String
-  type           String   @default("Public appearance") // Concert | Tour | ... | Other
-  description    String?
+  name        String
+  type        String  @default("Public appearance") // Concert | Tour | ... | Other
+  description String?
 
-  venue          String?
-  city           String?
-  region         String?
-  country        String?
+  venue   String?
+  city    String?
+  region  String?
+  country String?
 
   // Public announced timing. startAt is the authoritative start moment; endAt
   // optional. All stored as UTC instants; timezone is the public venue tz name
   // (e.g. "America/New_York") used for correct local countdowns/display.
-  startAt        DateTime
-  endAt          DateTime?
-  timezone       String?  // IANA tz name of the venue/public listing
-  allDay         Boolean  @default(false)
+  startAt  DateTime
+  endAt    DateTime?
+  timezone String? // IANA tz name of the venue/public listing
+  allDay   Boolean   @default(false)
 
-  status         String   @default("UPCOMING") // UPCOMING | HAPPENING_NOW | COMPLETED | POSTPONED | CANCELLED
+  status         String  @default("UPCOMING") // UPCOMING | HAPPENING_NOW | COMPLETED | POSTPONED | CANCELLED
   // Administrative override for postponements/cancellations; the live status is
   // derived from override (if set) else computed from startAt/endAt.
-  statusOverride String?  // POSTPONED | CANCELLED | null
+  statusOverride String? // POSTPONED | CANCELLED | null
 
-  officialUrl    String?  // official event page (if public)
-  ticketUrl      String?  // official ticket link (if public) — never fabricated
-  sourceUrl      String?  // original public source URL
+  officialUrl String? // official event page (if public)
+  ticketUrl   String? // official ticket link (if public) — never fabricated
+  sourceUrl   String? // original public source URL
 
-  verification   String   @default("UNVERIFIED") // UNVERIFIED | VERIFIED | UPDATED | CANCELLED | POSTPONED
-  verifiedBy     String?  // "admin" etc.
-  verifiedAt     DateTime?
+  verification String    @default("UNVERIFIED") // UNVERIFIED | VERIFIED | UPDATED | CANCELLED | POSTPONED
+  verifiedBy   String? // "admin" etc.
+  verifiedAt   DateTime?
 
   // Free registration settings
-  registrationEnabled  Boolean  @default(false)
-  maxRegistrations     Int?     // null = unlimited
-  registrationCount    Int      @default(0)
+  registrationEnabled Boolean @default(false)
+  maxRegistrations    Int? // null = unlimited
+  registrationCount   Int     @default(0)
 
   // Free QR tickets enabled (set true to allow fans to register + get QR tickets)
-  ticketsEnabled       Boolean  @default(false)
-  socialAutoPost       Boolean  @default(true) // eligible for automatic social posting
+  ticketsEnabled Boolean @default(false)
+  socialAutoPost Boolean @default(true) // eligible for automatic social posting
 
-  sources        EventSourceLink[]
-  updates        EventUpdate[]
+  sources         EventSourceLink[]
+  updates         EventUpdate[]
   ticketInventory TicketInventory[]
-  ticketOrders   TicketOrder[]
-  registrations  EventRegistration[]
-  lastSyncedAt   DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  ticketOrders    TicketOrder[]
+  registrations   EventRegistration[]
+  lastSyncedAt    DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([celebrityId])
   @@index([status])
@@ -518,24 +527,24 @@ model CelebrityEvent {
 
 // A fan registration for a free event ticket with QR code.
 model EventRegistration {
-  id            String   @id @default(cuid())
-  eventId       String
-  event         CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  orderId       String?  // linked TicketOrder if created via checkout
-  order         TicketOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  id      String         @id @default(cuid())
+  eventId String
+  event   CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderId String? // linked TicketOrder if created via checkout
+  order   TicketOrder?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
-  name          String
-  email         String
-  phone         String?
-  country       String?
+  name    String
+  email   String
+  phone   String?
+  country String?
 
-  ticketCode    String   @unique // unique ticket identifier, e.g. TKT-xxxx
-  ticketQrData  String   // data encoded in the QR code
-  checkedIn     Boolean  @default(false)
-  checkedInAt   DateTime?
+  ticketCode   String    @unique // unique ticket identifier, e.g. TKT-xxxx
+  ticketQrData String // data encoded in the QR code
+  checkedIn    Boolean   @default(false)
+  checkedInAt  DateTime?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([eventId])
   @@index([email])
@@ -545,18 +554,19 @@ model EventRegistration {
 
 // Audit trail: every meaningful status/verification change on an event.
 model EventUpdate {
-  id        String  @id @default(cuid())
+  id        String         @id @default(cuid())
   eventId   String
   event     CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  field     String       // e.g. "status", "startAt", "verification"
+  field     String // e.g. "status", "startAt", "verification"
   fromValue String?
   toValue   String?
   note      String?
-  source    String?       // e.g. "sync", "admin"
-  createdAt DateTime @default(now())
+  source    String? // e.g. "sync", "admin"
+  createdAt DateTime       @default(now())
 
   @@index([eventId])
 }
+
 // ===========================================================================
 // TICKETING (public events -> ticket availability -> order -> payment -> ticket)
 // ---------------------------------------------------------------------------
@@ -568,27 +578,27 @@ model EventUpdate {
 // reported by an authorized ticket source. Read-only from the app's point of
 // view: only the sync engine writes it.
 model TicketInventory {
-  id                String          @id @default(cuid())
+  id                String            @id @default(cuid())
   eventId           String
-  event             CelebrityEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event             CelebrityEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   sourceId          String? // which EventSource reported this (never edited by hand)
-  source            EventSource?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  source            EventSource?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   externalId        String? // provider's own id for this ticket type (dedupe)
   name              String // e.g. "General Admission", "VIP"
   category          String? // section / tier when the source provides it
   priceCents        Int
-  feesCents         Int             @default(0) // fees as reported by the source
-  currency          String          @default("USD")
+  feesCents         Int               @default(0) // fees as reported by the source
+  currency          String            @default("USD")
   quantityAvailable Int? // null = source does not disclose
   quantityTotal     Int?
-  status            String          @default("AVAILABLE") // AVAILABLE | LIMITED | SOLD_OUT | NOT_YET_ON_SALE | UNAVAILABLE
+  status            String            @default("AVAILABLE") // AVAILABLE | LIMITED | SOLD_OUT | NOT_YET_ON_SALE | UNAVAILABLE
   url               String? // provider-authorized deep link to buy this ticket type
-  displayAuthorized Boolean         @default(true) // false = source forbids us to show details
+  displayAuthorized Boolean           @default(true) // false = source forbids us to show details
   saleStartAt       DateTime?
   saleEndAt         DateTime?
   lastSyncedAt      DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   orderItems        TicketOrderItem[]
 
   @@index([eventId])
@@ -600,32 +610,32 @@ model TicketInventory {
 // A real purchase intent (and later, a real sale). A ticket/confirmation is
 // NEVER generated until payment has actually succeeded.
 model TicketOrder {
-  id                String              @id @default(cuid())
-  orderRef          String              @unique // consumer-facing ref, e.g. TCK-xxxx
-  accessToken       String // secret access token for the holder to view/manage this order
-  fanId             String?
-  fan               Fan?                @relation(fields: [fanId], references: [id], onDelete: SetNull)
-  eventId           String
-  event             CelebrityEvent      @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  paymentMethodId   String?
-  paymentMethod     PaymentMethod?      @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  id              String         @id @default(cuid())
+  orderRef        String         @unique // consumer-facing ref, e.g. TCK-xxxx
+  accessToken     String // secret access token for the holder to view/manage this order
+  fanId           String?
+  fan             Fan?           @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  eventId         String
+  event           CelebrityEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  paymentMethodId String?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
 
-  customerName      String
-  customerEmail     String
-  customerPhone     String?
-  customerCountry   String?
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  customerCountry String?
 
-  subtotalCents     Int
-  feesCents         Int
-  totalCents        Int
-  currency          String              @default("USD")
+  subtotalCents Int
+  feesCents     Int
+  totalCents    Int
+  currency      String @default("USD")
 
-  status            String              @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAYMENT_PROCESSING | CONFIRMED | FAILED | CANCELLED | REFUNDED
-  paymentStatus     String              @default("UNPAID") // UNPAID | PROCESSING | PAID | FAILED | REFUNDED
+  status            String    @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAYMENT_PROCESSING | CONFIRMED | FAILED | CANCELLED | REFUNDED
+  paymentStatus     String    @default("UNPAID") // UNPAID | PROCESSING | PAID | FAILED | REFUNDED
   paidAt            DateTime?
   amountPaidCents   Int?
   paymentProvider   String? // gateway key after a real gateway is connected
-  paymentRef        String? @unique // real gateway charge ref — a charge can never back two orders
+  paymentRef        String?   @unique // real gateway charge ref — a charge can never back two orders
   officialRef       String? // authorized ticket source's own order/ticket ref (only after success)
   deliveryMethod    String? // DIGITAL | MOBILE | DOWNLOAD | OFFICIAL_ACCOUNT
   deliveryDetail    String?
@@ -633,15 +643,15 @@ model TicketOrder {
   statusHistoryJson String? // array of {status, at, note} snapshots
 
   // QR ticket code (set when order is confirmed for free registration)
-  ticketCode        String?  @unique
+  ticketCode String? @unique
 
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-items         TicketOrderItem[]
-  transactions  TicketTransaction[]
+  items              TicketOrderItem[]
+  transactions       TicketTransaction[]
   bankTransferProofs BankTransferProof[]
-  registrations EventRegistration[]
+  registrations      EventRegistration[]
 
   @@index([eventId])
   @@index([status])
@@ -651,19 +661,19 @@ items         TicketOrderItem[]
 }
 
 model TicketOrderItem {
-  id            String          @id @default(cuid())
-  orderId       String
-  order         TicketOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  inventoryId   String?
-  inventory     TicketInventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
-  eventId       String
-  ticketName    String // frozen snapshot at order time
-  category      String?
-  quantity      Int
+  id             String           @id @default(cuid())
+  orderId        String
+  order          TicketOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryId    String?
+  inventory      TicketInventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  eventId        String
+  ticketName     String // frozen snapshot at order time
+  category       String?
+  quantity       Int
   unitPriceCents Int
-  feesEachCents Int             @default(0)
-  subtotalCents Int
-  currency      String          @default("USD")
+  feesEachCents  Int              @default(0)
+  subtotalCents  Int
+  currency       String           @default("USD")
 
   @@index([orderId])
   @@index([inventoryId])
@@ -672,18 +682,18 @@ model TicketOrderItem {
 // Every money-movement attempt is recorded. SUCCEEDED only happens with a real
 // gateway / real refund; nothing is ever marked succeeded without a transaction.
 model TicketTransaction {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   orderId     String
   order       TicketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  kind        String   @default("PAYMENT") // PAYMENT | REFUND
-  status      String   @default("INITIATED") // INITIATED | PROCESSING | SUCCEEDED | FAILED
+  kind        String      @default("PAYMENT") // PAYMENT | REFUND
+  status      String      @default("INITIATED") // INITIATED | PROCESSING | SUCCEEDED | FAILED
   amountCents Int
-  currency    String   @default("USD")
-  provider    String?  // gateway key once connected
-  providerRef String?  // real gateway ref
+  currency    String      @default("USD")
+  provider    String? // gateway key once connected
+  providerRef String? // real gateway ref
   message     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@index([orderId])
   @@index([status])
@@ -693,25 +703,25 @@ model TicketTransaction {
 // account. Credentials ALWAYS live in backend env vars (envKey reference only),
 // never in the DB and never in frontend JS.
 model PaymentMethod {
-  id          String   @id @default(cuid())
-  key         String   @unique // e.g. "card", "bank-transfer"
-  name        String
-  kind        String   @default("CARD") // CARD | BANK_TRANSFER | WALLET
-  isEnabled   Boolean  @default(false)
-  isDefault   Boolean  @default(false)
-  currency    String   @default("USD")
+  id                      String   @id @default(cuid())
+  key                     String   @unique // e.g. "card", "bank-transfer"
+  name                    String
+  kind                    String   @default("CARD") // CARD | BANK_TRANSFER | WALLET
+  isEnabled               Boolean  @default(false)
+  isDefault               Boolean  @default(false)
+  currency                String   @default("USD")
   // Env var names that must hold this gateway's real credentials (never values).
-  credentialEnvKeysJson String? // JSON array of env var names
-  hasCredentials Boolean @default(false)
-  configJson  String?  // non-secret options
+  credentialEnvKeysJson   String? // JSON array of env var names
+  hasCredentials          Boolean  @default(false)
+  configJson              String? // non-secret options
   // Settlement: the admin's own business account for receiving ticket funds.
-  settlementAccountLabel String?
-  settlementAccountLast4 String?
+  settlementAccountLabel  String?
+  settlementAccountLast4  String?
   settlementAccountEnvKey String? // env var that holds the real account/detail
-  hasSettlementAccount Boolean @default(false)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  hasSettlementAccount    Boolean  @default(false)
+  notes                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   orders      TicketOrder[]
   settlements SettlementRecord[]
@@ -723,33 +733,33 @@ model PaymentMethod {
 // admin-managed so the admin can add/remove countries and change details.
 // Displayed to the customer in a realistic bank-app-style card in checkout.
 model BankAccount {
-  id            String   @id @default(cuid())
-  currency      String   @unique // e.g. "USD", "EUR", "GBP" (upper-case code)
-  countryName   String   // human label, e.g. "United States"
-  countryFlag   String?  // emoji or short label, e.g. "🇺🇸"
-  beneficiary   String   // account holder shown to customer
-  bankName      String
-  accountType   String?  // CHECKING / Savings (where applicable)
+  id                String   @id @default(cuid())
+  currency          String   @unique // e.g. "USD", "EUR", "GBP" (upper-case code)
+  countryName       String // human label, e.g. "United States"
+  countryFlag       String? // emoji or short label, e.g. "🇺🇸"
+  beneficiary       String // account holder shown to customer
+  bankName          String
+  accountType       String? // CHECKING / Savings (where applicable)
   // Currency-specific identifiers (all optional; only the ones that apply are set).
-  accountNumber String?
-  iban          String?
-  bic           String?
-  swift         String?
-  routing       String?  // ABA (USD)
-  sortCode      String?  // UK
+  accountNumber     String?
+  iban              String?
+  bic               String?
+  swift             String?
+  routing           String? // ABA (USD)
+  sortCode          String? // UK
   institutionNumber String? // CA
-  transitNumber String?  // CA
-  branchCode     String? // BSB/AU, JPY branch, etc.
-  bankCode      String?  // JPY/SG/MX etc.
-  transferType  String   @default("Local transfer")
-  bankAddress   String?
-  isActive      Boolean  @default(true)
-  displayOrder  Int      @default(0)
+  transitNumber     String? // CA
+  branchCode        String? // BSB/AU, JPY branch, etc.
+  bankCode          String? // JPY/SG/MX etc.
+  transferType      String   @default("Local transfer")
+  bankAddress       String?
+  isActive          Boolean  @default(true)
+  displayOrder      Int      @default(0)
   // Optional: an env-var NAME that holds an account-level detail (never the value).
-  envKeyRef     String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  envKeyRef         String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   bankTransferProofs BankTransferProof[]
 
@@ -761,29 +771,29 @@ model BankAccount {
 // VERIFIED by an admin the associated payment stays Pending Verification (never
 // marked paid from the customer's own submission alone).
 model BankTransferProof {
-  id          String        @id @default(cuid())
-  paymentMethodId String?    // link to the "bank-transfer" method row if present
-  bankAccountId String?
-  bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
-  amountCents  Int
-  currency     String        @default("USD")
-  senderName   String?       // name on the customer's transfer
-  reference    String?       // reference/MTA the customer entered
-  transferDate DateTime?     // when the customer says they transferred
-  fileName     String?       // stored proof filename
-  fileUrl      String?       // where the proof is stored
-  mimeType     String?
-  status       String        @default("PENDING_VERIFICATION") // PENDING_VERIFICATION | APPROVED | REJECTED
-  adminNote    String?
+  id              String       @id @default(cuid())
+  paymentMethodId String? // link to the "bank-transfer" method row if present
+  bankAccountId   String?
+  bankAccount     BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  amountCents     Int
+  currency        String       @default("USD")
+  senderName      String? // name on the customer's transfer
+  reference       String? // reference/MTA the customer entered
+  transferDate    DateTime? // when the customer says they transferred
+  fileName        String? // stored proof filename
+  fileUrl         String? // where the proof is stored
+  mimeType        String?
+  status          String       @default("PENDING_VERIFICATION") // PENDING_VERIFICATION | APPROVED | REJECTED
+  adminNote       String?
   // Which purchase this proof applies to. Only ONE of the two is set.
-  paymentId    String?       // fans-card Payment (if it's a card purchase)
-  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  ticketOrderId String?      // ticket order (if it's a ticket purchase)
-  ticketOrder  TicketOrder?  @relation(fields: [ticketOrderId], references: [id], onDelete: Cascade)
-  reviewedById String?
-  reviewedAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  paymentId       String? // fans-card Payment (if it's a card purchase)
+  payment         Payment?     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  ticketOrderId   String? // ticket order (if it's a ticket purchase)
+  ticketOrder     TicketOrder? @relation(fields: [ticketOrderId], references: [id], onDelete: Cascade)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([status])
   @@index([paymentId])
@@ -794,18 +804,18 @@ model BankTransferProof {
 // A support/contact request submitted through the public Contact & Support form.
 // Stored server-side so the team can review and respond. Never publicly exposed.
 model SupportRequest {
-  id          String   @id @default(cuid())
-  name        String?
-  email       String
-  category    String   @default("General") // General | Account | Payments | Tickets | Privacy | Security | Other
-  subject     String?
-  message     String
-  reference   String? // optional account/order/ticket reference the user provides
-  status      String   @default("NEW") // NEW | IN_PROGRESS | RESOLVED | CLOSED
-  sourceIp    String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String?
+  email     String
+  category  String   @default("General") // General | Account | Payments | Tickets | Privacy | Security | Other
+  subject   String?
+  message   String
+  reference String? // optional account/order/ticket reference the user provides
+  status    String   @default("NEW") // NEW | IN_PROGRESS | RESOLVED | CLOSED
+  sourceIp  String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([email])
@@ -817,7 +827,7 @@ model SupportRequest {
 model DataRequest {
   id          String   @id @default(cuid())
   email       String
-  requestType String   // ACCESS | CORRECTION | DELETION | EXPORT
+  requestType String // ACCESS | CORRECTION | DELETION | EXPORT
   description String?
   name        String?
   reference   String?
@@ -835,12 +845,12 @@ model DataRequest {
 // A one-time password reset token issued to a fan for the password-reset flow.
 // Tokens are hashed at rest and expire.
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   fanId     String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([fanId])
   @@index([expiresAt])
@@ -857,7 +867,7 @@ model SettlementRecord {
   amountCents     Int
   currency        String        @default("USD")
   status          String        @default("RECORDED") // RECORDED | CLEARED | DISPUTED
-  reference       String?       // admin-entered real settlement/report reference
+  reference       String? // admin-entered real settlement/report reference
   note            String?
   createdAt       DateTime      @default(now())
 
@@ -878,35 +888,35 @@ model SettlementRecord {
 // One row per supported platform (TikTok, Telegram, WhatsApp, Facebook,
 // Instagram, YouTube, X, Pinterest, LinkedIn). Seeded, not user-created.
 model SocialPlatform {
-  id            String   @id @default(cuid())
-  key           String   @unique // tiktok | telegram | whatsapp | facebook | instagram | youtube | x | pinterest | linkedin
-  name          String
-  color         String   @default("#8b5cf6")
-  icon          String?  // short glyph/label used by UI accents
-  supportsText  Boolean  @default(true)
-  supportsImage Boolean  @default(true)
-  supportsVideo Boolean  @default(false)
+  id                    String            @id @default(cuid())
+  key                   String            @unique // tiktok | telegram | whatsapp | facebook | instagram | youtube | x | pinterest | linkedin
+  name                  String
+  color                 String            @default("#8b5cf6")
+  icon                  String? // short glyph/label used by UI accents
+  supportsText          Boolean           @default(true)
+  supportsImage         Boolean           @default(true)
+  supportsVideo         Boolean           @default(false)
   // OAuth based platforms need app approval / business verification before
   // content posting works. This flags what the admin dashboard must show.
-  requiresApproval Boolean @default(false)
-  approvalStatus String   @default("not_required") // not_required | required | pending | approved | denied
-  approvalNote  String?   // human message explaining the requirement
-  authUrl       String?   // official OAuth authorize endpoint (null = token-entry, e.g. Telegram bot)
-  tokenUrl      String?   // official token exchange endpoint
+  requiresApproval      Boolean           @default(false)
+  approvalStatus        String            @default("not_required") // not_required | required | pending | approved | denied
+  approvalNote          String? // human message explaining the requirement
+  authUrl               String? // official OAuth authorize endpoint (null = token-entry, e.g. Telegram bot)
+  tokenUrl              String? // official token exchange endpoint
   credentialEnvKeysJson String? // JSON array of env var names that hold app credentials (never values)
-  hasCredentials Boolean  @default(false)
-  scopesJson    String?   // JSON array of required OAuth scopes
-  enabled       Boolean   @default(true)
-  apiStatus     String    @default("not_configured") // not_configured | configured | needs_approval | degraded | error | ok
-  apiNote       String?
-  displayOrder  Int       @default(0)
-  accounts      SocialAccount[]
-  schedules     SocialSchedule[]
-  queueItems    SocialQueueItem[]
-  posts         SocialPost[]
-  logs          SocialPostLog[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  hasCredentials        Boolean           @default(false)
+  scopesJson            String? // JSON array of required OAuth scopes
+  enabled               Boolean           @default(true)
+  apiStatus             String            @default("not_configured") // not_configured | configured | needs_approval | degraded | error | ok
+  apiNote               String?
+  displayOrder          Int               @default(0)
+  accounts              SocialAccount[]
+  schedules             SocialSchedule[]
+  queueItems            SocialQueueItem[]
+  posts                 SocialPost[]
+  logs                  SocialPostLog[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([enabled])
   @@index([apiStatus])
@@ -914,27 +924,27 @@ model SocialPlatform {
 
 // A connected social account owned by the admin. Tokens are encrypted at rest.
 model SocialAccount {
-  id                  String          @id @default(cuid())
-  platformKey         String
-  platform            SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
-  externalUserId      String?         // provider's user/platform id
-  externalUsername    String?         // handle shown in the dashboard
-  externalUrl         String?
-  accountType         String?         // influencer | business | page | bot | channel
-  scopes              String?         // JSON array of granted scopes
-  tokenEncrypted      String?         // AES-256-GCM "iv.tag.data" (never plaintext)
+  id                    String            @id @default(cuid())
+  platformKey           String
+  platform              SocialPlatform    @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  externalUserId        String? // provider's user/platform id
+  externalUsername      String? // handle shown in the dashboard
+  externalUrl           String?
+  accountType           String? // influencer | business | page | bot | channel
+  scopes                String? // JSON array of granted scopes
+  tokenEncrypted        String? // AES-256-GCM "iv.tag.data" (never plaintext)
   refreshTokenEncrypted String?
-  tokenExpiresAt      DateTime?
-  tokenIssuedAt       DateTime?
-  isConnected         Boolean         @default(true)
-  status              String          @default("connected") // connected | expired | needs_refresh | invalid | revoked
-  lastError           String?
-  lastCheckedAt       DateTime?
-  rawProfileJson      String?         // cached profile snapshot (no tokens)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  queueItems          SocialQueueItem[]
-  posts               SocialPost[]
+  tokenExpiresAt        DateTime?
+  tokenIssuedAt         DateTime?
+  isConnected           Boolean           @default(true)
+  status                String            @default("connected") // connected | expired | needs_refresh | invalid | revoked
+  lastError             String?
+  lastCheckedAt         DateTime?
+  rawProfileJson        String? // cached profile snapshot (no tokens)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  queueItems            SocialQueueItem[]
+  posts                 SocialPost[]
 
   @@index([platformKey])
   @@index([status])
@@ -942,35 +952,35 @@ model SocialAccount {
 
 // Singleton global automation configuration (one row, id always 1).
 model SocialConfig {
-  id              Int      @id @default(1)
-  automationEnabled Boolean @default(false) // master switch for automatic posting
-  paused          Boolean  @default(false)  // pause all automation (resume = false)
-  approvalMode    String   @default("auto") // auto = publish immediately | approval = hold for admin approval
-  maxPostsPerDay  Int      @default(10)     // global daily cap per platform
-  maxRetries      Int      @default(3)
-  retryBackoffMinutes Int  @default(30)     // base backoff before retrying a failed post
-  dedupeWindowDays Int     @default(30)     // prevent re-posting the same content within N days
-  contentTypesJson String  @default("[\"celebrity\",\"membership\",\"event\",\"article\",\"promo\"]")
-  updatedAt       DateTime @updatedAt
+  id                  Int      @id @default(1)
+  automationEnabled   Boolean  @default(false) // master switch for automatic posting
+  paused              Boolean  @default(false) // pause all automation (resume = false)
+  approvalMode        String   @default("auto") // auto = publish immediately | approval = hold for admin approval
+  maxPostsPerDay      Int      @default(10) // global daily cap per platform
+  maxRetries          Int      @default(3)
+  retryBackoffMinutes Int      @default(30) // base backoff before retrying a failed post
+  dedupeWindowDays    Int      @default(30) // prevent re-posting the same content within N days
+  contentTypesJson    String   @default("[\"celebrity\",\"membership\",\"event\",\"article\",\"promo\"]")
+  updatedAt           DateTime @updatedAt
 }
 
 // One posting schedule per platform (the "Automatic posting" engine driver).
 model SocialSchedule {
-  id            String          @id @default(cuid())
-  platformKey   String
-  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
-  name          String?         // admin label
-  enabled       Boolean         @default(false)
-  contentTypesJson String       @default("[]") // subset of content types this schedule posts
-  frequency     String          @default("daily") // hourly | daily | weekly | custom
-  intervalMinutes Int?          // for hourly / custom frequencies
-  timesJson     String          @default("[]") // e.g. ["09:00","18:00"] — HH:MM in UTC
-  weekdaysJson  String?         // for weekly, e.g. [1,3,5] (1=Monday)
-  maxPerDay     Int?            // per-schedule cap, overrides global maxPostsPerDay
-  nextRunAt     DateTime?       // next time the engine scans for new content
-  lastRunAt     DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id               String         @id @default(cuid())
+  platformKey      String
+  platform         SocialPlatform @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  name             String? // admin label
+  enabled          Boolean        @default(false)
+  contentTypesJson String         @default("[]") // subset of content types this schedule posts
+  frequency        String         @default("daily") // hourly | daily | weekly | custom
+  intervalMinutes  Int? // for hourly / custom frequencies
+  timesJson        String         @default("[]") // e.g. ["09:00","18:00"] — HH:MM in UTC
+  weekdaysJson     String? // for weekly, e.g. [1,3,5] (1=Monday)
+  maxPerDay        Int? // per-schedule cap, overrides global maxPostsPerDay
+  nextRunAt        DateTime? // next time the engine scans for new content
+  lastRunAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([platformKey])
   @@index([enabled])
@@ -978,32 +988,32 @@ model SocialSchedule {
 
 // A single item in the publishing pipeline (automatic or manual).
 model SocialQueueItem {
-  id            String          @id @default(cuid())
-  contentKey    String          // dedupe key, e.g. "membership:clxyz" | "promo:abc" | "article:clxyz"
-  platformKey   String
-  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
-  accountId     String?
-  account       SocialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  contentType   String          // celebrity | membership | event | article | promo
-  contentRefId  String?         // id of the source entity
-  title         String
-  caption       String?
-  mediaJson     String?         // JSON array of assets {url, mimeType, name} or asset ids
-  linkUrl       String?
-  source        String          @default("AUTO") // AUTO | MANUAL | PROMO
-  status        String          @default("QUEUED") // DRAFT | QUEUED | SCHEDULED | APPROVAL_REQUIRED | PROCESSING | PUBLISHED | FAILED | CANCELLED | SKIPPED
-  scheduledFor  DateTime?
-  attempts      Int             @default(0)
-  maxAttempts   Int             @default(3)
-  nextAttemptAt DateTime?
-  lastError     String?
+  id             String          @id @default(cuid())
+  contentKey     String // dedupe key, e.g. "membership:clxyz" | "promo:abc" | "article:clxyz"
+  platformKey    String
+  platform       SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  accountId      String?
+  account        SocialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contentType    String // celebrity | membership | event | article | promo
+  contentRefId   String? // id of the source entity
+  title          String
+  caption        String?
+  mediaJson      String? // JSON array of assets {url, mimeType, name} or asset ids
+  linkUrl        String?
+  source         String          @default("AUTO") // AUTO | MANUAL | PROMO
+  status         String          @default("QUEUED") // DRAFT | QUEUED | SCHEDULED | APPROVAL_REQUIRED | PROCESSING | PUBLISHED | FAILED | CANCELLED | SKIPPED
+  scheduledFor   DateTime?
+  attempts       Int             @default(0)
+  maxAttempts    Int             @default(3)
+  nextAttemptAt  DateTime?
+  lastError      String?
   externalPostId String?
-  externalUrl   String?
-  publishedAt   DateTime?
-  dedupeHash    String?         // content fingerprint for repeat-content prevention
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  logs          SocialPostLog[]
+  externalUrl    String?
+  publishedAt    DateTime?
+  dedupeHash     String? // content fingerprint for repeat-content prevention
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  logs           SocialPostLog[]
 
   @@unique([contentKey, platformKey])
   @@index([status])
@@ -1014,24 +1024,24 @@ model SocialQueueItem {
 
 // Published (or fully attempted) posts, one row per successful/failed publish.
 model SocialPost {
-  id            String          @id @default(cuid())
-  queueItemId   String?
-  platformKey   String
-  platform      SocialPlatform  @relation(fields: [platformKey], references: [key], onDelete: Cascade)
-  accountId     String?
-  account       SocialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  title         String
-  caption       String?
-  mediaJson     String?
-  linkUrl       String?
-  contentType   String?
-  source        String          @default("MANUAL") // AUTO | MANUAL | PROMO
+  id             String         @id @default(cuid())
+  queueItemId    String?
+  platformKey    String
+  platform       SocialPlatform @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  accountId      String?
+  account        SocialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  title          String
+  caption        String?
+  mediaJson      String?
+  linkUrl        String?
+  contentType    String?
+  source         String         @default("MANUAL") // AUTO | MANUAL | PROMO
   externalPostId String?
-  externalUrl   String?
-  status        String          @default("PUBLISHED") // PUBLISHED | FAILED | SKIPPED
-  error         String?         // final error when FAILED
-  publishedAt   DateTime?
-  createdAt     DateTime        @default(now())
+  externalUrl    String?
+  status         String         @default("PUBLISHED") // PUBLISHED | FAILED | SKIPPED
+  error          String? // final error when FAILED
+  publishedAt    DateTime?
+  createdAt      DateTime       @default(now())
 
   @@index([platformKey])
   @@index([status])
@@ -1040,17 +1050,17 @@ model SocialPost {
 
 // Append-only audit log of every publish attempt, success and failure.
 model SocialPostLog {
-  id            String           @id @default(cuid())
-  queueItemId   String?
-  queueItem     SocialQueueItem? @relation(fields: [queueItemId], references: [id], onDelete: SetNull)
-  platformKey   String
-  platform      SocialPlatform   @relation(fields: [platformKey], references: [key], onDelete: Cascade)
-  postId        String?
-  level         String           @default("info") // info | success | warn | error
-  message       String
-  detail        String?          // API snapshot WITHOUT tokens
-  status        String?          // related queue status at log time
-  createdAt     DateTime         @default(now())
+  id          String           @id @default(cuid())
+  queueItemId String?
+  queueItem   SocialQueueItem? @relation(fields: [queueItemId], references: [id], onDelete: SetNull)
+  platformKey String
+  platform    SocialPlatform   @relation(fields: [platformKey], references: [key], onDelete: Cascade)
+  postId      String?
+  level       String           @default("info") // info | success | warn | error
+  message     String
+  detail      String? // API snapshot WITHOUT tokens
+  status      String? // related queue status at log time
+  createdAt   DateTime         @default(now())
 
   @@index([queueItemId])
   @@index([platformKey])
@@ -1060,21 +1070,21 @@ model SocialPostLog {
 
 // Marketplace news/articles that can be auto-published to social accounts.
 model SocialArticle {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  title         String
-  summary       String?
-  body          String?
-  author        String?
-  category      String   @default("News")
-  coverImage    String?  // URL or data URI
-  status        String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
-  autoPostEnabled Boolean @default(true) // eligible for automatic social posting
+  id                String     @id @default(cuid())
+  slug              String     @unique
+  title             String
+  summary           String?
+  body              String?
+  author            String?
+  category          String     @default("News")
+  coverImage        String? // URL or data URI
+  status            String     @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  autoPostEnabled   Boolean    @default(true) // eligible for automatic social posting
   linkedCelebrityId String?
-  linkedCelebrity Celebrity? @relation(fields: [linkedCelebrityId], references: [id], onDelete: SetNull)
-  publishedAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  linkedCelebrity   Celebrity? @relation(fields: [linkedCelebrityId], references: [id], onDelete: SetNull)
+  publishedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([status])
   @@index([publishedAt])
@@ -1087,8 +1097,8 @@ model SocialMediaAsset {
   mimeType    String?
   sizeBytes   Int?
   storage     String   @default("db") // db (inline data URI) | url
-  dataUri     String?  // inline base64 data when stored in db
-  url         String?  // external URL when referenced
+  dataUri     String? // inline base64 data when stored in db
+  url         String? // external URL when referenced
   platformKey String?
   createdAt   DateTime @default(now())
 }
@@ -1096,13 +1106,13 @@ model SocialMediaAsset {
 // CSRF-safe OAuth state rows so the callback can verify the flow originated
 // from this dashboard.
 model SocialOAuthState {
-  id          String   @id @default(cuid())
-  state       String   @unique
+  id          String    @id @default(cuid())
+  state       String    @unique
   platformKey String
   redirectTo  String?
   expiresAt   DateTime
   usedAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([state])
   @@index([expiresAt])
@@ -1121,29 +1131,29 @@ model SocialOAuthState {
 // idempotency guard: calling enqueueEmail twice for the same event returns the
 // original row instead of creating a second email.
 model EmailMessage {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   fanId             String?
-  fan               Fan?     @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  fan               Fan?               @relation(fields: [fanId], references: [id], onDelete: SetNull)
   announcementId    String?
   announcement      EmailAnnouncement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
-  dedupeKey         String   @unique
-  type              String   // WELCOME | EMAIL_VERIFICATION | PASSWORD_RESET | PAYMENT_RECEIPT | CARD_ACTIVATED | NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
+  dedupeKey         String             @unique
+  type              String // WELCOME | EMAIL_VERIFICATION | PASSWORD_RESET | PAYMENT_RECEIPT | CARD_ACTIVATED | NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
   to                String
   from              String?
   subject           String
   template          String
-  htmlBody          String   @db.Text
-  status            String   @default("PENDING") // PENDING | SENDING | SENT | DELIVERED | OPENED | FAILED | PERMANENT_FAILED | CANCELED
-  attempts          Int      @default(0)
-  maxAttempts       Int      @default(3)
-  nextAttemptAt     DateTime @default(now())
+  htmlBody          String             @db.Text
+  status            String             @default("PENDING") // PENDING | SENDING | SENT | DELIVERED | OPENED | FAILED | PERMANENT_FAILED | CANCELED
+  attempts          Int                @default(0)
+  maxAttempts       Int                @default(3)
+  nextAttemptAt     DateTime           @default(now())
   lastError         String?
   providerMessageId String?
   sentAt            DateTime?
   deliveredAt       DateTime?
   openedAt          DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([status, nextAttemptAt])
   @@index([fanId])
@@ -1156,22 +1166,22 @@ model EmailMessage {
 // chosen audience type; the worker fans eligible recipients out as individual
 // EmailMessage rows (batch-insered, one per fan).
 model EmailAnnouncement {
-  id                 String   @id @default(cuid())
+  id                 String         @id @default(cuid())
   title              String
-  audienceType       String   // ALL_SUBSCRIBED | NEW_CELEBRITY | CELEBRITY_FANS | MEMBERSHIP_LEVEL | COUNTRY | SPECIFIC_FANS
+  audienceType       String // ALL_SUBSCRIBED | NEW_CELEBRITY | CELEBRITY_FANS | MEMBERSHIP_LEVEL | COUNTRY | SPECIFIC_FANS
   audienceConfigJson String?
-  template           String   // NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
+  template           String // NEW_CELEBRITY | UPDATE | COMMUNITY | PROMOTION
   celebrityId        String?
-  celebrity          Celebrity? @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
+  celebrity          Celebrity?     @relation(fields: [celebrityId], references: [id], onDelete: SetNull)
   subject            String
-  htmlBody           String?  @db.Text // rendered at send time so it is always current
-  status             String   @default("DRAFT") // DRAFT | SENDING | SENT | CANCELED
-  targetsCount       Int      @default(0)
-  enqueuedCount      Int      @default(0)
-  sentCount          Int      @default(0)
-  failedCount        Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  htmlBody           String?        @db.Text // rendered at send time so it is always current
+  status             String         @default("DRAFT") // DRAFT | SENDING | SENT | CANCELED
+  targetsCount       Int            @default(0)
+  enqueuedCount      Int            @default(0)
+  sentCount          Int            @default(0)
+  failedCount        Int            @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
   messages           EmailMessage[]
 
   @@index([status])
@@ -1180,13 +1190,13 @@ model EmailAnnouncement {
 
 // One-time email-verification tokens (hashed at rest, like password resets).
 model EmailVerificationToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   fanId     String
-  fan       Fan      @relation(fields: [fanId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  fan       Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([fanId])
   @@index([expiresAt])
@@ -1196,12 +1206,12 @@ model EmailVerificationToken {
 // stored here once; if the provider retries/delivers the same event twice the
 // duplicate is ignored. Replaces per-provider webhook fetch logic.
 model WebhookEvent {
-  id         String   @id @default(cuid())
-  provider   String   // e.g. "resend"
-  eventId    String   @unique
+  id         String    @id @default(cuid())
+  provider   String // e.g. "resend"
+  eventId    String    @unique
   type       String?
-  payload    String?  @db.Text
-  receivedAt DateTime @default(now())
+  payload    String?   @db.Text
+  receivedAt DateTime  @default(now())
   handledAt  DateTime?
 
   @@index([provider])

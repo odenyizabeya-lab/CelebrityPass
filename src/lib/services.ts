@@ -98,6 +98,11 @@ export type CelebritySummary = {
   profileImageW: number;
   profileImageH: number;
   coverImageUrl: string | null;
+  imageVerified: boolean;
+  imageStatus: string | null;
+  imageLicense: string | null;
+  imageAttribution: string | null;
+  imageSourceUrl: string | null;
   accentColor: string;
   isFeatured: boolean;
   isActive: boolean;
@@ -162,6 +167,11 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
         tiktokFollowers: true,
         facebookFollowers: true,
         displayFanCount: true,
+        imageVerified: true,
+        imageStatus: true,
+        imageLicense: true,
+        imageAttribution: true,
+        imageSourceUrl: true,
       },
     }),
     celebrityImageFlags(),
@@ -198,6 +208,11 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       profileImageW: hasProfile ? 375 : 144,
       profileImageH: hasProfile ? 500 : 180,
       coverImageUrl: hasCover ? `/images/${c.slug}/cover` : null,
+      imageVerified: c.imageVerified,
+      imageStatus: c.imageStatus,
+      imageLicense: c.imageLicense,
+      imageAttribution: c.imageAttribution,
+      imageSourceUrl: c.imageSourceUrl,
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
       isActive: c.isActive,
@@ -276,6 +291,11 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
         googleUrl: true,
         socialLinks: true,
         cardDesign: true,
+        imageVerified: true,
+        imageStatus: true,
+        imageLicense: true,
+        imageAttribution: true,
+        imageSourceUrl: true,
         memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
       },
     }),
@@ -304,6 +324,11 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
     profileImageW: hasProfile ? 600 : 500,
     profileImageH: hasProfile ? 750 : 625,
     coverImageUrl: hasCover ? `/images/${celebrity.slug}/cover` : null,
+    imageVerified: celebrity.imageVerified,
+    imageStatus: celebrity.imageStatus,
+    imageLicense: celebrity.imageLicense,
+    imageAttribution: celebrity.imageAttribution,
+    imageSourceUrl: celebrity.imageSourceUrl,
     accentColor: celebrity.accentColor,
     isFeatured: celebrity.isFeatured,
     isActive: celebrity.isActive,

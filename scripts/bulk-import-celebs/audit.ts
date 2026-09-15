@@ -29,7 +29,25 @@ async function main() {
   const { sanitizeBaseMemberships } = await import("@/lib/memberships");
   const { PREMIUM_LEVELS } = await import("../../prisma/premium-levels.mjs");
 
-  const celebs = await prisma.celebrity.findMany({});
+  // Image blobs are huge (up to ~3MB per row) and selecting them times out on
+  // the pooler — so pull only the scalar + metadata fields here and use
+  // server-side COUNT/WHERE checks for profile image presence below.
+  const celebs = await prisma.celebrity.findMany({
+    select: {
+      id: true,
+      name: true,
+      nameKey: true,
+      slug: true,
+      accentColor: true,
+      isActive: true,
+      isVerified: true,
+      displayFanCount: true,
+      googleInfo: true,
+      imageVerified: true,
+      imageLicense: true,
+      imageSourceUrl: true,
+    },
+  });
   report.celebrityCount = celebs.length;
 
   // ---------- Uniqueness on every constrained field ----------
@@ -73,9 +91,19 @@ async function main() {
   missing("nameKey", "nameKey");
   missing("slug", "slug");
   missing("name", "name");
-  missing("profileImage", "profileImage");
-  missing("coverImage", "coverImage");
   missing("accentColor", "accentColor");
+
+  // Presence of the (giant) profile/cover blobs is checked server-side so the
+  // bytes are never transferred: a row that is missing an image has a NULL or
+  // empty value.
+  const missingBlob = async (field: "profileImage" | "coverImage", label: string) => {
+    const n = await prisma.celebrity.count({ where: { [field]: null } });
+    const e = await prisma.celebrity.count({ where: { [field]: "" } });
+    if (n + e) bad(`missing ${label} values: ${n} null + ${e} empty`);
+    else report[`${label}_present`] = "ok";
+  };
+  await missingBlob("profileImage", "profileImage");
+  await missingBlob("coverImage", "coverImage");
 
   const inactive = celebs.filter((c) => !c.isActive).map((c) => c.name);
   if (inactive.length) bad(`inactive celebs: ${inactive.join(", ")}`);
@@ -197,6 +225,27 @@ async function main() {
     }
   }
   report.panelSanityIssues = panelMiss;
+
+  // ---------- Image provenance ----------
+  const verified = celebs.filter((c) => c.imageVerified);
+  const verifiedNoLicense = verified.filter((c) => !c.imageLicense);
+  const verifiedNoSource = verified.filter((c) => !c.imageSourceUrl);
+  const byLicense: Record<string, number> = {};
+  for (const c of verified) {
+    const lic = c.imageLicense ?? "NULL";
+    byLicense[lic] = (byLicense[lic] ?? 0) + 1;
+  }
+  report.verifiedImages = verified.length;
+  report.imageLicenseBreakdown = byLicense;
+  if (verifiedNoLicense.length) bad(`verified celebs missing imageLicense: ${verifiedNoLicense.map((c) => c.name).join(", ")}`);
+  if (verifiedNoSource.length) bad(`verified celebs missing imageSourceUrl: ${verifiedNoSource.map((c) => c.name).join(", ")}`);
+  // Unverified celebs — report how many remain with no profile image at all
+  const noImgRows = await prisma.celebrity.findMany({
+    where: { imageVerified: false, OR: [{ profileImage: null }, { profileImage: "" }] },
+    select: { name: true },
+  });
+  report.unverifiedNoImage = noImgRows.length;
+  if (noImgRows.length > 0) report.unverifiedNoImageNames = noImgRows.map((r) => r.name);
 
   // ---------- Counts vs expectation ----------
   report.namesInSourceList = 678;

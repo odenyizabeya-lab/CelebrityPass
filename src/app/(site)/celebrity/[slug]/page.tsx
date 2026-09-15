@@ -356,6 +356,20 @@ export default async function CelebrityPage({ params }: Props) {
               )}
             </div>
           </div>
+          {celebrity.imageVerified && celebrity.imageAttribution && (
+            <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+              Photo:{" "}
+              <a
+                href={celebrity.imageSourceUrl || "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-zinc-300 underline underline-offset-2"
+              >
+                {celebrity.imageAttribution}
+              </a>{" "}
+              · {celebrity.imageLicense}
+            </p>
+          )}
           <div className="flex-1 pb-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
