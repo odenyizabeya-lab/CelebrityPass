@@ -1,15 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import "./globals.css";
 import NativeIntegration from "@/components/NativeIntegration";
 import PushBootstrap from "@/components/PushBootstrap";
 import InAppNotifications from "@/components/InAppNotifications";
 import LanguageProvider from "@/lib/i18n/language-context";
-import {
-  localeDir,
-  parseAcceptLanguage,
-  resolveInitialLocale,
-} from "@/lib/i18n/locales";
+import { DEFAULT_LOCALE, localeDir } from "@/lib/i18n/locales";
 import { appUrl } from "@/lib/utils";
 
 const BASE_URL = appUrl();
@@ -61,14 +56,12 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const h = await headers();
-  const serverCountry =
-    h.get("x-vercel-ip-country") ?? h.get("cf-ipcountry") ?? null;
-  const initialLocale = resolveInitialLocale(
-    null,
-    serverCountry,
-    parseAcceptLanguage(h.get("accept-language")),
-  );
+  // Locale resolution happens on the client inside LanguageProvider (browser
+  // languages + saved choice), which also rewrites <html lang>/dir after
+  // hydration. Keeping this layout free of Request-time APIs (`headers()`)
+  // lets public pages stay statically cached / ISR instead of forcing every
+  // route dynamic. The English SSR default is corrected client-side.
+  const initialLocale = DEFAULT_LOCALE;
 
   return (
     <html lang={initialLocale} dir={localeDir(initialLocale)} className="h-full antialiased">
@@ -98,7 +91,7 @@ export default async function RootLayout({
             }),
           }}
         />
-        <LanguageProvider initialLocale={initialLocale} serverCountry={serverCountry}>
+        <LanguageProvider initialLocale={initialLocale} serverCountry={null}>
           {children}
           <NativeIntegration />
           <PushBootstrap />

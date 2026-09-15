@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import CountUp from "@/components/CountUp";
 import T from "@/components/T";
 import BackButton from "@/components/BackButton";
@@ -197,12 +198,12 @@ export default async function CelebrityPage({ params }: Props) {
   // no-data case blank until a later visit succeeds.
   const panel: GoogleInfo | null = celebrity.googleInfo;
 
-  // Self-heal the knowledge panel in the BACKGROUND so a slow or unreachable
-  // third-party lookup (Wikipedia/Wikidata) can never stall the page render
-  // — the stored panel simply appears on the next ISR pass (revalidate = 60).
-  // Same pattern as the create route's background enrichment.
+  // Self-heal the knowledge panel AFTER the response is sent so the fetch can
+  // never stall the page render or force the route dynamic — a slow/failing
+  // third-party lookup (Wikipedia/Wikidata) shows the stored panel today and
+  // the fetched one on the next ISR pass (revalidate = 60).
   if (!panel) {
-    void (async () => {
+    after(async () => {
       try {
         const info = await fetchGoogleInfoBounded(
           celebrity.name,
@@ -221,7 +222,7 @@ export default async function CelebrityPage({ params }: Props) {
       } catch {
         /* ignored — the rest of the profile still renders */
       }
-    })();
+    });
   }
 
   // The four permanent, verified platform links (source of truth).
@@ -238,24 +239,27 @@ export default async function CelebrityPage({ params }: Props) {
   // Self-heal (same pattern as the Google knowledge panel above): persist the
   // canonical values so the database converges — Google filled when missing,
   // junk/placeholder URLs cleaned to null. Runs only until the stored columns
-  // match; failures never break the page.
-  try {
-    const patches: { facebookUrl?: string | null; instagramUrl?: string | null; tiktokUrl?: string | null; googleUrl?: string | null } = {};
-    const patchField = <K extends "facebook" | "instagram" | "tiktok" | "google">(platform: K) => {
-      const field = `${platform}Url` as const;
-      const canonical = socials[platform] ?? null;
-      if ((celebrity[field] ?? null) !== canonical) patches[field] = canonical;
-    };
-    patchField("facebook");
-    patchField("instagram");
-    patchField("tiktok");
-    patchField("google");
-    if (Object.keys(patches).length > 0) {
-      await prisma.celebrity.update({ where: { id: celebrity.id }, data: patches });
+  // match; failures never break the page. Excuted after the response so the
+  // write never blocks the render. De-duplicated: unchanged rows are skipped.
+  after(async () => {
+    try {
+      const patches: { facebookUrl?: string | null; instagramUrl?: string | null; tiktokUrl?: string | null; googleUrl?: string | null } = {};
+      const patchField = <K extends "facebook" | "instagram" | "tiktok" | "google">(platform: K) => {
+        const field = `${platform}Url` as const;
+        const canonical = socials[platform] ?? null;
+        if ((celebrity[field] ?? null) !== canonical) patches[field] = canonical;
+      };
+      patchField("facebook");
+      patchField("instagram");
+      patchField("tiktok");
+      patchField("google");
+      if (Object.keys(patches).length > 0) {
+        await prisma.celebrity.update({ where: { id: celebrity.id }, data: patches });
+      }
+    } catch {
+      /* the rest of the profile still renders */
     }
-  } catch {
-    /* the rest of the profile still renders */
-  }
+  });
 
   // A platform tile shows only when it has a real, clickable link AND a count —
   // a platform that isn't verified on a network is simply not shown.
