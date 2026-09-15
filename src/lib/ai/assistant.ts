@@ -189,6 +189,41 @@ type GeminiCallOptions = {
   images?: GeminiImageInput[];
 };
 
+// ---------------------------------------------------------------------------
+// Live-search circuit breaker.
+//
+// Grounding a reply in Google Search is best-effort: some keys/tiers reject
+// the search tool outright (quota/429, unsupported plan, model rotation). When
+// that happens, every fan message was paying for a doomed search attempt
+// before the code fell back to plain — a wasted round trip on each reply.
+//
+// This breaker trips after a failed search attempt and skips search for a
+// backoff window (plain replies are still produced — nothing is degraded for
+// fans), then re-arms automatically. If billing is upgraded later and search
+// starts succeeding, the breaker resets and live grounding returns with no
+// code or redeploy. In-ram only, so a cold function simply retries search
+// once and re-learns — safe and self-healing.
+// ---------------------------------------------------------------------------
+let searchBrokenUntil = 0;
+let searchFails = 0;
+const SEARCH_BACKOFF_BASE_MS = 5 * 60_000; // 5 min first cooldown
+const SEARCH_BACKOFF_MAX_MS = 3 * 60 * 60_000; // 3h cap
+
+function shouldTrySearch(): boolean {
+  return Date.now() >= searchBrokenUntil;
+}
+
+function noteSearchSuccess(): void {
+  searchFails = 0;
+  searchBrokenUntil = 0;
+}
+
+function noteSearchFailure(): void {
+  searchFails += 1;
+  const backoff = Math.min(SEARCH_BACKOFF_BASE_MS * Math.pow(3, searchFails - 1), SEARCH_BACKOFF_MAX_MS);
+  searchBrokenUntil = Date.now() + backoff;
+}
+
 async function geminiComplete(
   system: string,
   user: string,
@@ -252,9 +287,11 @@ async function geminiComplete(
   };
 
   const wantSearch = opts.search === true;
-  if (wantSearch) {
+  if (wantSearch && shouldTrySearch()) {
     try {
-      return await doCall(true);
+      const text = await doCall(true);
+      noteSearchSuccess();
+      return text;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // Live search grounding is best-effort: some Gemini modes/quota reject it
@@ -262,7 +299,16 @@ async function geminiComplete(
       // grounded tier, etc.). Fall back to a plain grounded-free reply rather
       // than losing the whole message — the verified facts + image still matter
       // more than live grounding, and plain calls are far more likely to work.
-      console.warn(`assistant: search-grounded reply failed, retrying plain (${msg})`);
+      // Trip the breaker only on quota-type rejections (persistent, known-cause)
+      // so a one-off a transient blip never disables grounding; the breaker
+      // re-arms after a backoff, so live grounding silently returns once the
+      // quota/plan allows it.
+      if (/429|quota|limit|exceeded/i.test(msg)) {
+        noteSearchFailure();
+        console.warn(`assistant: search-grounded reply rejected by quota, breaker on (${msg})`);
+      } else {
+        console.warn(`assistant: search-grounded reply failed, retrying plain (${msg})`);
+      }
     }
   }
   return doCall(false);
