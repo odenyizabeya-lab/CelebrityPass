@@ -1,0 +1,678 @@
+Daniel Brühl
+Matthias Schweighöfer
+Til Schweiger
+Moritz Bleibtreu
+Christoph Waltz
+August Diehl
+Florian David Fitz
+Elyas M'Barek
+Lars Eidinger
+Tom Wlaschiha
+Wotan Wilke Möhring
+Benno Fürmann
+Ken Duken
+Tom Schilling
+Kostja Ullmann
+Devid Striesow
+Sebastian Ströbel
+Florian Lukas
+Johann von Bülow
+Mišel Matičević
+Max von Thun
+Kai Wiesinger
+Tim Seyfi
+Clemens Schick
+Jannik Schümann
+Emilio Sakraya
+Christoph Maria Herbst
+Michael "Bully" Herbig
+Jürgen Vogel
+Heiner Lauterbach
+Jean Dujardin
+Omar Sy
+Vincent Cassel
+Marion Cotillard
+Léa Seydoux
+Eva Green
+Jean Reno
+Tahar Rahim
+Romain Duris
+Guillaume Canet
+François Cluzet
+Pierre Niney
+François Civil
+Gaspard Ulliel
+Mélanie Laurent
+Camille Cottin
+Audrey Tautou
+Bérénice Bejo
+Adèle Exarchopoulos
+Louis Garrel
+Gilles Lellouche
+Jalil Lespert
+Niels Schneider
+Pio Marmaï
+Roschdy Zem
+Dany Boon
+Kad Merad
+Jamel Debbouze
+Mathieu Kassovitz
+Clovis Cornillac
+Brad Pitt
+George Clooney
+Leonardo DiCaprio
+Johnny Depp
+Tom Cruise
+Robert Downey Jr.
+Will Smith
+Dwayne Johnson
+Nicolas Cage
+Eddie Murphy
+Jamie Foxx
+Wesley Snipes
+Laurence Fishburne
+Forest Whitaker
+Martin Lawrence
+Samuel L. Jackson
+Kevin Hart
+Adam Sandler
+Ben Stiller
+Steve Carell
+Owen Wilson
+Vince Vaughn
+Jason Bateman
+Paul Rudd
+Mark Wahlberg
+Matt Damon
+Ben Affleck
+Casey Affleck
+Joaquin Phoenix
+Jared Leto
+Christian Bale
+Jake Gyllenhaal
+Bradley Cooper
+Chris Evans
+Chris Pine
+Chris Pratt
+Michael B. Jordan
+John Cena
+Vin Diesel
+Joseph Gordon-Levitt
+Shia LaBeouf
+Oscar Isaac
+Pedro Pascal
+Andrew Garfield
+Jeremy Renner
+Josh Brolin
+Woody Harrelson
+Edward Norton
+Jeffrey Wright
+Mahershala Ali
+Jon Hamm
+Matthew McConaughey
+Matthew Broderick
+Kevin Bacon
+Dennis Quaid
+John Travolta
+Sean Penn
+Al Pacino
+Robert De Niro
+Sylvester Stallone
+Denzel Washington
+Angelina Jolie
+Jennifer Aniston
+Jennifer Lopez
+Julia Roberts
+Sandra Bullock
+Nicole Kidman
+Halle Berry
+Charlize Theron
+Reese Witherspoon
+Cameron Diaz
+Amy Adams
+Anne Hathaway
+Natalie Portman
+Scarlett Johansson
+Jennifer Lawrence
+Emma Stone
+Margot Robbie
+Jessica Chastain
+Viola Davis
+Taraji P. Henson
+Regina King
+Kerry Washington
+Gabrielle Union
+Salma Hayek
+Eva Longoria
+Jessica Alba
+Mila Kunis
+Kristen Bell
+Amy Poehler
+Tina Fey
+Melissa McCarthy
+Octavia Spencer
+Zoe Saldana
+Sanaa Lathan
+Gwyneth Paltrow
+Kate Hudson
+George Strait
+Reba McEntire
+Alan Jackson
+Clint Black
+Vince Gill
+Garth Brooks
+Trisha Yearwood
+Faith Hill
+Tim McGraw
+Martina McBride
+Toby Keith
+Brooks & Dunn
+Randy Travis
+Trace Adkins
+Keith Urban
+Kenny Chesney
+John Michael Montgomery
+Lorrie Morgan
+Patty Loveless
+Mary Chapin Carpenter
+Shania Twain
+Lionel Richie
+Stevie Wonder
+Smokey Robinson
+Diana Ross
+Gladys Knight
+Chaka Khan
+Anita Baker
+Patti LaBelle
+Toni Braxton
+Babyface
+Luther Vandross
+John Legend
+Michael Bolton
+Barry Manilow
+Richard Marx
+Billy Joel
+Bruce Springsteen
+Bon Jovi
+Sting
+Rod Stewart
+Cyndi Lauper
+Madonna
+Cher
+Barbra Streisand
+Whitney Houston
+Mariah Carey
+Mary J. Blige
+Alicia Keys
+Morgan Freeman
+Kevin Costner
+Harrison Ford
+Willem Dafoe
+Jeff Bridges
+Richard Gere
+John Goodman
+Steve Buscemi
+Ed Harris
+John Malkovich
+William H. Macy
+Gary Oldman
+Bryan Cranston
+Jeffrey Dean Morgan
+Don Cheadle
+Ethan Hawke
+Sean Astin
+John Turturro
+Tony Shalhoub
+Bob Odenkirk
+Noah Wyle
+David Schwimmer
+Michael C. Hall
+Jason Sudeikis
+James Marsden
+Jason Momoa
+Channing Tatum
+Jon Bernthal
+Norman Reedus
+Patrick Dempsey
+Matthew Perry
+Courteney Cox
+Lisa Kudrow
+Sarah Jessica Parker
+Julianne Moore
+Michelle Pfeiffer
+Diane Lane
+Laura Dern
+Jodie Foster
+Geena Davis
+Susan Sarandon
+Sigourney Weaver
+Glenn Close
+Holly Hunter
+Allison Janney
+Angela Bassett
+Regina Hall
+Queen Latifah
+Jung Kook
+V (Kim Taehyung)
+Jimin
+Jin
+SUGA
+J-Hope
+RM
+Jennie
+Jisoo
+Rosé
+Lisa
+IU
+PSY
+G-Dragon
+Rain
+Lee Min-ho
+Hyun Bin
+Gong Yoo
+Song Hye-kyo
+Song Joong-ki
+Lee Jong-suk
+Kim Soo-hyun
+Park Seo-joon
+Ji Chang-wook
+Park Bo-gum
+Cha Eun-woo
+Lee Byung-hun
+Ma Dong-seok
+Lee Jung-jae
+Jung Woo-sung
+Kim Woo-bin
+Park Shin-hye
+Son Ye-jin
+Jun Ji-hyun
+Kim Ji-won
+Han So-hee
+Park Min-young
+Song Kang
+Kim Seon-ho
+Lee Dong-wook
+Kim Go-eun
+Bae Suzy
+Kim Hye-soo
+Jeon Ji-hyun
+Gong Hyo-jin
+Choi Woo-shik
+Hwang Jung-min
+Yoo Jae-suk
+Lee Seung-gi
+BoA
+Jay Chou
+Shu Qi
+Takeshi Kaneshiro
+Rainie Yang
+Chang Chen
+Brigitte Lin
+Jolin Tsai
+Vivian Hsu
+Lin Chi-ling
+Willie Nelson
+Travis Tritt
+Vince Neil
+Aaron Neville
+Keb' Mo'
+Darius Rucker
+Darius McCrary
+Billy Ray Cyrus
+Steve Wariner
+Tanya Tucker
+Deana Carter
+Suzy Bogguss
+Rosanne Cash
+Emmylou Harris
+Bonnie Raitt
+Peabo Bryson
+Jeffrey Osborne
+Brian McKnight
+Keith Sweat
+Ronnie Milsap
+Ricky Skaggs
+Randy Houser
+Joe Nichols
+Mark Chesnutt
+Tracy Lawrence
+Collin Raye
+Monica Bellucci
+Pierfrancesco Favino
+Valeria Golino
+Luca Zingaretti
+Toni Servillo
+Stefano Accorsi
+Alessandro Gassmann
+Raoul Bova
+Kim Rossi Stuart
+Marco Giallini
+Valerio Mastandrea
+Fabrizio Gifuni
+Riccardo Scamarcio
+Luca Argentero
+Beppe Fiorello
+Giorgio Pasotti
+Elio Germano
+Filippo Nigro
+Edoardo Leo
+Claudio Santamaria
+Alessio Boni
+Francesco Scianna
+Michele Riondino
+Vinicio Marchioni
+Alessandro Borghi
+Luca Marinelli
+Michele Morrone
+Marco Bocci
+Giuseppe Zeno
+Claudio Gioè
+Alessandro Roja
+Giorgio Marchesi
+Lino Guanciale
+Stefano Fresi
+Francesco Arca
+Paolo Pierobon
+Massimiliano Gallo
+Fabrizio Bentivoglio
+Giuseppe Battiston
+Sergio Rubini
+Margherita Buy
+Paola Cortellesi
+Luisa Ranieri
+Claudia Gerini
+Sabrina Impacciatore
+Anna Foglietta
+Vittoria Puccini
+Kasia Smutniak
+Alba Rohrwacher
+Giovanna Mezzogiorno
+Cristiana Capotondi
+Miriam Leone
+Valeria Cavalli
+Chiara Caselli
+Lorella Cuccarini
+Maria Grazia Cucinotta
+Sandra Ceccarelli
+Isabella Ragonese
+Jasmine Trinca
+Matilda De Angelis
+Alessandra Mastronardi
+Andrea Bocelli
+Eros Ramazzotti
+Laura Pausini
+Zucchero
+Giorgia
+Elisa
+Tiziano Ferro
+Ligabue
+Jovanotti
+Gigi D'Alessio
+Raf
+Nek
+Marco Masini
+Biagio Antonacci
+Enrico Ruggeri
+Luca Barbarossa
+Paolo Vallesi
+Aleandro Baldi
+Alex Britti
+Gianluca Grignani
+Daniele Silvestri
+Niccolò Fabi
+Sergio Cammariere
+Mario Biondi
+Piero Pelù
+Francesco Renga
+Samuele Bersani
+Max Pezzali
+Fabrizio Moro
+Simone Cristicchi
+Marco Mengoni
+Paolo Fresu
+Fiorella Mannoia
+Alexandra Maria Lara
+Franka Potente
+Heike Makatsch
+Katja Riemann
+Nora Tschirner
+Karoline Herfurth
+Jessica Schwarz
+Hannah Herzsprung
+Christiane Paul
+Martina Gedeck
+Veronica Ferres
+Natalia Wörner
+Ann-Kathrin Kramer
+Maria Furtwängler
+Katja Flint
+Meret Becker
+Jan Josef Liefers
+Ulrich Noethen
+Joachim Król
+Heino Ferch
+Christian Ulmen
+Matthias Brandt
+Ulrich Matthes
+Helene Fischer
+Nena
+Thomas Anders
+Andrea Berg
+Sarah Connor
+Yvonne Catterfeld
+Sasha
+Adel Tawil
+Mark Forster
+Max Giesinger
+Clueso
+Jan Delay
+Campino
+Gentleman
+Bushido
+Sido
+Cro
+Casper
+Xavier Naidoo
+Tim Bendzko
+Johannes Oerding
+Andreas Bourani
+LEA
+Wincent Weiss
+Stefanie Kloß
+Silbermond
+Peter Fox
+Keanu Reeves
+Gary Cole
+Michael Douglas
+Jeff Goldblum
+Danny DeVito
+Christopher Walken
+Steve Martin
+Martin Short
+Chevy Chase
+Bill Murray
+Richard Dreyfuss
+Kurt Russell
+Mel Gibson
+Bruce Willis
+John Cusack
+Kevin Kline
+Dennis Haysbert
+Danny Glover
+Keith David
+Giancarlo Esposito
+Giovanni Ribisi
+John C. Reilly
+Stanley Tucci
+Christopher McDonald
+Stephen Root
+John Carroll Lynch
+Walton Goggins
+Clancy Brown
+Ray Liotta
+Eric Roberts
+Michael Rooker
+Viggo Mortensen
+Brendan Fraser
+Adrien Brody
+Ralph Fiennes
+Hugh Jackman
+Ewan McGregor
+Colin Farrell
+Tom Hardy
+Benedict Cumberbatch
+Idris Elba
+Daniel Craig
+Christian Slater
+Mark Ruffalo
+Paul Giamatti
+Jeremy Piven
+David Duchovny
+Kiefer Sutherland
+Timothy Olyphant
+Josh Duhamel
+Gerard Butler
+Patrick Wilson
+Liev Schreiber
+Nikolaj Coster-Waldau
+Common
+Ice Cube
+LL Cool J
+Snoop Dogg
+Dr. Dre
+Nas
+50 Cent
+T.I.
+Usher
+Ne-Yo
+Akon
+R. Kelly
+Chris Brown
+Bruno Mars
+Pharrell Williams
+Will.i.am
+Pitbull
+Jason Derulo
+John Mayer
+Dave Matthews
+Lenny Kravitz
+Kid Rock
+Billy Idol
+Alice Cooper
+Steven Tyler
+Axl Rose
+Jon Bon Jovi
+Bryan Adams
+John Mellencamp
+Huey Lewis
+Moby
+Beck
+Dave Grohl
+Eddie Vedder
+Kurt Cobain
+Flea
+Anthony Kiedis
+Tom Morello
+Slash
+Joe Perry
+Steven Van Zandt
+Sheryl Crow
+Melissa Etheridge
+Alanis Morissette
+Jewel
+Sarah McLachlan
+Norah Jones
+Diana Krall
+Faith Evans
+Brandy
+Monica
+Keyshia Cole
+Fantasia Barrino
+Jennifer Hudson
+LeAnn Rimes
+Carrie Underwood
+Miranda Lambert
+Blake Shelton
+Billy Currington
+Joan Jett
+Pat Benatar
+Gloria Estefan
+Dionne Warwick
+Dionne Farris
+Cate Blanchett
+Naomi Watts
+Rachel Weisz
+Kate Winslet
+Keira Knightley
+Emily Blunt
+Helen Mirren
+Emma Thompson
+Judi Dench
+Tilda Swinton
+Juliette Binoche
+Isabelle Huppert
+Catherine Deneuve
+Sophie Marceau
+Juliette Lewis
+Penélope Cruz
+Sofía Vergara
+Ana de Armas
+Michelle Yeoh
+Zhang Ziyi
+Gong Li
+Maggie Cheung
+Michelle Reis
+Carina Lau
+Rosamund Pike
+Rachel McAdams
+Sandra Oh
+Emily Mortimer
+Aishwarya Rai Bachchan
+Priyanka Chopra Jonas
+Deepika Padukone
+Kareena Kapoor Khan
+Kajol
+Rani Mukerji
+Madhuri Dixit
+Tabu
+Katrina Kaif
+Karisma Kapoor
+Preity Zinta
+Vidya Balan
+Anushka Sharma
+Alia Bhatt
+Shabana Azmi
+Rekha
+Sridevi
+Manisha Koirala
+Sonali Bendre
+Hema Malini
+Kim Hee-ae
+Jeon Do-yeon
+Bae Doona
+Ha Ji-won
+Kim Sun-a
+Lee Young-ae
+Tang Wei
+Fan Bingbing
+Zhao Wei
+Xu Qing
+Ni Ni
+Zhou Xun
+Gwei Lun-mei
+Rinko Kikuchi
+Yuriko Ishida
+Takako Matsu
+Ryoko Yonekura
+Haru Kuroki
+Aoi Miyazaki
+Satomi Ishihara
+Hitomi Kuroki
+Miki Nakatani
+Hiroko Yakushimaru
+Marina Sirtis
+Sônia Braga
+Alice Braga
+Cecilia Roth
+Adriana Barraza
+Dolores Fonzi

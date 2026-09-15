@@ -127,6 +127,13 @@ function personSuffixes(profession: string, category: string): string[] {
   if (ctx.includes("cricketer") || ctx.includes("cricket")) suf.add("cricketer");
   if (ctx.includes("model")) suf.add("model");
   if (ctx.includes("comedian")) suf.add("comedian");
+  const nationalities = ["German", "Italian", "French", "Spanish", "English", "British", "American", "South Korean"];
+  const base = [...suf];
+  for (const s of base) {
+    if (s === "singer" || s === "actor" || s === "footballer" || s === "rapper") {
+      for (const n of nationalities) suf.add(`${n} ${s}`);
+    }
+  }
   return [...suf];
 }
 
