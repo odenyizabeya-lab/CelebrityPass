@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { searchCommunityByImage } from "@/lib/ai/scanner";
 
 export const dynamic = "force-dynamic";
+// One Gemini vision call (up to ~55s internally) plus a DB lookup — keep the
+// platform's serverless ceiling so a slow grounding/vision day can't 504 it.
+export const maxDuration = 300;
 
 // POST /api/celebrities/visual-search  body: { image: "<data URI>" }
 // Real visual search: the photo is sent to Gemini vision to identify WHO is in

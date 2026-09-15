@@ -135,6 +135,10 @@ const submit = async (e: React.FormEvent) => {
       tiktokUrl: socials.tiktok?.trim() || null,
       googleUrl: socials.google?.trim() || null,
       cardDesign: design,
+      // Base Silver→VIP tiers travel with the create itself: the server creates
+      // them (with the premium ladder) in the same request, so a new community
+      // can never lose its tiers to the background-save race on redirect.
+      baseMemberships: mode === "create" ? preparedTiers : undefined,
     };
     try {
       const url = edit ? `/api/celebrities/${celebrity!.id}` : "/api/celebrities";
@@ -333,39 +337,12 @@ const submit = async (e: React.FormEvent) => {
     return warnings;
   };
 
-  /** After the celebrity row is created: chosen base tiers + scan events. The
-   *  shared premium ladder is applied server-side by the create route itself —
-   *  it never depends on this client call, which could be aborted by the form
-   *  navigating away. */
+  /** After the celebrity row is created: publish the admin-selected scan
+   *  events only. The base Silver→VIP tiers and the shared premium ladder are
+   *  both applied server-side by the create route itself — they never depend
+   *  on this client call, which could be aborted by the form navigating away. */
   const createExtras = async (cid: string) => {
     const warnings: string[] = [];
-    if (preparedTiers.length > 0) {
-      for (let i = 0; i < preparedTiers.length; i++) {
-        const t = preparedTiers[i];
-        const nm = t.name.trim();
-        if (!nm) continue;
-        try {
-          const r = await fetch(`/api/celebrities/${cid}/memberships`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: nm,
-              description: t.description ?? "",
-              price: typeof t.price === "number" && Number.isFinite(t.price) ? t.price : null,
-              currency: t.currency || "USD",
-              displayOrder: i,
-              isActive: true,
-            }),
-          });
-          if (!r.ok) {
-            const d = await r.json().catch(() => null);
-            warnings.push(`Membership "${nm}": ${d?.error ?? "not created"}`);
-          }
-        } catch {
-          warnings.push(`Membership "${nm}": network error`);
-        }
-      }
-    }
     warnings.push(...(await createScanEvents(cid)));
     return warnings;
   };
@@ -823,7 +800,9 @@ function MembershipTierEditor({ tiers, onChange }: { tiers: PreparedTier[]; onCh
   if (tiers.length === 0) {
     return (
       <div className="mt-2 rounded-xl border border-dashed border-white/15 px-4 py-6 text-center text-xs text-zinc-500">
-        No tiers prepared. Create the celebrity and add tiers from the community page instead.
+        No tiers prepared. The standard Silver → VIP base tiers are created
+        automatically with your community — edit them from the community page
+        afterward if needed.
       </div>
     );
   }

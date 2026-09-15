@@ -19,6 +19,7 @@ import {
 } from "@/lib/dedupe";
 import { sendNewCelebrityAnnouncement } from "@/lib/emails/senders";
 import { normalizeSocialUrl } from "@/lib/social/resolve";
+import { sanitizeBaseMemberships } from "@/lib/memberships";
 import { upsertPremiumLevels } from "../../../../prisma/premium-levels.mjs";
 
 export const dynamic = "force-dynamic";
@@ -207,6 +208,34 @@ export async function POST(request: NextRequest) {
   // below) may later reveal the celebrity is famous enough to move up a tier.
   const maxF = maxFollowers({ instagramFollowers, tiktokFollowers, facebookFollowers });
   await assignFanNumber(celebrity.id, celebrity.slug, fameTier(null, maxF));
+
+  // Create the base Silver→VIP membership tiers server-side. The admin form
+  // used to send these from a background client call that the redirect could
+  // abort — leaving a brand-new community with ONLY the premium ladder. The
+  // ladder upsert below still runs separately; this guarantees the full tier
+  // set every time, whatever the client does (missing/invalid entries inherit
+  // the standard defaults via sanitizeBaseMemberships).
+  const baseTiers = sanitizeBaseMemberships(body.baseMemberships);
+  for (let i = 0; i < baseTiers.length; i++) {
+    const t = baseTiers[i];
+    try {
+      await prisma.membershipLevel.create({
+        data: {
+          celebrityId: celebrity.id,
+          name: t.name,
+          description: t.description,
+          price: t.price,
+          currency: t.currency,
+          displayOrder: i,
+          isActive: true,
+        },
+      });
+    } catch (err) {
+      // A single tier must never fail the whole create; it is logged and the
+      // premium ladder below still completes the community's tier list.
+      console.error(`[create celebrity] base tier "${t.name}" failed for ${celebrity.slug}:`, err);
+    }
+  }
 
   // Apply the shared premium "Experience" ladder ($2,500 – $15M) right here,
   // server-side, so a brand-new community NEVER ships with only base tiers.

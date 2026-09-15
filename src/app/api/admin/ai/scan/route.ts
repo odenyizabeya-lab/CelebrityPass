@@ -6,7 +6,11 @@ import { isAdminAuthed } from "@/lib/auth";
 import { runCelebrityScan } from "@/lib/ai/scanner";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// A full scan runs identify + research (profile and events in parallel); when
+// live web-search grounding is slow this can exceed 60s. Keep the budget at
+// the platform's serverless ceiling so a slow grounding day can never fail the
+// scan (the profile/events research is capped internally per Gemini call).
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

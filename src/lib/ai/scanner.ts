@@ -14,6 +14,7 @@
 //   - Transient network/server failures are retried with backoff.
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/utils";
+import { BASE_MEMBERSHIP_TIERS } from "@/lib/memberships";
 import { getAIModel, getGeminiKeys } from "./settings";
 import {
   AiCallError,
@@ -27,7 +28,6 @@ import {
 } from "./client";
 import type {
   IdentifiedPerson,
-  PrepMembershipTier,
   ScanEvent,
   ScanOutcome,
   ScanProfile,
@@ -76,44 +76,10 @@ async function findExistingCommunity(name: string): Promise<{ id: string; slug: 
 }
 
 /**
- * Standard base membership tiers for every community. There is no free tier;
- * every fan card membership is a paid level — LEVEL 1 = Silver ($200),
- * LEVEL 2 = Gold ($350), LEVEL 3 = Platinum ($500), LEVEL 4 = Premium ($1,000),
- * LEVEL 5 = VIP ($1,700). Premium $2,500+ Signature Experiences are added
- * separately at publish time.
+ * Standard base membership tiers live in src/lib/memberships.ts — shared with
+ * the create route so a new community always ships with the full Silver→VIP set
+ * even if the admin form's background save is interrupted.
  */
-const BASE_MEMBERSHIP_TIERS: PrepMembershipTier[] = [
-  {
-    name: "Silver",
-    description: "Official digital fan card membership — no meeting included.",
-    price: 200,
-    currency: "USD",
-  },
-  {
-    name: "Gold",
-    description: "Premium fan card with priority community news and recognition.",
-    price: 350,
-    currency: "USD",
-  },
-  {
-    name: "Platinum",
-    description: "Top-tier digital fan card with exclusive content and recognition.",
-    price: 500,
-    currency: "USD",
-  },
-  {
-    name: "Premium",
-    description: "Premium fan card membership with exclusive community perks.",
-    price: 1000,
-    currency: "USD",
-  },
-  {
-    name: "VIP",
-    description: "VIP fan card membership with top-tier community status.",
-    price: 1700,
-    currency: "USD",
-  },
-];
 
 type RawProfileSchema = Awaited<ReturnType<typeof researchProfile>>;
 type RawEventsSchema = Awaited<ReturnType<typeof researchEvents>>;
@@ -289,26 +255,30 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   // 2) Already here? (duplicate detection vs existing DB communities)
   const duplicateOf = await findExistingCommunity(name);
 
-  // 3) Research the profile (facts + fan card + base membership tiers).
+  // 3) Research the profile (facts + fan card + base membership tiers) and the
+  //    optional public events in PARALLEL — both only depend on the identified
+  //    name, so the scan never waits for two grounded round-trips back-to-back
+  //    and stays inside the platform function's time budget even when live
+  //    web-search grounding is slow.
   let profile: ScanProfile;
+  let events: ScanEvent[] = [];
   const quotaWatch: ScanQuotaWatch = { quotaSeen: false };
   try {
-    const result = await callAcrossCredentials(pairs, (c) => researchProfileSmart(c, name, quotaWatch));
-    profile = normalizeProfile(name, result.value);
+    const [profileValue, eventsValue] = await Promise.all([
+      callAcrossCredentials(pairs, (c) => researchProfileSmart(c, name, quotaWatch)).then((r) => r.value),
+      opts.includeEvents
+        ? callAcrossCredentials(pairs, (c) => researchEventsSmart(c, name, quotaWatch))
+            .then((r) => r.value)
+            .catch(() => null) // events are optional — one never fails the scan
+        : Promise.resolve(null),
+    ]);
+    profile = normalizeProfile(name, profileValue);
+    events = eventsValue ? normalizeEvents(eventsValue) : [];
   } catch (e) {
+    // Only the profile is mandatory; its failure (or a fully exhausted
+    // credential chain) aborts the scan with an honest, friendly message.
     const { message, detail } = friendlyAiError(e);
     return { status: "provider_error", message, detail };
-  }
-
-  // 4) Optional: publicly announced events with real sources.
-  let events: ScanEvent[] = [];
-  if (opts.includeEvents) {
-    try {
-      const result = await callAcrossCredentials(pairs, (c) => researchEventsSmart(c, name, quotaWatch));
-      events = normalizeEvents(result.value);
-    } catch {
-      events = []; // research is optional — never fail the whole scan for events
-    }
   }
 
   return {
