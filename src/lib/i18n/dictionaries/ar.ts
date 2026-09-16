@@ -34,6 +34,8 @@ export const ar: Dict = {
     statsLiveNote: "إحصائيات مباشرة تُحسب من التسجيلات الحقيقية فقط",
   },
   home: {
+    worldLeaders: "قادة العالم",
+    presidents: "الرؤساء وقادة العالم",
     featured: "مميز",
     featuredCommunities: "مجتمعات مميزة",
     browseAll: "تصفح الكل ←",

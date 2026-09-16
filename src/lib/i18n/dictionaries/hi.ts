@@ -34,6 +34,8 @@ export const hi: Dict = {
     statsLiveNote: "लाइव आँकड़े केवल वास्तविक पंजीकरणों से गिने जाते हैं",
   },
   home: {
+    worldLeaders: "विश्व नेता",
+    presidents: "राष्ट्रपति और विश्व नेता",
     featured: "फ़ीचर्ड",
     featuredCommunities: "फ़ीचर्ड समुदाय",
     browseAll: "सभी देखें →",

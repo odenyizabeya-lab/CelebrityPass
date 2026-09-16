@@ -105,6 +105,7 @@ export default async function HomePage() {
     .slice(0, 4);
   const popularIds = new Set(popular.map((c) => c.id));
   const browseAll = celebrities.filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id));
+  const worldLeaders = celebrities.filter((c) => c.isWorldLeader);
 
   return (
     <div>
@@ -134,6 +135,35 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ============ WORLD LEADERS ============ */}
+      {worldLeaders.length > 0 && (
+        <section className="px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-400">
+                  <T k="home.worldLeaders" />
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                  <T k="home.presidents" />
+                </h2>
+              </div>
+              <Link
+                href="/celebrities"
+                className="hidden rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white sm:block"
+              >
+                <T k="home.browseAll" />
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {worldLeaders.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ============ FEATURED ============ */}
       {featured.length > 0 && (

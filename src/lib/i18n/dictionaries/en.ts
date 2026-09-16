@@ -40,6 +40,8 @@ export const en = {
     statsLiveNote: "Live statistics counted from real registrations only",
   },
   home: {
+    worldLeaders: "World Leaders",
+    presidents: "Presidents & World Leaders",
     featured: "Featured",
     featuredCommunities: "Featured Communities",
     browseAll: "Browse all →",

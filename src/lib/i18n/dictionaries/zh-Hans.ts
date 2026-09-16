@@ -34,6 +34,8 @@ export const zhHans: Dict = {
     statsLiveNote: "实时统计仅来自真实注册",
   },
   home: {
+    worldLeaders: "世界领导人",
+    presidents: "总统与各国领导人",
     featured: "精选",
     featuredCommunities: "精选社区",
     browseAll: "浏览全部 →",

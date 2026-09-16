@@ -16,6 +16,14 @@ function panelTagline(json: string | null): string | null {
   return desc && desc.length > 0 ? desc.slice(0, 200) : null;
 }
 
+const HEAD_OF_STATE_RE = /(^|\b)(president|chairman)\s+of\b|\bpresident\s+since\b|\bleader\s+of\b|prime\s+minister\s+of\b|chancellor\s+of\b/i;
+
+/** Heads of state (presidents, prime ministers, chancellors) identified from the knowledge panel description. */
+export function isWorldLeaderName(googleInfo: string | null): boolean {
+  const info = tryParseJson<GoogleInfo | null>(googleInfo, null);
+  return info ? HEAD_OF_STATE_RE.test(info.description ?? "") : false;
+}
+
 /**
  * Tiny in-process TTL cache for expensive read queries. Public pages are
  * served through Supabase's pooled connection where every round trip costs
@@ -105,6 +113,7 @@ export type CelebritySummary = {
   imageSourceUrl: string | null;
   accentColor: string;
   isFeatured: boolean;
+  isWorldLeader: boolean;
   isActive: boolean;
   isVerified: boolean;
   fanCount: number;
@@ -215,6 +224,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       imageSourceUrl: c.imageSourceUrl,
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
+      isWorldLeader: isWorldLeaderName(c.googleInfo),
       isActive: c.isActive,
       isVerified: c.isVerified,
       fanCount: displayFanCountFor(c),
@@ -340,6 +350,7 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
     imageSourceUrl: celebrity.imageSourceUrl,
     accentColor: celebrity.accentColor,
     isFeatured: celebrity.isFeatured,
+    isWorldLeader: isWorldLeaderName(celebrity.googleInfo),
     isActive: celebrity.isActive,
     isVerified: celebrity.isVerified,
     fanCount: displayFanCountFor(celebrity),

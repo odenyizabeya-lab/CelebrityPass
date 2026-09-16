@@ -34,6 +34,8 @@ export const es: Dict = {
     statsLiveNote: "Estadísticas en vivo contadas solo desde registros reales",
   },
   home: {
+    worldLeaders: "Líderes mundiales",
+    presidents: "Presidentes y líderes mundiales",
     featured: "Destacado",
     featuredCommunities: "Comunidades destacadas",
     browseAll: "Ver todas →",

@@ -34,6 +34,8 @@ export const fr: Dict = {
     statsLiveNote: "Statistiques en direct issues uniquement des inscriptions réelles",
   },
   home: {
+    worldLeaders: "Dirigeants du monde",
+    presidents: "Présidents et dirigeants du monde",
     featured: "À la une",
     featuredCommunities: "Communautés à la une",
     browseAll: "Tout parcourir →",
