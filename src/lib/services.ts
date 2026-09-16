@@ -9,6 +9,13 @@ import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
 import type { GoogleInfo } from "./google-info";
 
+/** Short CDN-cache-busting version token from the stored image hash. */
+function imgVersion(hash: string | null): string {
+  if (!hash) return "";
+  const tail = hash.includes(":") ? hash.split(":").pop()! : hash;
+  return tail.slice(0, 8);
+}
+
 /** Factual one-liner for cards/search from the stored knowledge panel (Wikipedia description). */
 function panelTagline(json: string | null): string | null {
   const info = tryParseJson<GoogleInfo | null>(json, null);
@@ -181,6 +188,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
         imageLicense: true,
         imageAttribution: true,
         imageSourceUrl: true,
+        profileImageHash: true,
+        coverImageHash: true,
       },
     }),
     celebrityImageFlags(),
@@ -201,6 +210,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
     const img = imageFlags.get(c.slug);
     const hasProfile = img?.hasProfile ?? false;
     const hasCover = img?.hasCover ?? false;
+    const profileV = imgVersion(c.profileImageHash);
+    const coverV = imgVersion(c.coverImageHash);
     return {
       id: c.id,
       slug: c.slug,
@@ -211,12 +222,12 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       profession: c.profession,
       bio: c.bio,
       tagline: panelTagline(c.googleInfo) ?? c.bio,
-      profileImage: hasProfile ? `/images/${c.slug}/profile` : null,
-      coverImage: hasCover ? `/images/${c.slug}/cover` : null,
-      profileImageUrl: hasProfile ? `/images/${c.slug}/profile` : null,
+      profileImage: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
+      coverImage: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
+      profileImageUrl: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
       profileImageW: hasProfile ? 375 : 144,
       profileImageH: hasProfile ? 500 : 180,
-      coverImageUrl: hasCover ? `/images/${c.slug}/cover` : null,
+      coverImageUrl: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
       imageVerified: c.imageVerified,
       imageStatus: c.imageStatus,
       imageLicense: c.imageLicense,
@@ -306,6 +317,8 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
         imageLicense: true,
         imageAttribution: true,
         imageSourceUrl: true,
+        profileImageHash: true,
+        coverImageHash: true,
         memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
       },
     });
@@ -326,7 +339,9 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
   const hasProfile = flags.get(celebrity.slug)?.hasProfile ?? false;
   const hasCover = flags.get(celebrity.slug)?.hasCover ?? false;
 
-  return {
+  const detailProfileV = imgVersion(celebrity.profileImageHash);
+    const detailCoverV = imgVersion(celebrity.coverImageHash);
+    return {
     id: celebrity.id,
     slug: celebrity.slug,
     name: celebrity.name,
@@ -339,10 +354,10 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
     googleInfo: tryParseJson<GoogleInfo | null>(celebrity.googleInfo, null),
     profileImage: null,
     coverImage: null,
-    profileImageUrl: hasProfile ? `/images/${celebrity.slug}/profile` : null,
+    profileImageUrl: hasProfile ? `/images/${celebrity.slug}/profile${detailProfileV ? "?v=" + detailProfileV : ""}` : null,
     profileImageW: hasProfile ? 600 : 500,
     profileImageH: hasProfile ? 750 : 625,
-    coverImageUrl: hasCover ? `/images/${celebrity.slug}/cover` : null,
+    coverImageUrl: hasCover ? `/images/${celebrity.slug}/cover${detailCoverV ? "?v=" + detailCoverV : ""}` : null,
     imageVerified: celebrity.imageVerified,
     imageStatus: celebrity.imageStatus,
     imageLicense: celebrity.imageLicense,

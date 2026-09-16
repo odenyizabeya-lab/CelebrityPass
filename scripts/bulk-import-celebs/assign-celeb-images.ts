@@ -166,7 +166,7 @@ async function toDataUri(buf: Buffer, sourceW?: number, sourceH?: number): Promi
   // the 4:5 PORTRAIT shape that the cards expect.
   const small = w < 640 || h < 480;
   const target = small ? { width: 480, height: 640 } : { width: 960, height: 1280 };
-  const out = await sharp(buf)
+  const out = await sharp(buf, { failOn: "none" })
     .rotate()
     .resize({ ...target, fit: "cover", position: "attention" })
     .jpeg({ quality: 86, progressive: true })
