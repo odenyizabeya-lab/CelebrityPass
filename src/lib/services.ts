@@ -16,7 +16,7 @@ function panelTagline(json: string | null): string | null {
   return desc && desc.length > 0 ? desc.slice(0, 200) : null;
 }
 
-const HEAD_OF_STATE_RE = /(^|\b)(president|chairman)\s+of\b|\bpresident\s+since\b|\bleader\s+of\b|prime\s+minister\s+of\b|chancellor\s+of\b/i;
+const HEAD_OF_STATE_RE = /(^|\b)(president|chairman)\s+of\b|\bpresident\s+since\b|\bleader\s+of\b|prime\s+minister\s+of\b|chancellor\s+of\b|federal councillor\b|federal councilor\b/i;
 
 /** Heads of state (presidents, prime ministers, chancellors) identified from the knowledge panel description. */
 export function isWorldLeaderName(googleInfo: string | null): boolean {
