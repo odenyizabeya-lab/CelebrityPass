@@ -29,6 +29,8 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
   const hasDetails =
     age != null || info.born != null || info.occupations.length > 0 || works.length > 0;
   const hasMedia = info.images.length > 0 || info.image != null;
+  const googleHref = (q: string) =>
+    `https://www.google.com/search?q=${encodeURIComponent(`${q} ${info.name}`.trim())}`;
 
   if (!info.overview && !hasDetails && !hasMedia) return null;
 
@@ -84,7 +86,7 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2.5">
               {works.slice(0, 6).map((w) => (
-                <WorkTile key={`${w.title}-${w.year ?? ""}`} work={w} />
+                <WorkTile key={`${w.title}-${w.year ?? ""}`} work={w} href={googleHref(w.title)} />
               ))}
             </div>
             {works.length > 6 && (
@@ -94,9 +96,16 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
                 </summary>
                 <ul className="mt-2 space-y-1.5 border-t border-white/[0.06] pt-2">
                   {works.map((w) => (
-                    <li key={w.title} className="flex items-baseline justify-between gap-3 text-sm text-zinc-300">
-                      <span className="min-w-0 truncate">{w.title}</span>
-                      {w.year && <span className="shrink-0 text-xs text-zinc-500">{w.year}</span>}
+                    <li key={w.title}>
+                      <a
+                        href={googleHref(w.title)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-baseline justify-between gap-3 text-sm text-zinc-300 transition hover:text-white"
+                      >
+                        <span className="min-w-0 truncate">{w.title}</span>
+                        {w.year && <span className="shrink-0 text-xs text-zinc-500">{w.year}</span>}
+                      </a>
                     </li>
                   ))}
                 </ul>
@@ -169,10 +178,10 @@ function LeadImage({ image, name }: { image: PanelImage; name: string }) {
   );
 }
 
-function WorkTile({ work }: { work: PanelWork }) {
+function WorkTile({ work, href }: { work: PanelWork; href: string }) {
   const imageUrl = work.imageUrl ? (panelImageSrc(work.imageUrl) ?? work.imageUrl) : null;
   return (
-    <div>
+    <a href={href} target="_blank" rel="noreferrer" className="block transition hover:opacity-85">
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-ink-800 ring-1 ring-white/10">
         {imageUrl ? (
           <Image src={imageUrl} alt={work.title} fill sizes="120px" className="object-cover" loading="lazy" unoptimized />
@@ -184,7 +193,7 @@ function WorkTile({ work }: { work: PanelWork }) {
       </div>
       <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-tight text-zinc-300">{work.title}</p>
       {work.year && <p className="text-[10px] text-zinc-500">{work.year}</p>}
-    </div>
+    </a>
   );
 }
 
