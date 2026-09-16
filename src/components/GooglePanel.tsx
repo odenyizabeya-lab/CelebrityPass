@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { liveAge, type GoogleInfo, type PanelImage, type PanelWork } from "@/lib/google-info";
+import { panelImageSrc } from "@/lib/panel-image-proxy";
 
 /**
  * Google-style knowledge panel for one celebrity — the exact layout of
@@ -134,7 +135,7 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
             {info.images.map((img, i) => (
               <figure key={`${img.url}-${i}`} className="w-44 shrink-0">
                 <div className="relative h-28 w-44 overflow-hidden rounded-xl bg-ink-800 ring-1 ring-white/10">
-                  <Image src={img.url} alt="" fill sizes="176px" className="object-cover" unoptimized />
+                  <Image src={panelImageSrc(img.url) ?? img.url} alt="" fill sizes="176px" className="object-cover" unoptimized />
                 </div>
                 <figcaption className="mt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
                   Source: {img.source}
@@ -149,11 +150,12 @@ export default function GooglePanel({ info, category }: { info: GoogleInfo; cate
 }
 
 function LeadImage({ image, name }: { image: PanelImage; name: string }) {
+  const src = panelImageSrc(image.url) ?? image.url;
   return (
     <figure className="mb-4">
       <div className="relative h-40 w-full overflow-hidden rounded-xl bg-ink-800 ring-1 ring-white/10 sm:h-44">
         <Image
-          src={image.url}
+          src={src}
           alt={`${name} — ${image.source}`}
           fill
           sizes="(max-width: 640px) 100vw, 420px"
@@ -168,11 +170,12 @@ function LeadImage({ image, name }: { image: PanelImage; name: string }) {
 }
 
 function WorkTile({ work }: { work: PanelWork }) {
+  const imageUrl = work.imageUrl ? (panelImageSrc(work.imageUrl) ?? work.imageUrl) : null;
   return (
     <div>
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-ink-800 ring-1 ring-white/10">
-        {work.imageUrl ? (
-          <Image src={work.imageUrl} alt={work.title} fill sizes="120px" className="object-cover" loading="lazy" unoptimized />
+        {imageUrl ? (
+          <Image src={imageUrl} alt={work.title} fill sizes="120px" className="object-cover" loading="lazy" unoptimized />
         ) : (
           <div className="grid h-full w-full place-items-center px-1 text-center text-[10px] font-bold text-white/70">
             {work.title.slice(0, 26)}
