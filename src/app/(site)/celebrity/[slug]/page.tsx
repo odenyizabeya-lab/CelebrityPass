@@ -349,7 +349,29 @@ export default async function CelebrityPage({ params }: Props) {
         <div className="relative z-10 -mt-24 flex flex-col gap-6 sm:flex-row sm:items-end">
           <div className="w-[320px] max-w-full shrink-0 sm:w-[450px] lg:w-[560px]">
             <div className="rounded-3xl bg-ink-900 p-2 shadow-2xl ring-4 ring-ink-900">
-              {celebrity.profileImageUrl ? (
+              {panel?.wikipediaUrl ? (
+                <a href={panel.wikipediaUrl} target="_blank" rel="noreferrer" className="block">
+                  {celebrity.profileImageUrl ? (
+                    <Image
+                      src={celebrity.profileImageUrl}
+                      alt={celebrity.name}
+                      width={celebrity.profileImageW}
+                      height={celebrity.profileImageH}
+                      sizes="(max-width: 639px) 320px, (max-width: 1023px) 450px, 560px"
+                      priority
+                      unoptimized
+                      className="h-auto w-full object-contain"
+                    />
+                  ) : (
+                    <div
+                      className="grid aspect-[4/5] w-full place-items-center rounded-2xl text-4xl font-black text-white sm:text-5xl"
+                      style={{ backgroundColor: celebrity.accentColor }}
+                    >
+                      {celebrity.name.slice(0, 1)}
+                    </div>
+                  )}
+                </a>
+              ) : celebrity.profileImageUrl ? (
                 <Image
                   src={celebrity.profileImageUrl}
                   alt={celebrity.name}
