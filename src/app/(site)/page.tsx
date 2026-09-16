@@ -129,7 +129,9 @@ export default async function HomePage() {
             <T k="hero.sub" />
           </p>
 
-          <AppSearch />
+          <div className="sticky top-0 z-30 -mx-4 bg-ink-950/80 px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <AppSearch />
+          </div>
         </div>
       </section>
 
