@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import JoinForm from "@/components/JoinForm";
 import T from "@/components/T";
 import { getCelebrityBySlug } from "@/lib/services";
@@ -13,6 +13,7 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const celebrity = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!celebrity) notFound();
+  if (slug !== celebrity.slug) redirect(`/celebrity/${celebrity.slug}`);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">

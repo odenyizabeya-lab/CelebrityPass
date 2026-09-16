@@ -1,1177 +1,367 @@
 {
   "run": "apply",
-  "total": 685,
-  "assigned": 15,
-  "rejected": 141,
+  "total": 748,
+  "assigned": 23,
+  "rejected": 2,
   "assignments": [
     {
-      "slug": "chris-evans",
-      "name": "Chris Evans",
+      "slug": "adele",
+      "name": "Adele",
       "status": "applied",
-      "article": "Chris Evans (actor)",
-      "file": "Chris_Evans_at_the_2025_Toronto_International_Film_Festival_(cropped).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "Sara Komatsu",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Chris_Evans_at_the_2025_Toronto_International_Film_Festival_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Chris_Evans_at_the_2025_Toronto_International_Film_Festival_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1108,
-      "height": 1664
+      "article": "Adele",
+      "file": "Adele_2016.jpg",
+      "license": "CC BY 2.0",
+      "attribution": "Marc E.",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Adele_2016.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Adele_2016.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1607,
+      "height": 2134,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "giancarlo-esposito",
-      "name": "Giancarlo Esposito",
+      "slug": "britney-spears",
+      "name": "Britney Spears",
       "status": "applied",
-      "article": "Giancarlo Esposito",
-      "file": "Giancarlo_Esposito_at_Comic_Con_Oakland_2026_-_2_(cropped).jpg",
+      "article": "Britney Spears",
+      "file": "Britney_Spears_2013_(Straighten_Crop).jpg",
       "license": "CC BY-SA 4.0",
-      "attribution": "Adi.darkblue",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Giancarlo_Esposito_at_Comic_Con_Oakland_2026_-_2_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/60/Giancarlo_Esposito_at_Comic_Con_Oakland_2026_-_2_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 2450,
-      "height": 3408
+      "attribution": "Glenn Francis",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Britney_Spears_2013_(Straighten_Crop).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/d/da/Britney_Spears_2013_%28Straighten_Crop%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 639,
+      "height": 1016,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "hyun-bin",
-      "name": "Hyun Bin",
+      "slug": "celine-dion",
+      "name": "Celine Dion",
       "status": "applied",
-      "article": "Hyun Bin",
-      "file": "Hyun_Bin_at_the_2024_Toronto_International_Film_Festival_2_(cropped).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "John Sears",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hyun_Bin_at_the_2024_Toronto_International_Film_Festival_2_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/60/Hyun_Bin_at_the_2024_Toronto_International_Film_Festival_2_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 3127,
-      "height": 4284
+      "article": "Celine Dion",
+      "file": "Céline_Dion_2012.jpg",
+      "license": "CC BY-SA 3.0",
+      "attribution": "Georges Biard",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:C%C3%A9line_Dion_2012.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/C%C3%A9line_Dion_2012.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 565,
+      "height": 800,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "mlanie-laurent",
-      "name": "Mélanie Laurent",
+      "slug": "christina-aguilera",
+      "name": "Christina Aguilera",
       "status": "applied",
-      "article": "Mélanie Laurent",
-      "file": "MKr378512_Mélanie_Laurent_(Qui_brille_au_combat,_Cannes_2025).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "Martin Kraft",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:MKr378512_M%C3%A9lanie_Laurent_(Qui_brille_au_combat,_Cannes_2025).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/2/20/MKr378512_M%C3%A9lanie_Laurent_%28Qui_brille_au_combat%2C_Cannes_2025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 3885,
-      "height": 5828
-    },
-    {
-      "slug": "melissa-mccarthy",
-      "name": "Melissa McCarthy",
-      "status": "applied",
-      "article": "Melissa McCarthy",
-      "file": "Melissa_McCarthy_in_2018_(cropped).jpg",
+      "article": "Christina Aguilera",
+      "file": "Christina_Aguilera_2019_Disney_Legends_Awards_Ceremony_D23_EXPO_2019_(51440742748)_(cropped3).jpg",
       "license": "CC BY-SA 2.0",
-      "attribution": "https://www.flickr.com/photos/greg2600",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Melissa_McCarthy_in_2018_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Melissa_McCarthy_in_2018_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1599,
-      "height": 2273
+      "attribution": "nagi usano from Tokyo, Japan",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Christina_Aguilera_2019_Disney_Legends_Awards_Ceremony_D23_EXPO_2019_(51440742748)_(cropped3).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/8/88/Christina_Aguilera_2019_Disney_Legends_Awards_Ceremony_D23_EXPO_2019_%2851440742748%29_%28cropped3%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 863,
+      "height": 1232,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "nicole-kidman",
-      "name": "Nicole Kidman",
+      "slug": "drake",
+      "name": "Drake",
       "status": "applied",
-      "article": "Nicole Kidman",
-      "file": "MKr384262_Nicole_Kidman_(Women_In_Motion,_Cannes_2025).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "Martin Kraft",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:MKr384262_Nicole_Kidman_(Women_In_Motion,_Cannes_2025).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9e/MKr384262_Nicole_Kidman_%28Women_In_Motion%2C_Cannes_2025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 3095,
-      "height": 4643
+      "article": "Drake (musician)",
+      "file": "Drake_at_The_Carter_Effect_2017_(36818935200)_(cropped).jpg",
+      "license": "CC BY-SA 2.0",
+      "attribution": "GabboT",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Drake_at_The_Carter_Effect_2017_(36818935200)_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/1/15/Drake_at_The_Carter_Effect_2017_%2836818935200%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 690,
+      "height": 956,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "nikolaj-coster-waldau",
-      "name": "Nikolaj Coster-Waldau",
+      "slug": "ed-sheeran",
+      "name": "Ed Sheeran",
       "status": "applied",
-      "article": "Nikolaj Coster-Waldau",
-      "file": "Nikolaj_Coster-Waldau-68363.jpg",
+      "article": "Ed Sheeran",
+      "file": "Ed_Sheeran-6886_(cropped_2).jpg",
       "license": "CC BY-SA 3.0",
       "attribution": "Harald Krichel",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Nikolaj_Coster-Waldau-68363.jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/9/92/Nikolaj_Coster-Waldau-68363.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 3034,
-      "height": 4551
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ed_Sheeran-6886_(cropped_2).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Ed_Sheeran-6886_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1974,
+      "height": 2632,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "noah-wyle",
-      "name": "Noah Wyle",
+      "slug": "emma-watson",
+      "name": "Emma Watson",
       "status": "applied",
-      "article": "Noah Wyle",
-      "file": "Noah_Wyle_-_Walk_of_Fame-01.jpg",
-      "license": "CC BY 4.0",
-      "attribution": "Kevin Paul",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Noah_Wyle_-_Walk_of_Fame-01.jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/f/ff/Noah_Wyle_-_Walk_of_Fame-01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1600,
-      "height": 2000
-    },
-    {
-      "slug": "nora-tschirner",
-      "name": "Nora Tschirner",
-      "status": "applied",
-      "article": "Nora Tschirner",
-      "file": "Nora_Tschirner_Romy_2019_(cropped).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "Manfred Werner (Tsui)",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Nora_Tschirner_Romy_2019_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/67/Nora_Tschirner_Romy_2019_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 2887,
-      "height": 4000
-    },
-    {
-      "slug": "norah-jones",
-      "name": "Norah Jones",
-      "status": "applied",
-      "article": "Norah Jones",
-      "file": "NorahJones-byPhilipRomano3.jpg",
-      "license": "CC BY 4.0",
-      "attribution": "PhilipRomanoPhoto",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:NorahJones-byPhilipRomano3.jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5e/NorahJones-byPhilipRomano3.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 4024,
-      "height": 6048
-    },
-    {
-      "slug": "norman-reedus",
-      "name": "Norman Reedus",
-      "status": "applied",
-      "article": "Norman Reedus",
-      "file": "Norman_Reedus_at_53rd_Saturn_Awards_2026-02.jpg",
-      "license": "CC BY 4.0",
-      "attribution": "Kevin Paul",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Norman_Reedus_at_53rd_Saturn_Awards_2026-02.jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/a/af/Norman_Reedus_at_53rd_Saturn_Awards_2026-02.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1600,
-      "height": 2000
-    },
-    {
-      "slug": "octavia-spencer",
-      "name": "Octavia Spencer",
-      "status": "applied",
-      "article": "Octavia Spencer",
-      "file": "\"Hidden_Figures\"_Screening_at_the_White_House_(NHQ201612150008)_(cropped).jpg",
-      "license": "Public domain",
-      "attribution": "Aubrey Gemignani",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:%22Hidden_Figures%22_Screening_at_the_White_House_(NHQ201612150008)_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/%22Hidden_Figures%22_Screening_at_the_White_House_%28NHQ201612150008%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 2526,
-      "height": 3280
-    },
-    {
-      "slug": "omar-sy",
-      "name": "Omar Sy",
-      "status": "applied",
-      "article": "Omar Sy",
-      "file": "Omar_Sy_(2020).jpg",
+      "article": "Emma Watson",
+      "file": "Emma_Watson_2013.jpg",
       "license": "CC BY-SA 3.0",
-      "attribution": "Harald Krichel",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Omar_Sy_(2020).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Omar_Sy_%282020%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 2215,
-      "height": 2957
+      "attribution": "Georges Biard",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Emma_Watson_2013.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Emma_Watson_2013.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 492,
+      "height": 660,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "oscar-isaac",
-      "name": "Oscar Isaac",
+      "slug": "hugh-grant",
+      "name": "Hugh Grant",
       "status": "applied",
-      "article": "Oscar Isaac",
-      "file": "Oscar_Isaac_at_82nd_Venice_International_Film_Festival-1_(cropped).jpg",
-      "license": "CC BY-SA 4.0",
-      "attribution": "LucaFazPhoto",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Oscar_Isaac_at_82nd_Venice_International_Film_Festival-1_(cropped).jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Oscar_Isaac_at_82nd_Venice_International_Film_Festival-1_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1371,
-      "height": 1860
+      "article": "Hugh Grant",
+      "file": "Hugh_Grant_in_2014.jpg",
+      "license": "CC BY-SA 3.0",
+      "attribution": "Kurt Kulac",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hugh_Grant_in_2014.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Hugh_Grant_in_2014.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 987,
+      "height": 1360,
+      "verified": true,
+      "srcKind": "wikipedia"
     },
     {
-      "slug": "suga",
-      "name": "Suga",
+      "slug": "jim-carrey",
+      "name": "Jim Carrey",
       "status": "applied",
-      "article": "Suga",
-      "file": "Suga_for_Valentino_and_Marie_Claire_Korea_06.jpg",
+      "article": "Jim Carrey",
+      "file": "Jim_Carrey_2020_(cropped2).jpg",
       "license": "CC BY 3.0",
-      "attribution": "Marie Claire Korea",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Suga_for_Valentino_and_Marie_Claire_Korea_06.jpg",
-      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Suga_for_Valentino_and_Marie_Claire_Korea_06.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
-      "width": 1728,
-      "height": 2160
+      "attribution": "SHOWTIME",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Jim_Carrey_2020_(cropped2).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8d/Jim_Carrey_2020_%28cropped2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 810,
+      "height": 1080,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "justin-bieber",
+      "name": "Justin Bieber",
+      "status": "applied",
+      "article": "Justin Bieber",
+      "file": "P20260719DT-1213_President_Donald_J._Trump_and_First_Lady_Melania_Trump_attend_the_FIFA_World_Cup_Final_(cropped_2).jpg",
+      "license": "Public domain",
+      "attribution": "Daniel Torok",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:P20260719DT-1213_President_Donald_J._Trump_and_First_Lady_Melania_Trump_attend_the_FIFA_World_Cup_Final_(cropped_2).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6c/P20260719DT-1213_President_Donald_J._Trump_and_First_Lady_Melania_Trump_attend_the_FIFA_World_Cup_Final_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 794,
+      "height": 1284,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "katy-perry",
+      "name": "Katy Perry",
+      "status": "applied",
+      "article": "Katy Perry",
+      "file": "Katy_Perry_2026_Tribeca_Film_Festival_(cropped_1).jpg",
+      "license": "CC BY-SA 4.0",
+      "attribution": "Colleen Sturtevant",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Katy_Perry_2026_Tribeca_Film_Festival_(cropped_1).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a1/Katy_Perry_2026_Tribeca_Film_Festival_%28cropped_1%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 3672,
+      "height": 5051,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "lady-gaga",
+      "name": "Lady Gaga",
+      "status": "applied",
+      "article": "Lady Gaga",
+      "file": "Lady_Gaga_at_Joe_Biden's_inauguration_(cropped_5).jpg",
+      "license": "CC BY 2.0",
+      "attribution": "Carlos M. Vazquez II",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lady_Gaga_at_Joe_Biden%27s_inauguration_(cropped_5).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Lady_Gaga_at_Joe_Biden%27s_inauguration_%28cropped_5%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 2454,
+      "height": 3600,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "miley-cyrus",
+      "name": "Miley Cyrus",
+      "status": "applied",
+      "article": "Miley Cyrus",
+      "file": "Miley_Cyrus_Primavera19_-226_(48986293772)_(cropped).jpg",
+      "license": "CC BY 2.0",
+      "attribution": "Raphael Pour-Hashemi",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Miley_Cyrus_Primavera19_-226_(48986293772)_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/5/52/Miley_Cyrus_Primavera19_-226_%2848986293772%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1083,
+      "height": 1562,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "pink",
+      "name": "Pink",
+      "status": "applied",
+      "article": "Pink (singer)",
+      "file": "PinkSpurs160624_(33_of_156)_(cropped).jpg",
+      "license": "CC BY 2.0",
+      "attribution": "Raph_PH",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:PinkSpurs160624_(33_of_156)_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7f/PinkSpurs160624_%2833_of_156%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1262,
+      "height": 1682,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "rihanna",
+      "name": "Rihanna",
+      "status": "applied",
+      "article": "Rihanna",
+      "file": "Rihanna_Fenty_2018.png",
+      "license": "CC BY 3.0",
+      "attribution": "SIGMA",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Rihanna_Fenty_2018.png",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Rihanna_Fenty_2018.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 651,
+      "height": 867,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "robert-pattinson",
+      "name": "Robert Pattinson",
+      "status": "applied",
+      "article": "Robert Pattinson",
+      "file": "Robert_Pattinson_Venice_Film_Festival_(cropped).jpg",
+      "license": "CC BY-SA 4.0",
+      "attribution": "Colleen Sturtevant",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Robert_Pattinson_Venice_Film_Festival_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Robert_Pattinson_Venice_Film_Festival_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1879,
+      "height": 2821,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "ryan-gosling",
+      "name": "Ryan Gosling",
+      "status": "applied",
+      "article": "Ryan Gosling",
+      "file": "RyanGosling07TIFF.jpg",
+      "license": "CC BY 2.0",
+      "attribution": "gdcgraphics at https://www.flickr.com/photos/gdcgraphics/",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:RyanGosling07TIFF.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f1/RyanGosling07TIFF.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "width": 374,
+      "height": 763,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "ryan-reynolds",
+      "name": "Ryan Reynolds",
+      "status": "applied",
+      "article": "Ryan Reynolds",
+      "file": "Deadpool_2_Japan_Premiere_Red_Carpet_Ryan_Reynolds_(cropped).jpg",
+      "license": "CC BY 2.0",
+      "attribution": "Dick Thomas Johnson from Tokyo, Japan",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Deadpool_2_Japan_Premiere_Red_Carpet_Ryan_Reynolds_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/1/14/Deadpool_2_Japan_Premiere_Red_Carpet_Ryan_Reynolds_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1761,
+      "height": 2641,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "shah-rukh-khan",
+      "name": "Shah Rukh Khan",
+      "status": "applied",
+      "article": "Shah Rukh Khan",
+      "file": "Shah_Rukh_Khan_graces_the_launch_of_the_new_Santro.jpg",
+      "license": "CC BY 3.0",
+      "attribution": "Bollywood Hungama",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shah_Rukh_Khan_graces_the_launch_of_the_new_Santro.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6e/Shah_Rukh_Khan_graces_the_launch_of_the_new_Santro.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 369,
+      "height": 529,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "shakira",
+      "name": "Shakira",
+      "status": "applied",
+      "article": "Shakira",
+      "file": "2023-11-16_Gala_de_los_Latin_Grammy,_03_(cropped)02.jpg",
+      "license": "CC BY-SA 2.0",
+      "attribution": "Junta de Andalucía",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:2023-11-16_Gala_de_los_Latin_Grammy,_03_(cropped)02.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b8/2023-11-16_Gala_de_los_Latin_Grammy%2C_03_%28cropped%2902.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1590,
+      "height": 2120,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "the-weeknd",
+      "name": "The Weeknd",
+      "status": "applied",
+      "article": "The Weeknd",
+      "file": "The_Weeknd_Portrait_by_Brian_Ziff.jpg",
+      "license": "CC BY-SA 4.0",
+      "attribution": "Brian Ziff",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_Weeknd_Portrait_by_Brian_Ziff.jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a0/The_Weeknd_Portrait_by_Brian_Ziff.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 1281,
+      "height": 1920,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "will-ferrell",
+      "name": "Will Ferrell",
+      "status": "applied",
+      "article": "Will Ferrell",
+      "file": "Will_Ferrell_at_the_2024_Toronto_International_Film_Festival_5_(cropped).jpg",
+      "license": "CC BY-SA 4.0",
+      "attribution": "Adam Chitayat",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Will_Ferrell_at_the_2024_Toronto_International_Film_Festival_5_(cropped).jpg",
+      "mediaUrl": "https://upload.wikimedia.org/wikipedia/commons/5/57/Will_Ferrell_at_the_2024_Toronto_International_Film_Festival_5_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+      "width": 2600,
+      "height": 3900,
+      "verified": true,
+      "srcKind": "wikipedia"
+    },
+    {
+      "slug": "zendaya",
+      "name": "Zendaya",
+      "status": "applied",
+      "article": "Zendaya",
+      "file": "Zendaya-byPhilipRomano.jpg",
+      "license": "CC BY-SA 4.0",
+      "attribution": "PhilipRomano",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Zendaya-byPhilipRomano.jpg",
+      "mediaUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5a/Zendaya-byPhilipRomano.jpg/3840px-Zendaya-byPhilipRomano.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+      "width": 4024,
+      "height": 6048,
+      "verified": true,
+      "srcKind": "wikipedia"
     }
   ],
   "rejects": [
     {
-      "slug": "aishwarya-rai-bachchan",
-      "name": "Aishwarya Rai Bachchan",
-      "status": "reject",
-      "reason": "too small 566x800",
-      "detail": "Aishwarya_Rai_Cannes_2017.jpg"
-    },
-    {
-      "slug": "alessandro-roja",
-      "name": "Alessandro Roja",
-      "status": "reject",
-      "reason": "too small 314x398",
-      "detail": "Alessandro_Roja_2010_cropped.jpg"
-    },
-    {
-      "slug": "alex-britti",
-      "name": "Alex Britti",
-      "status": "reject",
-      "reason": "too small 333x413",
-      "detail": "Alex_Britti_2.jpg"
-    },
-    {
-      "slug": "andrea-bocelli",
-      "name": "Andrea Bocelli",
-      "status": "reject",
-      "reason": "too small 411x550",
-      "detail": "2025_Andrea_Bocelli_in_the_White_House_Oval_Office_on_October_17_(cropped).jpg"
-    },
-    {
-      "slug": "anushka-sharma",
-      "name": "Anushka Sharma",
-      "status": "reject",
-      "reason": "too small 381x515",
-      "detail": "Anushka_Sharma_promoting_Zero.jpg"
-    },
-    {
-      "slug": "august-diehl",
-      "name": "August Diehl",
-      "status": "reject",
-      "reason": "license rejected (FAL)",
-      "detail": "August_Diehl_asv2024-09.jpg"
-    },
-    {
-      "slug": "babyface",
-      "name": "Babyface",
-      "status": "reject",
-      "reason": "too small 482x689",
-      "detail": "KennethBabyfaceEdmondsHWOFMay2013.jpg"
-    },
-    {
-      "slug": "brnice-bejo",
-      "name": "Bérénice Bejo",
-      "status": "reject",
-      "reason": "too small 566x800",
-      "detail": "Bérénice_Bejo_Cannes_2016.jpg"
-    },
-    {
-      "slug": "biagio-antonacci",
-      "name": "Biagio Antonacci",
-      "status": "reject",
-      "reason": "too small 600x400",
-      "detail": "Biagio_Antonacci_2009.jpg"
-    },
-    {
-      "slug": "billy-ray-cyrus",
-      "name": "Billy Ray Cyrus",
-      "status": "reject",
-      "reason": "too small 340x463",
-      "detail": "Billy_Ray_Cyrus_2019.jpg"
-    },
-    {
-      "slug": "boa",
-      "name": "BoA",
-      "status": "reject",
-      "reason": "too small 489x669",
-      "detail": "180417_보아_03_(cropped)_02.png"
-    },
-    {
-      "slug": "bonnie-raitt",
-      "name": "Bonnie Raitt",
-      "status": "reject",
-      "reason": "too small 288x386",
-      "detail": "Bonnie_Raitt_on_December_8,_2024_in_the_White_House_Oval_Office_(cropped).jpg"
-    },
-    {
-      "slug": "brooks-dunn",
-      "name": "Brooks & Dunn",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "carrie-underwood",
-      "name": "Carrie Underwood",
-      "status": "reject",
-      "reason": "too small 595x761",
-      "detail": "191125_Carrie_Underwood_at_the_2019_American_Music_Awards_(cropped).png"
-    },
-    {
-      "slug": "chaka-khan",
-      "name": "Chaka Khan",
-      "status": "reject",
-      "reason": "too small 430x572",
-      "detail": "Chaka_Khan_(u1EvPKxd4Es_-_608x1080_-_0m14s).png"
-    },
-    {
-      "slug": "chevy-chase",
-      "name": "Chevy Chase",
-      "status": "reject",
-      "reason": "too small 347x467",
-      "detail": "ChevyChaseMar10.jpg"
-    },
-    {
-      "slug": "christian-ulmen",
-      "name": "Christian Ulmen",
-      "status": "reject",
-      "reason": "too small 598x901",
-      "detail": "Christian_Ulmen_Berlinale_2008.jpg"
-    },
-    {
-      "slug": "claudia-gerini",
-      "name": "Claudia Gerini",
-      "status": "reject",
-      "reason": "too small 596x694",
-      "detail": "Claudia_Gerini_2012.jpg"
-    },
-    {
-      "slug": "claudio-gio",
-      "name": "Claudio Gioè",
-      "status": "reject",
-      "reason": "too small 351x465",
-      "detail": "Claudio_Gioè,_Giffoni_Film_Festival_2012.jpg"
-    },
-    {
-      "slug": "claudio-santamaria",
-      "name": "Claudio Santamaria",
-      "status": "reject",
-      "reason": "too small 266x433",
-      "detail": "Claudio_Santamaria_2.jpg"
-    },
-    {
-      "slug": "clovis-cornillac",
-      "name": "Clovis Cornillac",
-      "status": "reject",
-      "reason": "too small 565x800",
-      "detail": "Clovis_Cornillac_Cabourg_2015.jpg"
-    },
-    {
-      "slug": "cristiana-capotondi",
-      "name": "Cristiana Capotondi",
-      "status": "reject",
-      "reason": "too small 400x479",
-      "detail": "Cristiana_Capotondi.jpg"
-    },
-    {
-      "slug": "darius-mccrary",
-      "name": "Darius McCrary",
-      "status": "reject",
-      "reason": "too small 491x419",
-      "detail": "Darius_McCrary,_June_2016.jpg"
-    },
-    {
-      "slug": "devid-striesow",
-      "name": "Devid Striesow",
-      "status": "reject",
-      "reason": "too small 396x594",
-      "detail": "Wir_sind_jung.JPG"
-    },
-    {
-      "slug": "dr-dre",
-      "name": "Dr. Dre",
-      "status": "reject",
-      "reason": "too small 400x373",
-      "detail": "Dr_Dre_sig.svg"
-    },
-    {
-      "slug": "edoardo-leo",
-      "name": "Edoardo Leo",
-      "status": "reject",
-      "reason": "too small 561x768",
-      "detail": "Edoardo_Leo.jpg"
-    },
-    {
-      "slug": "fabrizio-bentivoglio",
-      "name": "Fabrizio Bentivoglio",
-      "status": "reject",
-      "reason": "too small 358x462",
-      "detail": "Fabrizio_Bentivoglio_2011-03_cropped.jpg"
-    },
-    {
-      "slug": "francesco-arca",
-      "name": "Francesco Arca",
-      "status": "reject",
-      "reason": "too small 309x438",
-      "detail": "Francesco_Arca.jpg"
-    },
-    {
-      "slug": "franois-cluzet",
-      "name": "François Cluzet",
-      "status": "reject",
-      "reason": "too small 566x800",
-      "detail": "François_Cluzet_à_la_cérémonie_des_César_2014-02-28.jpg"
-    },
-    {
-      "slug": "gianluca-grignani",
-      "name": "Gianluca Grignani",
-      "status": "reject",
-      "reason": "too small 375x500",
-      "detail": "Gianluca_Grignani_-_Fonte_Nuova_31-05-08.JPG"
-    },
-    {
-      "slug": "gigi-dalessio",
-      "name": "Gigi D'Alessio",
-      "status": "reject",
-      "reason": "too small 331x455",
-      "detail": "Gigi_dAlessio.jpg"
-    },
-    {
-      "slug": "giorgio-marchesi",
-      "name": "Giorgio Marchesi",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "giorgio-pasotti",
-      "name": "Giorgio Pasotti",
-      "status": "reject",
-      "reason": "too small 498x608",
-      "detail": "Giorgio_Pasotti_-_2012.jpg"
-    },
-    {
-      "slug": "giovanna-mezzogiorno",
-      "name": "Giovanna Mezzogiorno",
-      "status": "reject",
-      "reason": "too small 508x720",
-      "detail": "Giovanna_Mezzogiorno_Cannes_2010.jpg"
-    },
-    {
-      "slug": "giuseppe-zeno",
-      "name": "Giuseppe Zeno",
-      "status": "reject",
-      "reason": "too small 336x442",
-      "detail": "Giuseppe_Zeno.jpg"
-    },
-    {
-      "slug": "gong-li",
-      "name": "Gong Li",
-      "status": "reject",
-      "reason": "too small 507x798",
-      "detail": "Gong_Li_Cannes_2016.jpg"
-    },
-    {
-      "slug": "gwei-lun-mei",
-      "name": "Gwei Lun-mei",
-      "status": "reject",
-      "reason": "too small 429x554",
-      "detail": "Gwei_Lun-mei_20220611.jpg"
-    },
-    {
-      "slug": "heiner-lauterbach",
-      "name": "Heiner Lauterbach",
-      "status": "reject",
-      "reason": "too small 400x575",
-      "detail": "Heiner_Lauterbach_by_Stuart_Mentiply.jpg"
-    },
-    {
-      "slug": "hema-malini",
-      "name": "Hema Malini",
-      "status": "reject",
-      "reason": "too small 330x440",
-      "detail": "Hema_Malini's_75th_birthday_celebration.jpg"
-    },
-    {
-      "slug": "hiroko-yakushimaru",
-      "name": "Hiroko Yakushimaru",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "hitomi-kuroki",
-      "name": "Hitomi Kuroki",
-      "status": "reject",
-      "reason": "too small 471x567",
-      "detail": "金馬紅毯／62歲黑木瞳超閃桃紅.jpg"
-    },
-    {
-      "slug": "ice-cube",
-      "name": "Ice Cube",
-      "status": "reject",
-      "reason": "too small 578x784",
-      "detail": "Ice_Cube_September_2025.png"
-    },
-    {
-      "slug": "jalil-lespert",
-      "name": "Jalil Lespert",
-      "status": "reject",
-      "reason": "too small 493x722",
-      "detail": "Jalil_Lespert_2015.jpg"
-    },
-    {
-      "slug": "jamel-debbouze",
-      "name": "Jamel Debbouze",
-      "status": "reject",
-      "reason": "too small 581x800",
-      "detail": "Jamel_Debbouze_AVP_2016_2.jpg"
-    },
-    {
-      "slug": "jan-josef-liefers",
-      "name": "Jan Josef Liefers",
-      "status": "reject",
-      "reason": "too small 547x790",
-      "detail": "Bundesarchiv_Bild_183-1989-1104-032,_Berlin,_Demonstration,_Rede_Jan-Josef_Liefers.jpg"
-    },
-    {
-      "slug": "jason-derulo",
-      "name": "Jason Derulo",
-      "status": "reject",
-      "reason": "too small 596x870",
-      "detail": "Jason_Derulo_2.0.jpg"
-    },
-    {
-      "slug": "jean-dujardin",
-      "name": "Jean Dujardin",
-      "status": "reject",
-      "reason": "too small 439x675",
-      "detail": "Christophe_Lambert_et_Jean_Dujardin_(Cropped).jpg"
-    },
-    {
-      "slug": "jean-reno",
-      "name": "Jean Reno",
-      "status": "reject",
-      "reason": "too small 563x800",
-      "detail": "Jean_Reno_Cannes_2016.jpg"
-    },
-    {
-      "slug": "jennie",
-      "name": "Jennie",
-      "status": "reject",
-      "reason": "too small 504x642",
-      "detail": "20260526_Jennie_Kim_04.jpg"
-    },
-    {
-      "slug": "jennifer-lawrence",
-      "name": "Jennifer Lawrence",
-      "status": "reject",
-      "reason": "too small 561x763",
-      "detail": "Jennifer_Lawrence_in_2018.png"
-    },
-    {
-      "slug": "jeremy-piven",
-      "name": "Jeremy Piven",
-      "status": "reject",
-      "reason": "too small 265x346",
-      "detail": "JeremyPivenFeb09_(cropped).jpg"
-    },
-    {
-      "slug": "jerry-yan",
-      "name": "Jerry Yan",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "jimin",
-      "name": "Jimin",
-      "status": "reject",
-      "reason": "too small 500x720",
-      "detail": "Jimin_on_the_way_to_SBS_Radio,_31_March_2023_(2).jpg"
-    },
-    {
-      "slug": "joan-jett",
-      "name": "Joan Jett",
-      "status": "reject",
-      "reason": "too small 423x634",
-      "detail": "Joan_Jett_2013.jpg"
-    },
-    {
-      "slug": "johann-von-blow",
-      "name": "Johann von Bülow",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "johnny-depp",
-      "name": "Johnny Depp",
-      "status": "reject",
-      "reason": "too small 400x550",
-      "detail": "Johnny_Depp_2020.jpg"
-    },
-    {
-      "slug": "jolin-tsai",
-      "name": "Jolin Tsai",
-      "status": "reject",
-      "reason": "too small 332x532",
-      "detail": "蔡依林出席王国大帝全球巡回赛现场_cropped_(cropped).jpg"
-    },
-    {
-      "slug": "jrgen-vogel",
-      "name": "Jürgen Vogel",
-      "status": "reject",
-      "reason": "too small 468x625",
-      "detail": "Jürgen_Vogel_(Berlinale_2012)_(cropped).jpg"
-    },
-    {
-      "slug": "kajol",
-      "name": "Kajol",
-      "status": "reject",
-      "reason": "too small 311x346",
-      "detail": "Kajol_snapped_promoting_Maa_(cropped).jpg"
-    },
-    {
-      "slug": "kareena-kapoor-khan",
-      "name": "Kareena Kapoor Khan",
-      "status": "reject",
-      "reason": "too small 306x447",
-      "detail": "Kareena_Kapoor_Khan_in_2023_(1)_(cropped).jpg"
-    },
-    {
-      "slug": "karisma-kapoor",
-      "name": "Karisma Kapoor",
-      "status": "reject",
-      "reason": "too small 585x785",
-      "detail": "KarismaKapoor02.jpg"
-    },
-    {
-      "slug": "keith-sweat",
-      "name": "Keith Sweat",
-      "status": "reject",
-      "reason": "too small 440x587",
-      "detail": "LTG_Vereen_Hosts_R&B_singer_Keith_Sweat_(1)_(cropped).jpg"
-    },
-    {
-      "slug": "kenny-chesney",
-      "name": "Kenny Chesney",
-      "status": "reject",
-      "reason": "too small 515x561",
-      "detail": "Kenny_Chesney_20070830_(cropped).jpg"
-    },
-    {
-      "slug": "kurt-cobain",
-      "name": "Kurt Cobain",
-      "status": "reject",
-      "reason": "too small 260x346",
-      "detail": "Nirvana_around_1992_(cropped).jpg"
-    },
-    {
       "slug": "lea",
       "name": "LEA",
       "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "lee-seung-gi",
-      "name": "Lee Seung-gi",
-      "status": "reject",
-      "reason": "too small 476x658",
-      "detail": "LeeSeungGi4.jpg"
-    },
-    {
-      "slug": "lisa-kudrow",
-      "name": "Lisa Kudrow",
-      "status": "reject",
-      "reason": "too small 566x652",
-      "detail": "Lisa_Kudrow_2.jpg"
-    },
-    {
-      "slug": "lorella-cuccarini",
-      "name": "Lorella Cuccarini",
-      "status": "reject",
-      "reason": "too small 365x393",
-      "detail": "Lorella_Cuccarini_sezione.JPG"
-    },
-    {
-      "slug": "luca-zingaretti",
-      "name": "Luca Zingaretti",
-      "status": "reject",
-      "reason": "too small 589x813",
-      "detail": "Luca_Zingaretti_2010.JPG"
-    },
-    {
-      "slug": "luisa-ranieri",
-      "name": "Luisa Ranieri",
-      "status": "reject",
-      "reason": "too small 540x720",
-      "detail": "Luisa_Ranieri.jpg"
-    },
-    {
-      "slug": "manisha-koirala",
-      "name": "Manisha Koirala",
-      "status": "reject",
-      "reason": "too small 573x795",
-      "detail": "Manisha_Koirala_at_55th_IFFI_2024_(cropped).jpg"
-    },
-    {
-      "slug": "marco-bocci",
-      "name": "Marco Bocci",
-      "status": "reject",
-      "reason": "too small 400x600",
-      "detail": "Marco_Bocci_2010.jpg"
-    },
-    {
-      "slug": "marco-giallini",
-      "name": "Marco Giallini",
-      "status": "reject",
-      "reason": "too small 300x392",
-      "detail": "Marco_Giallini.jpg"
-    },
-    {
-      "slug": "margherita-buy",
-      "name": "Margherita Buy",
-      "status": "reject",
-      "reason": "too small 450x451",
-      "detail": "Margherita_Buy_cropped.jpg"
-    },
-    {
-      "slug": "maria-grazia-cucinotta",
-      "name": "Maria Grazia Cucinotta",
-      "status": "reject",
-      "reason": "too small 333x438",
-      "detail": "Maria_Grazia_Cucinotta_-_nicogenin_-_66ème_Festival_de_Venise_(Mostra)_2-2.JPG"
-    },
-    {
-      "slug": "mariah-carey",
-      "name": "Mariah Carey",
-      "status": "reject",
-      "reason": "too small 199x261",
-      "detail": "Mariah_Carey_Library_of_Congress_2023_1_Cropped_3.png"
-    },
-    {
-      "slug": "mark-chesnutt",
-      "name": "Mark Chesnutt",
-      "status": "reject",
-      "reason": "too small 369x536",
-      "detail": "Mark_Chesnutt_performing.jpg"
-    },
-    {
-      "slug": "mary-j-blige",
-      "name": "Mary J. Blige",
-      "status": "reject",
-      "reason": "too small 340x438",
-      "detail": "Mary_J_Blige_in_2022.png"
-    },
-    {
-      "slug": "massimiliano-gallo",
-      "name": "Massimiliano Gallo",
-      "status": "reject",
-      "reason": "too small 513x585",
-      "detail": "Il_sindaco_del_rione_Sanità_2019_Premio_della_città_di_Napoli_07.png"
-    },
-    {
-      "slug": "mathieu-kassovitz",
-      "name": "Mathieu Kassovitz",
-      "status": "reject",
-      "reason": "too small 410x668",
-      "detail": "Mathieu_Kassovitz_Cannes_2017.jpg"
-    },
-    {
-      "slug": "matthew-perry",
-      "name": "Matthew Perry",
-      "status": "reject",
-      "reason": "too small 515x746",
-      "detail": "Matthew_Perry_in_support_of_Awareness_on_Drug_Courts_and_Reduced_Substance_Abuse.jpg"
-    },
-    {
-      "slug": "mel-gibson",
-      "name": "Mel Gibson",
-      "status": "reject",
-      "reason": "too small 545x754",
-      "detail": "Mel_Gibson_Cannes_2016_2.jpg"
-    },
-    {
-      "slug": "michael-bully-herbig",
-      "name": "Michael Bully Herbig",
-      "status": "reject",
-      "reason": "too small 517x714",
-      "detail": "ROMY_2012_Michael_Bully_Herbig_(cropped).jpg"
-    },
-    {
-      "slug": "michael-c-hall",
-      "name": "Michael C. Hall",
-      "status": "reject",
-      "reason": "too small 478x637",
-      "detail": "Dexter_panel_(54305394548)_(cropped).jpg"
-    },
-    {
-      "slug": "michele-morrone",
-      "name": "Michele Morrone",
-      "status": "reject",
-      "reason": "too small 446x382",
-      "detail": "Michele_Morrone_Telemagazyn_2019_2.jpg"
-    },
-    {
-      "slug": "michelle-pfeiffer",
-      "name": "Michelle Pfeiffer",
-      "status": "reject",
-      "reason": "too small 583x792",
-      "detail": "Michelle_Pfeiffer_Ant-Man_&_The_Wasp_premiere.jpg"
-    },
-    {
-      "slug": "michelle-reis",
-      "name": "Michelle Reis",
-      "status": "reject",
-      "reason": "too small 456x634",
-      "detail": "Michelle_Reis_SHISEIDO_(3).jpg"
-    },
-    {
-      "slug": "miki-nakatani",
-      "name": "Miki Nakatani",
-      "status": "reject",
-      "reason": "too small 409x533",
-      "detail": "Nakatani_Miki.jpg"
-    },
-    {
-      "slug": "ne-yo",
-      "name": "Ne-Yo",
-      "status": "reject",
-      "reason": "too small 400x590",
-      "detail": "Ne_Yo_2025.png"
-    },
-    {
-      "slug": "nicolas-cage",
-      "name": "Nicolas Cage",
-      "status": "reject",
-      "reason": "too small 414x639",
-      "detail": "Nicolas_Cage_Deauville_2013.jpg"
-    },
-    {
-      "slug": "niels-schneider",
-      "name": "Niels Schneider",
-      "status": "reject",
-      "reason": "too small 435x695",
-      "detail": "Niels_Schneider_2017.jpg"
-    },
-    {
-      "slug": "owen-wilson",
-      "name": "Owen Wilson",
-      "status": "reject",
-      "reason": "too small 374x576",
-      "detail": "Owen_Wilson_Cannes_2011.jpg"
-    },
-    {
-      "slug": "paola-cortellesi",
-      "name": "Paola Cortellesi",
-      "status": "reject",
-      "reason": "too small 203x278",
-      "detail": "Paola_Cortellesi_2_(cropped).jpg"
+      "reason": "no lead image on article or panel"
     },
     {
       "slug": "paolo-pierobon",
       "name": "Paolo Pierobon",
       "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "pat-benatar",
-      "name": "Pat Benatar",
-      "status": "reject",
-      "reason": "too small 571x688",
-      "detail": "PAT_BENATAR_2007-09-07_(cropped).jpg"
-    },
-    {
-      "slug": "peter-fox",
-      "name": "Peter Fox",
-      "status": "reject",
-      "reason": "mime image/tiff",
-      "detail": "©Erik_Weiss_850x1062at72dpi.tif"
-    },
-    {
-      "slug": "piero-barone",
-      "name": "Piero Barone",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "piero-pel",
-      "name": "Piero Pelù",
-      "status": "reject",
-      "reason": "too small 461x655",
-      "detail": "Piero_Pelu_cropped.jpg"
-    },
-    {
-      "slug": "pierre-niney",
-      "name": "Pierre Niney",
-      "status": "reject",
-      "reason": "too small 567x800",
-      "detail": "Pierre_Niney_Frantz_avp_2016.jpg"
-    },
-    {
-      "slug": "priyanka-chopra-jonas",
-      "name": "Priyanka Chopra Jonas",
-      "status": "reject",
-      "reason": "too small 296x398",
-      "detail": "Priyanka_Chopra_at_Bulgary_launch,_2024_(cropped).jpg"
-    },
-    {
-      "slug": "rani-mukerji",
-      "name": "Rani Mukerji",
-      "status": "reject",
-      "reason": "too small 502x644",
-      "detail": "Rani_Mukerji_snapped_at_Hema_Malini’s_75th_birthday_celebration_(cropped)(2).jpg"
-    },
-    {
-      "slug": "ray-liotta",
-      "name": "Ray Liotta",
-      "status": "reject",
-      "reason": "too small 518x742",
-      "detail": "Ray_Liotta_Deauville_2014_3.jpg"
-    },
-    {
-      "slug": "regina-hall",
-      "name": "Regina Hall",
-      "status": "reject",
-      "reason": "too small 513x724",
-      "detail": "Regina_Hall_NY_2019_(02)_(cropped).jpg"
-    },
-    {
-      "slug": "rekha",
-      "name": "Rekha",
-      "status": "reject",
-      "reason": "too small 333x444",
-      "detail": "Rekha_2023.jpg"
-    },
-    {
-      "slug": "riccardo-scamarcio",
-      "name": "Riccardo Scamarcio",
-      "status": "reject",
-      "reason": "too small 318x422",
-      "detail": "Riccardo_Scamarcio.jpg"
-    },
-    {
-      "slug": "richard-marx",
-      "name": "Richard Marx",
-      "status": "reject",
-      "reason": "too small 430x576",
-      "detail": "Richard_Marx,_Birmingham,_AL_2025_(cropped).jpg"
-    },
-    {
-      "slug": "romain-duris",
-      "name": "Romain Duris",
-      "status": "reject",
-      "reason": "too small 565x800",
-      "detail": "Romain_Duris_2014.jpg"
-    },
-    {
-      "slug": "roschdy-zem",
-      "name": "Roschdy Zem",
-      "status": "reject",
-      "reason": "too small 563x800",
-      "detail": "Roschdy_Zem_2017_2.jpg"
-    },
-    {
-      "slug": "sabrina-impacciatore",
-      "name": "Sabrina Impacciatore",
-      "status": "reject",
-      "reason": "too small 563x660",
-      "detail": "Sabrina_Impacciatore_al_Giffoni_Film_Festival_2010.jpg"
-    },
-    {
-      "slug": "samuele-bersani",
-      "name": "Samuele Bersani",
-      "status": "reject",
-      "reason": "too small 567x377",
-      "detail": "Bersani_monicasilva.jpg"
-    },
-    {
-      "slug": "sandra-ceccarelli",
-      "name": "Sandra Ceccarelli",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "sergio-cammariere",
-      "name": "Sergio Cammariere",
-      "status": "reject",
-      "reason": "too small 600x421",
-      "detail": "Cammariere.jpg"
-    },
-    {
-      "slug": "sergio-rubini",
-      "name": "Sergio Rubini",
-      "status": "reject",
-      "reason": "too small 320x480",
-      "detail": "Il_regista_Rubini_Sergio.jpg"
-    },
-    {
-      "slug": "sheryl-crow",
-      "name": "Sheryl Crow",
-      "status": "reject",
-      "reason": "too small 475x700",
-      "detail": "Katherine_Clark_and_Sheryl_Crow_Grammy_Event_(cropped).jpg"
-    },
-    {
-      "slug": "silbermond",
-      "name": "Silbermond",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "sonali-bendre",
-      "name": "Sonali Bendre",
-      "status": "reject",
-      "reason": "too small 480x266",
-      "detail": "Sonali_Bendre_in_2025.jpg"
-    },
-    {
-      "slug": "snia-braga",
-      "name": "Sônia Braga",
-      "status": "reject",
-      "reason": "too small 343x480",
-      "detail": "Sônia_Braga_-_Fênix_2016.png"
-    },
-    {
-      "slug": "sophie-marceau",
-      "name": "Sophie Marceau",
-      "status": "reject",
-      "reason": "too small 508x720",
-      "detail": "Sophie_Marceau_Cabourg_2012.jpg"
-    },
-    {
-      "slug": "sridevi",
-      "name": "Sridevi",
-      "status": "reject",
-      "reason": "too small 585x779",
-      "detail": "Sridevi.jpg"
-    },
-    {
-      "slug": "stefanie-klo",
-      "name": "Stefanie Kloß",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "stefano-fresi",
-      "name": "Stefano Fresi",
-      "status": "reject",
-      "reason": "too small 342x414",
-      "detail": "Stefano_Fresi_Déluge_2023.png"
-    },
-    {
-      "slug": "suzy-bogguss",
-      "name": "Suzy Bogguss",
-      "status": "reject",
-      "reason": "too small 285x276",
-      "detail": "SuzyBogguss_2006.jpg"
-    },
-    {
-      "slug": "sylvester-stallone",
-      "name": "Sylvester Stallone",
-      "status": "reject",
-      "reason": "too small 468x623",
-      "detail": "P20251206DT-0472_(3x4_cropped_on_Stallone_with_moderate_headroom).jpg"
-    },
-    {
-      "slug": "ti",
-      "name": "T.I.",
-      "status": "reject",
-      "reason": "too small 436x632",
-      "detail": "T.I._February_2026.png"
-    },
-    {
-      "slug": "tabu",
-      "name": "Tabu",
-      "status": "reject",
-      "reason": "no knowledge panel anchor"
-    },
-    {
-      "slug": "tahar-rahim",
-      "name": "Tahar Rahim",
-      "status": "reject",
-      "reason": "too small 565x800",
-      "detail": "Tahar_Rahim_Samba_avp_2014_2.jpg"
-    },
-    {
-      "slug": "takako-matsu",
-      "name": "Takako Matsu",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "takeshi-kaneshiro",
-      "name": "Takeshi Kaneshiro",
-      "status": "reject",
-      "reason": "too small 247x329",
-      "detail": "Takeshi_Kaneshiro_at_BIFF_Square,_2011_(cropped).jpg"
-    },
-    {
-      "slug": "til-schweiger",
-      "name": "Til Schweiger",
-      "status": "reject",
-      "reason": "too small 494x688",
-      "detail": "2022_Til_Schweiger_(cropped).jpg"
-    },
-    {
-      "slug": "tim-mcgraw",
-      "name": "Tim McGraw",
-      "status": "reject",
-      "reason": "too small 507x679",
-      "detail": "Tim_McGraw_October_24_2015.jpg"
-    },
-    {
-      "slug": "usher",
-      "name": "Usher",
-      "status": "reject",
-      "reason": "too small 396x508",
-      "detail": "Usher_Milan_2026.jpg"
-    },
-    {
-      "slug": "v",
-      "name": "V",
-      "status": "reject",
-      "reason": "too small 595x720",
-      "detail": "BTS's_V_20251004_04.jpg"
-    },
-    {
-      "slug": "vidya-balan",
-      "name": "Vidya Balan",
-      "status": "reject",
-      "reason": "too small 387x409",
-      "detail": "Vidya_Balan_at_BB3_interviews,_2024_(cropped).jpg"
-    },
-    {
-      "slug": "viggo-mortensen",
-      "name": "Viggo Mortensen",
-      "status": "reject",
-      "reason": "too small 562x770",
-      "detail": "Viggo_Mortensen,_director_y_actor,_en_AWFF_2024_(cropped).jpg"
-    },
-    {
-      "slug": "vince-gill",
-      "name": "Vince Gill",
-      "status": "reject",
-      "reason": "too small 558x612",
-      "detail": "Vince_Gill.png"
-    },
-    {
-      "slug": "vince-vaughn",
-      "name": "Vince Vaughn",
-      "status": "reject",
-      "reason": "too small 405x598",
-      "detail": "Actor_Vince_Vaughn_(2025)_(cropped).jpg"
-    },
-    {
-      "slug": "virat-kohli",
-      "name": "Virat Kohli",
-      "status": "reject",
-      "reason": "too small 524x654",
-      "detail": "Virat_Kohli_during_the_India_vs_Aus_4th_Test_match_at_Narendra_Modi_Stadium_on_09_March_2023.jpg"
-    },
-    {
-      "slug": "whitney-houston",
-      "name": "Whitney Houston",
-      "status": "reject",
-      "reason": "too small 518x736",
-      "detail": "Whitney_Houston_(cropped3).JPEG"
-    },
-    {
-      "slug": "xu-qing",
-      "name": "Xu Qing",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "yuriko-ishida",
-      "name": "Yuriko Ishida",
-      "status": "reject",
-      "reason": "article has no lead image"
-    },
-    {
-      "slug": "zhao-wei",
-      "name": "Zhao Wei",
-      "status": "reject",
-      "reason": "too small 520x712",
-      "detail": "Zhao_Wei.jpg"
+      "reason": "no lead image on article or panel"
     }
   ]
 }

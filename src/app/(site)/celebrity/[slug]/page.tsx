@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import CountUp from "@/components/CountUp";
 import T from "@/components/T";
@@ -195,6 +195,10 @@ export default async function CelebrityPage({ params }: Props) {
   const { slug } = await params;
   const celebrity = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!celebrity) notFound();
+  // Alias/transliterated URLs (accented or punctuation variants) resolve via the
+  // name-key fallback in getCelebrityBySlug; normalize visitors onto the
+  // canonical stored slug so links, shares and SEO point at one URL.
+  if (slug !== celebrity.slug) redirect(`/celebrity/${celebrity.slug}`);
 
   // Guarantee the Google-style knowledge panel for EVERY celebrity, forever.
   // New/AI-created celebrities get theirs during creation (background fetch),

@@ -263,9 +263,9 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
   // blobs: a full-row read transferred up to ~3MB per profile render. Presence
   // is derived from the hash columns so image URLs stay exact and cacheable,
   // and the /images/... routes do the single heavy read (cached) on demand.
-  const [celebrity, totalCountries, flags] = await Promise.all([
+  const find = (where: { slug: string } | { nameKey: string }) =>
     prisma.celebrity.findUnique({
-      where: { slug },
+      where,
       select: {
         id: true,
         slug: true,
@@ -298,7 +298,16 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
         imageSourceUrl: true,
         memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
       },
-    }),
+    });
+
+  // Exact slug match first; fall back to the accent/case-insensitive name key so
+  // transliterated or escape-decoded URLs resolve to the right profile too.
+  let celebrity = await find({ slug });
+  if (!celebrity && slug) {
+    const key = slug.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    if (key) celebrity = await find({ nameKey: key });
+  }
+  const [totalCountries, flags] = await Promise.all([
     platformCountryTotal(),
     celebrityImageFlags(),
   ]);

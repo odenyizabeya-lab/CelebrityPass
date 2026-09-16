@@ -1,0 +1,44 @@
+# World leaders + business leaders batch — 40 unique names (Elon Musk deduped).
+# Imported with the same pipeline as the main catalog:
+#   npx tsx scripts/bulk-import-celebs/import-celebs.ts  (dry run)
+#   BULK_DRY=0 BULK_NAMES=scripts/bulk-import-celebs/world-leaders.txt npx tsx scripts/bulk-import-celebs/import-celebs.ts
+Donald Trump
+Elon Musk
+Emmanuel Macron
+Luiz Inácio Lula da Silva
+Javier Milei
+Claudia Sheinbaum
+Xi Jinping
+Vladimir Putin
+Lee Jae-myung
+Recep Tayyip Erdoğan
+Volodymyr Zelenskyy
+Jeff Bezos
+Bill Gates
+Mark Zuckerberg
+Larry Page
+Sergey Brin
+Larry Ellison
+Michael Dell
+Jensen Huang
+Warren Buffett
+Richard Branson
+Jack Ma
+Mukesh Ambani
+Gautam Adani
+Carlos Slim
+Bernard Arnault
+Amancio Ortega
+Masayoshi Son
+Michael Bloomberg
+George Soros
+Peter Thiel
+Reed Hastings
+Jack Dorsey
+Brian Chesky
+Phil Knight
+Steve Wozniak
+Michael Rubin
+Ray Dalio
+Richard Liu
+Tadashi Yanai

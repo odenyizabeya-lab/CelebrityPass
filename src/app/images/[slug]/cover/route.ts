@@ -42,8 +42,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     return NextResponse.redirect(image.url, {
       status: 307,
       headers: {
-        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
-        "CDN-Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+        "Cache-Control": "public, max-age=300, s-maxage=60, stale-while-revalidate=600",
+        "CDN-Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=600",
       },
     });
   }

@@ -23,7 +23,8 @@ import { upsertPremiumLevels } from "../../prisma/premium-levels.mjs";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, "..", "..");
-const NAMES_FILE = path.join(SCRIPT_DIR, "names.txt");
+// Optional per-run names file (e.g. BULK_NAMES=scripts/bulk-import-celebs/world-leaders.txt).
+const NAMES_FILE = process.env.BULK_NAMES ? path.resolve(ROOT, process.env.BULK_NAMES) : path.join(SCRIPT_DIR, "names.txt");
 const REPORT_FILE = path.join(SCRIPT_DIR, "run-report.json");
 
 // Load .env before anything touches @prisma/client (it reads DATABASE_URL at
