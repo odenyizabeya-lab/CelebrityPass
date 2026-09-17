@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminCelebrityRow from "@/components/admin/AdminCelebrityRow";
+import AdminCelebritySearch from "@/components/admin/AdminCelebritySearch";
 import { prisma } from "@/lib/db";
 import { celebrityImageFlags } from "@/lib/images";
 
@@ -52,10 +53,25 @@ export default async function AdminCelebritiesPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-3xl bg-gradient-to-b from-primary-500/10 to-transparent px-2 pb-8 pt-4 sm:px-4">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.25em] text-primary-400">
+          Celebrity profiles
+        </p>
+        <h1 className="mt-2 text-center text-3xl font-black tracking-tight text-white sm:text-4xl">
+          Find anyone to edit
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-center text-sm text-zinc-400">
+          Type a name and pick the profile you want — you’ll land right in its editor.
+        </p>
+        <div className="mt-6">
+          <AdminCelebritySearch />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">Celebrities</h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <h2 className="text-lg font-black tracking-tight text-zinc-200">All celebrities</h2>
+          <p className="mt-0.5 text-sm text-zinc-400">
             {totalCount} {totalCount === 1 ? "community" : "communities"} · showing {celebrities.length}
           </p>
         </div>
