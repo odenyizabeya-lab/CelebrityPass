@@ -19,6 +19,7 @@ import {
   decryptionKey,
   maskSecret,
 } from "@/lib/ai/settings";
+import { getAssistantUsage, type AssistantUsage } from "@/lib/ai/usage";
 
 export const ASSIST_SETTING_KEY = "assistant.gemini.key";
 export const ASSIST_SETTING_MODEL = "assistant.gemini.model";
@@ -128,11 +129,14 @@ export type AssistantStatus = {
   baseUrlSource: ConfigSource;
   encryptionEnabled: boolean;
   defaultModel: string;
+  /** Real Gemini usage of the fan-chat key (requests + tokens + quota hits). */
+  usage: AssistantUsage | null;
 };
 
 /** Masked, client-safe summary of the current assistant configuration. */
 export async function getAssistantStatus(): Promise<AssistantStatus> {
   const cfg = await getAssistantConfig();
+  const usage = await getAssistantUsage().catch(() => null);
   return {
     keyConfigured: Boolean(cfg.key),
     keyLast4: maskSecret(cfg.key),
@@ -143,5 +147,6 @@ export async function getAssistantStatus(): Promise<AssistantStatus> {
     baseUrlSource: cfg.baseUrlSource,
     encryptionEnabled: Boolean(decryptionKey()),
     defaultModel: ASSISTANT_DEFAULT_MODEL,
+    usage,
   };
 }

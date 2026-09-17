@@ -7,6 +7,15 @@ const inputCls =
 const errCls = "mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300";
 const okCls = "mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300";
 
+type Usage = {
+  keyLast4: string | null;
+  today: { day: string; requests: number; promptTokens: number; outputTokens: number; thoughtsTokens: number };
+  history: { day: string; requests: number; totalTokens: number }[];
+  quotaHits: number;
+  lastQuotaAt: string | null;
+  lastQuotaMessage: string | null;
+};
+
 type Status = {
   provider: string;
   model: string;
@@ -28,6 +37,7 @@ type Status = {
     baseUrlSource: "db" | "env" | "";
     encryptionEnabled: boolean;
     defaultModel: string;
+    usage?: Usage | null;
   };
 };
 
@@ -364,6 +374,80 @@ export default function AiSettingsPane() {
           </div>
         </div>
 
+        <div className="mt-6 rounded-2xl border border-white/10 bg-ink-900/50 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-black text-white">Fan-chat AI usage</h3>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                Real consumption of the key powering fan replies — requests and tokens today, and an instant warning the
+                moment the key hits Gemini&apos;s limit so you can swap it before fans notice.
+              </p>
+            </div>
+            <UsagePill usage={status?.assistant?.usage} />
+          </div>
+
+          {status?.assistant?.usage ? (
+            <>
+              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-3">
+                <Stat label="Requests today" value={status.assistant.usage.today.requests.toLocaleString()} />
+                <Stat label="Input tokens" value={status.assistant.usage.today.promptTokens.toLocaleString()} />
+                <Stat label="Output tokens" value={status.assistant.usage.today.outputTokens.toLocaleString()} />
+              </div>
+
+              {status.assistant.usage.today.requests > 0 && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  ≈ {Math.max(1, Math.round(status.assistant.usage.today.outputTokens / status.assistant.usage.today.requests)).toLocaleString()} output
+                  tokens per reply · key {status.assistant.usage.keyLast4 ?? "—"}
+                </p>
+              )}
+
+              {status.assistant.usage.quotaHits > 0 && (
+                <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3">
+                  <p className="text-sm font-bold text-rose-300">
+                    ⚠ This key already hit Gemini&apos;s limit {status.assistant.usage.quotaHits}× — paste a fresh key above and Save now.
+                  </p>
+                  {status.assistant.usage.lastQuotaAt && (
+                    <p className="mt-1 text-xs text-rose-300/70">
+                      Last hit: {new Date(status.assistant.usage.lastQuotaAt).toLocaleString()}
+                    </p>
+                  )}
+                  {status.assistant.usage.lastQuotaMessage && (
+                    <p className="mt-0.5 truncate text-xs text-rose-300/50" title={status.assistant.usage.lastQuotaMessage}>
+                      {status.assistant.usage.lastQuotaMessage}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {status.assistant.usage.history.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-1.5 text-xs font-semibold text-zinc-400">Last {status.assistant.usage.history.length} days</p>
+                  <div className="space-y-1">
+                    {status.assistant.usage.history.map((h) => (
+                      <div key={h.day} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400">
+                        <span className="font-mono">{h.day}</span>
+                        <span>
+                          {h.requests.toLocaleString()} req · {h.totalTokens.toLocaleString()} tokens
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">
+              No usage recorded yet. Usage starts counting on the next real AI reply when a key is working.
+            </p>
+          )}
+
+          <p className="mt-4 text-xs leading-5 text-zinc-500">
+            Counters reset every day (UTC), and start fresh automatically when you swap to a different key — so the meter
+            always shows the key that is actually chatting with fans. Google doesn&apos;t publish an exact “% remaining”, so
+            watch the daily burn here and swap the key the moment it looks heavy or the warning above turns red.
+          </p>
+        </div>
+
         {assistantTestResult && (
           <div className={assistantTestResult.ok ? okCls : errCls}>
             {assistantTestResult.ok ? "✓ " : ""}
@@ -405,4 +489,36 @@ function SourceChip({ source }: { source: "db" | "env" | "" | undefined }) {
     return <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">db</span>;
   }
   return null;
+}
+
+function UsagePill({ usage }: { usage: Usage | null | undefined }) {
+  const quotaHit = (usage?.quotaHits ?? 0) > 0;
+  if (quotaHit) {
+    return (
+      <span className="rounded-full bg-rose-500/15 px-4 py-1.5 text-sm font-bold text-rose-300 ring-1 ring-rose-500/40">
+        ● LIMIT HIT — swap key now
+      </span>
+    );
+  }
+  if (usage && usage.today.requests > 0) {
+    return (
+      <span className="rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-bold text-emerald-300 ring-1 ring-emerald-500/30">
+        ● key working · {usage.today.requests.toLocaleString()} req today
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-zinc-500/15 px-4 py-1.5 text-sm font-bold text-zinc-400 ring-1 ring-zinc-500/30">
+      ○ no usage yet
+    </span>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/10">
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="mt-0.5 font-mono text-lg font-black text-white">{value}</p>
+    </div>
+  );
 }
