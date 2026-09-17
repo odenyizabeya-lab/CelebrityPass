@@ -77,6 +77,8 @@ export default function ChatNowButton({
         chatAccountType: "",
         chatAccountLabel: null,
         online: false,
+        chatAccessEnabled: true,
+        chatAccessOffMessage: "",
       },
       readState: EMPTY_READ_STATE,
     });

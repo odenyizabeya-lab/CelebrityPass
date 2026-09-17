@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { getCurrentFanId } from "@/lib/auth";
-import { canFanSendMessage, isConversationAccessible } from "@/lib/chat/access";
+import { getCurrentFanId, getCurrentAdminEmail } from "@/lib/auth";
+import {
+  canFanSendMessage,
+  canTeamSendMessage,
+  isConversationAccessible,
+} from "@/lib/chat/access";
 import { uploadChatAttachment } from "@/lib/storage";
-import { touchFanPresence } from "@/lib/chat/presence";
+import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
 
 export const dynamic = "force-dynamic";
 
@@ -23,28 +27,50 @@ const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 
 type Ctx = { params: Promise<{ conversationId: string }> };
 
+type Actor =
+  | { type: "fan"; fanId: string; teamEmail: null }
+  | { type: "team"; fanId: null; teamEmail: string };
+
+async function resolveActor(): Promise<Actor | null> {
+  const fanId = await getCurrentFanId();
+  if (fanId) return { type: "fan", fanId, teamEmail: null };
+  const teamEmail = await getCurrentAdminEmail();
+  if (teamEmail) return { type: "team", fanId: null, teamEmail };
+  return null;
+}
+
 export async function POST(request: Request, { params }: Ctx) {
   const { conversationId } = await params;
-  const fanId = await getCurrentFanId();
-  if (!fanId) {
+  const actor = await resolveActor();
+  if (!actor) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { accessible, conversation } = await isConversationAccessible(
     conversationId,
-    "fan",
-    fanId,
+    actor.type,
+    actor.type === "fan" ? actor.fanId : actor.teamEmail,
   );
   if (!accessible || !conversation) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { allowed, reason } = await canFanSendMessage(fanId, conversation.celebrityId);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: reason ?? "Not allowed to send attachment" },
-      { status: 403 },
+  if (actor.type === "fan") {
+    const { allowed, reason } = await canFanSendMessage(
+      actor.fanId,
+      conversation.celebrityId,
     );
+    if (!allowed) {
+      return NextResponse.json(
+        { error: reason ?? "Not allowed to send attachment" },
+        { status: 403 },
+      );
+    }
+  } else {
+    const { allowed } = await canTeamSendMessage(actor.teamEmail);
+    if (!allowed) {
+      return NextResponse.json({ error: "Team messaging disabled" }, { status: 403 });
+    }
   }
 
   const form = await request.formData().catch(() => null);
@@ -67,7 +93,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const name = file.name || "attachment";
   const safeName = name.replace(/[^\w.\- ]+/g, "").slice(0, 120);
   const ext = safeName.split(".").pop() || "bin";
-  const key = `fan-${fanId}/conversation-${conversationId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const key = `${actor.type}-${actor.type === "fan" ? actor.fanId : "team"}/conversation-${conversationId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const uploaded = await uploadChatAttachment({
@@ -80,7 +106,8 @@ export async function POST(request: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 
-  touchFanPresence(fanId).catch(() => {});
+  if (actor.type === "fan") touchFanPresence(actor.fanId).catch(() => {});
+  else touchTeamPresence(conversation.celebrityId).catch(() => {});
   return NextResponse.json(
     {
       attachment: {

@@ -7,6 +7,7 @@ import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { isGlobalAutoReplyEnabled } from "@/lib/chat/autoReplySettings";
 import { fanHasActiveCard, lockConversationForPass, passGateReply, PASS_LOCKED_STATUS } from "@/lib/chat/passGate";
+import { AI_MODE_MANUAL } from "@/lib/chat/constants";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -148,13 +149,23 @@ async function runAutoReply(conversationId: string) {
   const conversation = await prisma.chatConversation.findUnique({
     where: { id: conversationId },
     include: {
-      celebrity: { select: { id: true, name: true, profession: true, country: true, bio: true, chatAiStyle: true, chatAutoReplyEnabled: true } },
+      celebrity: { select: { id: true, name: true, profession: true, country: true, bio: true, chatAiStyle: true, chatAutoReplyEnabled: true, chatAccessEnabled: true } },
       fan: { select: { id: true, name: true, email: true, lastSeenAt: true, isActive: true, unsubscribedAt: true } },
     },
   });
   if (!conversation || !conversation.celebrity?.name) return;
   const fan = conversation.fan;
   if (!fan || !fan.isActive || fan.unsubscribedAt) return;
+
+  // Per-celebrity Chat Access OFF: fans cannot message this celebrity at all,
+  // so the AI must never reply for them either (the pass-gate reply is part of
+  // normal chat and chat is closed here).
+  if (conversation.celebrity.chatAccessEnabled === false) return;
+
+  // Per-conversation manual mode (admin "Took over chat" / AI replies OFF): the
+  // AI stays silent for THIS conversation only — the fan's messages are answered
+  // exclusively by the admin team in the inbox.
+  if (conversation.aiMode === AI_MODE_MANUAL) return;
 
   // CelebrityPass gate: a fan without an ACTIVE card for this celebrity cannot
   // chat here — their first message earns one sweet canned reply telling them to

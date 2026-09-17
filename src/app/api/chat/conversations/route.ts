@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentFanId } from "@/lib/auth";
-import { canFanSendMessage, getOrCreateConversation } from "@/lib/chat/access";
+import { getOrCreateConversation, getFanChatGate } from "@/lib/chat/access";
 import { touchFanPresence } from "@/lib/chat/presence";
 import { listFanConversations } from "@/lib/chat/list";
 
@@ -37,15 +37,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Celebrity not found" }, { status: 404 });
   }
 
-  const { allowed, reason } = await canFanSendMessage(fanId, celebrityId);
-  if (!allowed) {
+  // A fan may still open the room even while Chat Access is OFF — the chat UI
+  // then shows the locked message instead of the composer. Only real blocks
+  // (and an inactive celebrity) prevent a conversation from existing at all.
+  const gate = await getFanChatGate(fanId, celebrityId);
+  if (gate.blocked) {
     return NextResponse.json(
-      { error: reason ?? "Not allowed to chat with this celebrity" },
+      { error: gate.reason ?? "Not allowed to chat with this celebrity" },
       { status: 403 },
     );
   }
 
   const conversation = await getOrCreateConversation(fanId, celebrityId);
   touchFanPresence(fanId).catch(() => {});
-  return NextResponse.json({ conversation });
+  return NextResponse.json({
+    conversation: {
+      ...conversation,
+      // Surface the Chat Access state so the fan UI can open the room straight
+      // into the locked screen instead of first waiting on /api/chat/:id.
+      chatAccessEnabled: gate.chatAccessEnabled,
+      chatAccessOffMessage: gate.chatAccessOffMessage,
+    },
+  });
 }

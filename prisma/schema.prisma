@@ -73,6 +73,14 @@ model Celebrity {
   // Whether the always-on AI chat can reply for this celebrity. Off = manual
   // mode: the only replies come from the admin/team in the admin inbox.
   chatAutoReplyEnabled Boolean                 @default(true)
+  // Whether fans can chat with this celebrity AT ALL. Off = fans see the
+  // locked message below instead of the composer, and sending is blocked
+  // server-side. Existing conversation history is always preserved across
+  // toggles (never deleted/reset).
+  chatAccessEnabled    Boolean                 @default(true)
+  // Message fans see while chat access is OFF (default: "Please get your
+  // CelebrityPass before chatting here."). Admin-editable per celebrity.
+  chatAccessOffMessage String?
   fans                 FanCard[]
   memberships          MembershipLevel[]
   payments             Payment[]
@@ -307,6 +315,10 @@ model ChatConversation {
   // plans). Never fan emails/phones/payment — only what is talked about in the
   // chat, so replies can remember and naturally build on past conversations.
   aiMemory           String          @default("")
+  // AI reply mode for THIS conversation only: "auto" (AI may reply) | "manual"
+  // (team-only). Independent of the global + per-celebrity AI toggles, so
+  // taking over one chat never affects any other.
+  aiMode             String          @default("auto")
   fan                Fan             @relation(fields: [fanId], references: [id], onDelete: Cascade)
   celebrity          Celebrity       @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
   messages           ChatMessage[]

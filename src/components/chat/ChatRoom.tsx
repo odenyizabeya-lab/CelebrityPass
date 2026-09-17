@@ -17,6 +17,7 @@ import {
   writeMessagesCache,
   type CachedMeta,
 } from "@/lib/chat/local-cache";
+import { CHAT_ACCESS_OFF_DEFAULT_MESSAGE } from "@/lib/chat/constants";
 import MessageBubble from "./MessageBubble";
 import AttachmentLightbox, { type LightboxAttachment } from "./AttachmentLightbox";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -30,6 +31,7 @@ interface ReplyTo {
 }
 
 const passLockedText = "Chat locked — get your CelebrityPass";
+const chatAccessOffText = "Chat is currently closed";
 
 interface Msg {
   id: string;
@@ -551,6 +553,46 @@ function DayDivider({ iso }: { iso: string }) {
   );
 }
 
+// Full replacement for the composer while a celebrity's Chat Access is OFF.
+// History stays visible above; only input is disabled, matching WhatsApp's
+// locked-chat treatment.
+function ChatAccessLockedBar({
+  message,
+  celebrityName,
+}: {
+  message: string;
+  celebrityName?: string;
+}) {
+  return (
+    <div className="border-t border-[#202c33] bg-[#111b21] px-4 py-3 sm:px-5">
+      <div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-400">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white">
+            {celebrityName ? `${celebrityName}'s` : "This"} chat is currently closed
+          </p>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TypingIndicator() {
   return (
     <div className="mt-[2px] flex justify-start px-3 sm:px-5">
@@ -604,8 +646,14 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   // chat never lets text/images/voice through.
   const conversation = meta?.conversation;
   const passLocked = conversation?.status === "LOCKED_NEEDS_PASS";
+  // Per-celebrity Chat Access OFF state — the fan may read history but the
+  // composer is replaced by the locked panel and sending is blocked server-side.
+  const chatAccessCelebrity = meta?.celebrity;
+  const chatAccessOff = chatAccessCelebrity?.chatAccessEnabled === false;
+  const chatAccessOffMessage =
+    chatAccessCelebrity?.chatAccessOffMessage || CHAT_ACCESS_OFF_DEFAULT_MESSAGE;
   const isDisabled =
-    !conversation || conversation.status !== "ACTIVE" || blocked;
+    !conversation || conversation.status !== "ACTIVE" || blocked || chatAccessOff;
 
   // INSTANT OPEN — hydrate conversation + messages from local cache BEFORE the
   // first paint. The full chat UI (header, composer, cached messages) shows
@@ -1161,7 +1209,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendText = async (body: string) => {
-    if (blocked || metaStatus === "unavailable" || passLocked) return;
+    if (blocked || metaStatus === "unavailable" || passLocked || chatAccessOff) return;
     const clientId = crypto.randomUUID();
     const optimistic: Msg = {
       id: `temp-${clientId}`,
@@ -1302,12 +1350,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendImage = (file: File, caption: string) => {
-    if (blocked || metaStatus === "unavailable" || passLocked) return;
+    if (blocked || metaStatus === "unavailable" || passLocked || chatAccessOff) return;
     void sendAttachmentMessage(crypto.randomUUID(), "image", caption, file);
   };
 
   const sendVoice = (blob: Blob) => {
-    if (blocked || metaStatus === "unavailable" || passLocked) return;
+    if (blocked || metaStatus === "unavailable" || passLocked || chatAccessOff) return;
     let mime = blob.type || "audio/webm";
     if (mime.includes("webm")) {
       mime = "audio/webm";
@@ -1697,6 +1745,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                     <PassCta celebrity={celebrity} />
                   </div>
                 )}
+                {chatAccessOff && (
+                  <div className="mx-auto w-full max-w-sm rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-center">
+                    <p className="text-sm font-semibold text-white">
+                      {chatAccessOffText}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                      {chatAccessOffMessage}
+                    </p>
+                  </div>
+                )}
                 {conversation && conversation.status !== "ACTIVE" && conversation.status !== "LOCKED_NEEDS_PASS" && (
                   <div className="mx-auto w-fit rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#8696a0]">
                     This conversation is not active.
@@ -1726,7 +1784,16 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                       <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
                     </svg>
                   </div>
-                  {passLocked ? (
+                  {chatAccessOff ? (
+                    <div className="max-w-xs">
+                      <p className="text-sm font-semibold text-zinc-200">
+                        {chatAccessOffText}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                        {chatAccessOffMessage}
+                      </p>
+                    </div>
+                  ) : passLocked ? (
                     <div className="max-w-xs">
                       <p className="text-sm font-semibold text-zinc-200">
                         {celebrity ? `${celebrity.name} is waiting for you` : "Chat locked"}
@@ -1761,18 +1828,22 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       </div>
 
       <div className="shrink-0">
-        <Composer
-          conversationId={conversationId}
-          celebrityName={celebrity?.name}
-          onSendText={sendText}
-          onSendImage={sendImage}
-          onSendVoice={sendVoice}
-          onTyping={sendTyping}
-          disabled={isDisabled || metaStatus === "unavailable"}
-          unavailable={metaStatus === "unavailable"}
-          lockedPass={passLocked}
-          inputRef={composerInputRef}
-        />
+        {chatAccessOff && metaStatus !== "unavailable" ? (
+          <ChatAccessLockedBar message={chatAccessOffMessage} celebrityName={celebrity?.name} />
+        ) : (
+          <Composer
+            conversationId={conversationId}
+            celebrityName={celebrity?.name}
+            onSendText={sendText}
+            onSendImage={sendImage}
+            onSendVoice={sendVoice}
+            onTyping={sendTyping}
+            disabled={isDisabled || metaStatus === "unavailable"}
+            unavailable={metaStatus === "unavailable"}
+            lockedPass={passLocked}
+            inputRef={composerInputRef}
+          />
+        )}
       </div>
 
       {lightboxAttachment && (

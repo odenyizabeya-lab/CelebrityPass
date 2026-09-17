@@ -12,6 +12,7 @@
  * Every read is defensively sanitized so corrupt/old/invalid data can never
  * crash the chat — bad entries are simply dropped and the server fills in.
  */
+import { CHAT_ACCESS_OFF_DEFAULT_MESSAGE } from "@/lib/chat/constants";
 
 export interface CachedConversation {
   id: string;
@@ -31,6 +32,8 @@ export interface CachedCelebrity {
   isVerified: boolean;
   chatAccountType: string;
   chatAccountLabel: string | null;
+  chatAccessEnabled: boolean;
+  chatAccessOffMessage: string;
   online: boolean;
 }
 
@@ -108,6 +111,15 @@ export function sanitizeMeta(value: unknown): CachedMeta | null {
       cel && typeof cel.chatAccountLabel === "string" && cel.chatAccountLabel !== ""
         ? cel.chatAccountLabel
         : null,
+    // Backward compatible with old caches: absent = chat access ENABLED.
+    chatAccessEnabled:
+      cel && typeof cel.chatAccessEnabled === "boolean"
+        ? cel.chatAccessEnabled
+        : true,
+    chatAccessOffMessage:
+      cel && typeof cel.chatAccessOffMessage === "string" && cel.chatAccessOffMessage
+        ? cel.chatAccessOffMessage
+        : CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
     online: Boolean(cel?.online),
   };
 
@@ -235,6 +247,8 @@ export interface CachedConversationCelebrity {
   profileImage: string | null;
   chatAccountType: string;
   chatAccountLabel: string | null;
+  chatAccessEnabled: boolean;
+  chatAccessOffMessage: string;
   online: boolean;
   isVerified: boolean;
 }
@@ -310,6 +324,15 @@ function sanitizeConversationView(raw: unknown): CachedConversationView | null {
       chatAccountType: asText(celRaw.chatAccountType),
       chatAccountLabel:
         typeof celRaw.chatAccountLabel === "string" ? celRaw.chatAccountLabel : null,
+      chatAccessEnabled:
+        typeof celRaw.chatAccessEnabled === "boolean"
+          ? celRaw.chatAccessEnabled
+          : true,
+      chatAccessOffMessage:
+        typeof celRaw.chatAccessOffMessage === "string" &&
+        celRaw.chatAccessOffMessage
+          ? celRaw.chatAccessOffMessage
+          : CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
       online: Boolean(celRaw.online),
       isVerified: Boolean(celRaw.isVerified),
     },

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { celebrityImageFlags } from "@/lib/images";
+import { CHAT_ACCESS_OFF_DEFAULT_MESSAGE } from "@/lib/chat/constants";
 
 /** Total unread message count across all of a fan's conversations. */
 export async function getFanUnreadTotal(fanId: string): Promise<number> {
@@ -33,6 +34,8 @@ export interface FanConversationView {
     profileImage: string | null;
     chatAccountType: string;
     chatAccountLabel: string | null;
+    chatAccessEnabled: boolean;
+    chatAccessOffMessage: string;
     online: boolean;
     isVerified: boolean;
   };
@@ -61,6 +64,8 @@ interface ConversationRow {
   chatAccountType: string;
   chatAccountLabel: string | null;
   chatLastSeenAt: Date | null;
+  chatAccessEnabled: boolean;
+  chatAccessOffMessage: string | null;
   isVerified: boolean;
   lastMessageId: string | null;
   lastMessageType: string | null;
@@ -99,6 +104,8 @@ export async function listFanConversations(
       cel."chatAccountType",
       cel."chatAccountLabel",
       cel."chatLastSeenAt",
+      cel."chatAccessEnabled",
+      cel."chatAccessOffMessage",
       cel."isVerified",
       lm.id            AS "lastMessageId",
       lm.type          AS "lastMessageType",
@@ -151,6 +158,9 @@ export async function listFanConversations(
         : null,
       chatAccountType: r.chatAccountType,
       chatAccountLabel: r.chatAccountLabel,
+      chatAccessEnabled: r.chatAccessEnabled,
+      chatAccessOffMessage:
+        r.chatAccessOffMessage ?? CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
       online: !!(r.chatLastSeenAt && r.chatLastSeenAt > fiveMinAgo),
       isVerified: r.isVerified,
     },

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import AdminChatRoom from "@/components/chat/admin/AdminChatRoom";
 
@@ -34,24 +33,14 @@ export default async function AdminMessagePage({
   if (!conversation) notFound();
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link
-          href="/admin/messages"
-          className="text-sm font-semibold text-primary-300 hover:text-primary-200"
-        >
-          ← Back to all messages
-        </Link>
-      </div>
-      <AdminChatRoom
-        conversationId={conversation.id}
-        celebrity={conversation.celebrity}
-        fan={{
-          name: conversation.fan.name,
-          email: conversation.fan.email,
-          country: conversation.fan.country,
-        }}
-      />
-    </div>
+    <AdminChatRoom
+      conversationId={conversation.id}
+      celebrity={conversation.celebrity}
+      fan={{
+        name: conversation.fan.name,
+        email: conversation.fan.email,
+        country: conversation.fan.country,
+      }}
+    />
   );
 }

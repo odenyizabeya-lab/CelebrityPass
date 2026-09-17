@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AdminMessagesBadge from "@/components/admin/AdminMessagesBadge";
+import { isAdminChatRoomPath } from "@/lib/chat/admin-routes";
 
 const TABS = [
   { href: "/admin/overview", label: "Home", icon: <HomeIcon /> },
@@ -18,6 +20,9 @@ const TABS = [
  */
 export default function AdminBottomNav() {
   const pathname = usePathname();
+  // Inside an open chat room the bottom tab bar would crowd the composer —
+  // rooms are full-screen with their own back button (native-app behavior).
+  if (isAdminChatRoomPath(pathname)) return null;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       <div className="grid grid-cols-6">
@@ -31,11 +36,18 @@ export default function AdminBottomNav() {
               key={tab.href}
               href={tab.href}
               prefetch
-              className={`flex flex-col items-center gap-1 py-3 text-[11px] font-semibold transition active:scale-95 ${
+              className={`relative flex flex-col items-center gap-1 py-3 text-[11px] font-semibold transition active:scale-95 ${
                 active ? "text-primary-300" : "text-zinc-500"
               }`}
             >
-              <span className="pointer-events-none">{tab.icon}</span>
+              <span className="pointer-events-none relative">
+                {tab.icon}
+                {tab.href === "/admin/messages" && (
+                  <span className="absolute -right-2 -top-1.5">
+                    <AdminMessagesBadge />
+                  </span>
+                )}
+              </span>
               <span className="pointer-events-none leading-none">{tab.label}</span>
             </Link>
           );

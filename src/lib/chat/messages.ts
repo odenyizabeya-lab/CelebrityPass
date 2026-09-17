@@ -104,7 +104,9 @@ export async function getMessages(
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100);
   const rows = await prisma.chatMessage.findMany({
     where: { conversationId, deletedAt: null },
-    orderBy: { createdAt: "desc" },
+    // id is the unique tie-breaker so cursor pagination by id stays stable
+    // even when two messages share the exact same createdAt timestamp.
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
     ...(opts?.cursor
       ? { cursor: { id: opts.cursor }, skip: 1 }

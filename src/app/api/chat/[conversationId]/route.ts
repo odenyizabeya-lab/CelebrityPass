@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
 import { resolveFanConversationStatus } from "@/lib/chat/passGate";
+import { CHAT_ACCESS_OFF_DEFAULT_MESSAGE } from "@/lib/chat/constants";
 import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
 import { celebrityImageFlags } from "@/lib/images";
 
@@ -42,6 +43,8 @@ export async function GET(_request: Request, { params }: Ctx) {
       chatAccountType: true,
       chatAccountLabel: true,
       chatLastSeenAt: true,
+      chatAccessEnabled: true,
+      chatAccessOffMessage: true,
     },
   });
   if (!celebrity) {
@@ -116,6 +119,9 @@ export async function GET(_request: Request, { params }: Ctx) {
       isVerified: celebrity.isVerified,
       chatAccountType: celebrity.chatAccountType,
       chatAccountLabel: celebrity.chatAccountLabel,
+      chatAccessEnabled: celebrity.chatAccessEnabled,
+      chatAccessOffMessage:
+        celebrity.chatAccessOffMessage ?? CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
       online,
     },
     premium: { unlocked: premiumUnlocked },

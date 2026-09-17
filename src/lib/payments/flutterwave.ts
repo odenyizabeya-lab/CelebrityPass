@@ -383,10 +383,12 @@ export async function createFlutterwaveHostedCheckout(input: FwHostedCheckoutInp
   });
   if (!res.ok) return res;
 
-  const link = String(res.data?.link ?? "");
+  // The V3 hosted-checkout response nests the payload: body.data.link.
+  const nested = (res.data?.data ?? {}) as Record<string, unknown>;
+  const link = String(nested.link ?? "");
   if (!link) return { ok: false, error: "The payment provider returned no payment link." };
 
-  return { ok: true, link, txRef: input.txRef, status: String(res.data?.status ?? "pending") };
+  return { ok: true, link, txRef: input.txRef, status: String(nested.status ?? "pending") };
 }
 
 // ---------------------------------------------------------------------------
@@ -524,7 +526,9 @@ export async function testFlutterwaveConnection(opts: {
 
   let res: Response | null = null;
   try {
-    res = await fetch(`${flutterwaveApiBaseUrl(mode)}/payments`, {
+    // GET /v3/payments does not exist (V3 only exposes payment-link creation and
+    // single payment lookup). Reading balances proves the Secret Key is authorized.
+    res = await fetch(`${flutterwaveApiBaseUrl(mode)}/balances`, {
       headers: v3Headers(secret),
       signal: controller.signal,
       cache: "no-store",

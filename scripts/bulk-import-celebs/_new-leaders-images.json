@@ -1,0 +1,212 @@
+{
+  "run": "apply",
+  "results": [
+    {
+      "slug": "aleksandar-vui",
+      "name": "Aleksandar Vučić",
+      "file": "Aleksandar_Vučić_2025_(cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "alexander-stubb",
+      "name": "Alexander Stubb",
+      "status": "reject",
+      "reason": "decode/process failed",
+      "detail": "Finnish_President_Alexander_Stubb_arrives_to_the_South_Portico_of_the_White_House_for_a_meeting_with_President_Donald_Trump_(54732037329)_(cropped_2).jpg"
+    },
+    {
+      "slug": "alexander-van-der-bellen",
+      "name": "Alexander Van der Bellen",
+      "file": "Am_23._September_2025_nahm_Außenministerin_Beate_Meinl-Reisinger_gemeinsam_mit_Bundespräsident_Alexander_Van_der_Bellen_(M)_und_Bundeskanzler_Christian_Stocker_(L)_(54813003241)_(cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "asif-ali-zardari",
+      "name": "Asif Ali Zardari",
+      "file": "Asif_Ali_Zardari_-_2024_(3x4_cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "bongbong-marcos",
+      "name": "Bongbong Marcos",
+      "file": "Portrait_of_President_Ferdinand_R._Marcos,_Jr_(cropped2).jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "catherine-connolly",
+      "name": "Catherine Connolly",
+      "file": "President_Connolly_hosts_a_Reception_celebrating_Seachtain_na_Gaeilge_“Ciorcal_Comhrá_an_Árais”_2_(cropped).jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "cyril-ramaphosa",
+      "name": "Cyril Ramaphosa",
+      "file": "Cyril_Ramaphosa_in_2026.jpg",
+      "license": "CC BY-SA 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "droupadi-murmu",
+      "name": "Droupadi Murmu",
+      "file": "President_of_India_Droupadi_Murmu_official_portrait_(cropped).jpg",
+      "license": "GODL-India",
+      "verified": false,
+      "status": "applied"
+    },
+    {
+      "slug": "frank-walter-steinmeier",
+      "name": "Frank-Walter Steinmeier",
+      "file": "Frank-Walter_Steinmeier_2026.jpeg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "gitanas-nausda",
+      "name": "Gitanas Nausėda",
+      "file": "Prime_Minister_Petteri_Orpo_and_President_of_Lithuania_Gitanas_Nausėda_met_in_Helsinki_2_September.jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "gordana-siljanovska-davkova",
+      "name": "Gordana Siljanovska-Davkova",
+      "file": "Gordana_Siljanovska-Davkova_(2025-05-15).jpg",
+      "license": "Attribution",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "guy-parmelin",
+      "name": "Guy Parmelin",
+      "file": "Guy_Parmelin_(2026)_(cropped).jpg",
+      "license": "Attribution",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "ilham-aliyev",
+      "name": "Ilham Aliyev",
+      "file": "Ilham_Aliyev,_December_2025_(cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "isaac-herzog",
+      "name": "Isaac Herzog",
+      "file": "Isaac_Herzog,_July_2021_(D1233-049).JPG",
+      "license": "CC BY-SA 3.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "jakov-milatovi",
+      "name": "Jakov Milatović",
+      "file": "Jakov_Milatović_(2024-12-18)_(cropped).jpg",
+      "license": "Attribution",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "karol-nawrocki",
+      "name": "Karol Nawrocki",
+      "file": "Karol_Nawrocki_(2025)_(cropped).jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "maia-sandu",
+      "name": "Maia Sandu",
+      "file": "Maia_Sandu,_September_2025_(cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "marcelo-rebelo-de-sousa",
+      "name": "Marcelo Rebelo de Sousa",
+      "file": "Marcelo_Rebelo_de_Sousa_(Web_Summit).jpg",
+      "license": "CC BY 2.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "mohamed-bin-zayed-al-nahyan",
+      "name": "Mohamed bin Zayed Al Nahyan",
+      "file": "Mohamed_bin_Zayed_Al_Nahyan_-_2024_(cropped).jpg",
+      "license": "CC BY 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "nataa-pirc-musar",
+      "name": "Nataša Pirc Musar",
+      "file": "Nataša_Pirc_Musar_2026.jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "nicuor-dan",
+      "name": "Nicușor Dan",
+      "file": "Nicusor_Dan_in_2026.jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "petr-pavel",
+      "name": "Petr Pavel",
+      "file": "Petr_Pavel.jpg",
+      "license": "CC BY-SA 4.0",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "prabowo-subianto",
+      "name": "Prabowo Subianto",
+      "file": "Prabowo_Subianto_2024_official_portrait.jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "santiago-pea",
+      "name": "Santiago Peña",
+      "file": "Santiago_Peña_junio_2026.jpg",
+      "license": "Public domain",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "sergio-mattarella",
+      "name": "Sergio Mattarella",
+      "file": "Sergio_Mattarella_Presidente_della_Repubblica_Italiana.jpg",
+      "license": "Attribution",
+      "verified": true,
+      "status": "applied"
+    },
+    {
+      "slug": "tharman-shanmugaratnam",
+      "name": "Tharman Shanmugaratnam",
+      "file": "Tharman_Shanmugaratnam_Official_photo_2023.tif",
+      "license": "CC BY-SA 4.0",
+      "verified": true,
+      "status": "applied"
+    }
+  ]
+}
