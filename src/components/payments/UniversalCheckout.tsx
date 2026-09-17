@@ -73,18 +73,6 @@ type Props = {
 const inputCls =
   "w-full rounded-2xl border border-white/10 bg-ink-800 px-5 py-4 text-base text-white placeholder-zinc-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
 
-function formatCardNumber(v: string) {
-  return v
-    .replace(/\D/g, "")
-    .slice(0, 19)
-    .replace(/(\d{4})(?=\d)/g, "$1 ");
-}
-
-function formatExpiry(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 4);
-  return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
-}
-
 function StepHeader({ n, title, subtitle }: { n: number; title: string; subtitle?: ReactNode }) {
   return (
     <div className="flex items-start gap-3.5">
@@ -132,14 +120,9 @@ export default function UniversalCheckout(props: Props) {
   const [proofName, setProofName] = useState<string | null>(null);
   const [proofData, setProofData] = useState<string | null>(null);
 
-  // Card fields (ticket legacy gateway path only)
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-
-  // Fan cards (FAN_CARD) pay through the Flutterwave V3 hosted page: the fan is
-  // redirected to Flutterwave's own checkout, so no card fields are collected here.
+  // Card payments (FAN_CARD and TICKET) pay through the Flutterwave V3 hosted
+  // page: the customer is redirected to Flutterwave's secure checkout, so no
+  // card fields are ever collected on this site.
   const [hostedBusy, setHostedBusy] = useState(false);
 
   const [refCopied, setRefCopied] = useState(false);
@@ -258,65 +241,34 @@ export default function UniversalCheckout(props: Props) {
     }
   };
 
-  const payByCard = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setInfo(null);
-
-    if (!cardName.trim()) { setError("Enter the cardholder name."); return; }
-    const num = cardNumber.replace(/\s+/g, "");
-    if (num.length < 13 || num.length > 19 || !/^\d+$/.test(num)) { setError("Enter a valid card number."); return; }
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) { setError("Enter expiry as MM/YY."); return; }
-    if (!/^\d{3,4}$/.test(cardCvc)) { setError("Enter a valid security code."); return; }
-
-    setProcessing(true);
-    try {
-      const res = await fetch("/api/universal/atm-card", {
-        method: "POST",
-        signal: AbortSignal.timeout(45_000),
-        headers: {
-          "Content-Type": "application/json",
-          ...(props.kind === "TICKET" && props.orderAccessToken
-            ? { "x-order-token": props.orderAccessToken }
-            : {}),
-        },
-        body: JSON.stringify({
-          kind: "TICKET",
-          orderRef: props.orderRef,
-          card: { name: cardName, number: num, expiry: cardExpiry, cvc: cardCvc },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Card payment could not be completed.");
-        setProcessing(false);
-        return;
-      }
-      window.location.href = props.redirectUrl;
-    } catch {
-      setError("Network error. Please try again.");
-      setProcessing(false);
-    }
-  };
-
-  // ---- Fan-card Flutterwave V3 hosted checkout ----------------------------
-  // The payment happens on Flutterwave's own secure page. We only POST to
-  // create the checkout and then redirect the fan there — no card data is ever
-  // collected on this site, nothing is encrypted or stored client-side.
+  // ---- Flutterwave V3 hosted checkout (fan cards AND tickets) -------------
+  // The payment happens on Flutterwave's own secure page. We only create the
+  // checkout and redirect — no card data is ever collected on this site,
+  // nothing is encrypted or stored client-side.
   const startHostedCardPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
-    if (!props.purchaseId) {
+    if (props.kind === "FAN_CARD" && !props.purchaseId) {
       setError("This purchase is missing its payment reference.");
+      return;
+    }
+    if (props.kind === "TICKET" && !props.orderRef) {
+      setError("This order is missing its reference.");
       return;
     }
     setHostedBusy(true);
     try {
-      const res = await fetch(`/api/payments/${props.purchaseId}/flutterwave`, {
+      const endpoint =
+        props.kind === "TICKET"
+          ? `/api/tickets/orders/${props.orderRef}/flutterwave`
+          : `/api/payments/${props.purchaseId}/flutterwave`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (props.kind === "TICKET" && props.orderAccessToken) headers["x-order-token"] = props.orderAccessToken;
+      const res = await fetch(endpoint, {
         method: "POST",
         signal: AbortSignal.timeout(45_000),
-        headers: { "Content-Type": "application/json" },
+        headers,
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -608,66 +560,19 @@ export default function UniversalCheckout(props: Props) {
       )}
 
       {method === "atm-card" && cardAvailable && (
-        props.kind === "FAN_CARD" ? (
-          <form onSubmit={startHostedCardPayment} className="space-y-6">
-            <div>
-              <StepHeader
-                n={2}
-                title="Card payment"
-                subtitle={`Pay ${total} securely with your ATM, debit or credit card.`}
-              />
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-zinc-400">
-              You&apos;ll finish paying on our secure payment partner&apos;s page — your card details never touch this
-              site. Your fan card is issued automatically once the payment is confirmed.
-            </div>
-
-            {error && (
-              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm font-semibold leading-relaxed text-rose-300">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <p className="text-sm text-zinc-500">{t("checkout.secureNote")}</p>
-              <button
-                type="submit"
-                disabled={hostedBusy}
-                className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
-              >
-                {hostedBusy ? "Preparing secure payment…" : `Continue to secure payment · ${total}`}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={payByCard} className="space-y-6">
+        <form onSubmit={startHostedCardPayment} className="space-y-6">
           <div>
-            <StepHeader n={2} title="Card payment" subtitle={`Enter your card details to pay ${total} securely.`} />
+            <StepHeader
+              n={2}
+              title="Card payment"
+              subtitle={`Pay ${total} securely with your ATM, debit or credit card.`}
+            />
           </div>
 
-          <div className="space-y-5">
-            <Field label={t("checkout.nameOnCard")}>
-              <input required value={cardName} onChange={(e) => setCardName(e.target.value)} className={inputCls} placeholder={t("checkout.nameOnCard")} />
-            </Field>
-            <Field label={t("checkout.cardNumber")}>
-              <input
-                required
-                inputMode="numeric"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                className={`${inputCls} font-mono tracking-wider`}
-                placeholder="4242 4242 4242 4242"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-5">
-              <Field label={t("checkout.expiry")}>
-                <input required inputMode="numeric" value={cardExpiry} onChange={(e) => setCardExpiry(formatExpiry(e.target.value))} className={`${inputCls} font-mono`} placeholder="MM/YY" />
-              </Field>
-              <Field label={t("checkout.cvc")}>
-                <input required inputMode="numeric" value={cardCvc} onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))} className={`${inputCls} font-mono`} placeholder="123" />
-              </Field>
-            </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-zinc-400">
+            You&apos;ll finish paying on our secure payment partner&apos;s page — your card details never touch this
+            site. Your {props.kind === "TICKET" ? "order is confirmed" : "fan card is issued"} automatically once the
+            payment is confirmed.
           </div>
 
           {error && (
@@ -680,14 +585,13 @@ export default function UniversalCheckout(props: Props) {
             <p className="text-sm text-zinc-500">{t("checkout.secureNote")}</p>
             <button
               type="submit"
-              disabled={processing}
+              disabled={hostedBusy}
               className="btn-grad w-full rounded-2xl py-4.5 text-lg font-black tracking-tight text-white transition disabled:opacity-60"
             >
-              {processing ? t("checkout.processing") : `${t("checkout.payNow")} · ${total}`}
+              {hostedBusy ? "Preparing secure payment…" : `Continue to secure payment · ${total}`}
             </button>
           </div>
-          </form>
-        )
+        </form>
       )}
 
       {method === "atm-card" && !cardAvailable && (

@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         amount,
         currency: level!.currency || "USD",
         status: "PENDING",
-        provider: "mock",
+        provider: "flutterwave",
         description: `${celebrity.name} — ${level!.name}`,
       },
     });

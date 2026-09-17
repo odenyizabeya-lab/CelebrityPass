@@ -1,35 +1,12 @@
 /**
- * Payment gateway layer.
+ * Payment helpers.
  *
- * Fan-card "ATM Card" purchases flow through Flutterwave (see
- * `./payments/flutterwave.ts`); this module keeps the legacy provider layer
- * used by older/direct card-charge paths. Set PAYMENT_PROVIDER in `.env` to
- * "mock" (dev-only) or "stripe" (production legacy). When "stripe" is set,
- * STRIPE_SECRET_KEY must also be present.
+ * ALL card payments — fan cards AND event tickets — go through Flutterwave V3
+ * (hosted checkout; see `./payments/flutterwave.ts`). Bank Transfer is the
+ * other method. There is no direct card-charging provider any more: card data
+ * is collected only on Flutterwave's own page, never on this server.
  */
 import { appUrl, cardUrlFor } from "./utils";
-
-export type CardDetails = {
-  name: string;
-  number: string;
-  expiry: string; // MM/YY
-  cvc: string;
-};
-
-export type ChargeInput = {
-  amount: number;
-  currency: string;
-  description: string;
-  card: CardDetails;
-};
-
-export type ChargeResult = { ok: true; ref: string } | { ok: false; error: string };
-
-export interface PaymentProvider {
-  readonly id: string;
-  readonly label: string;
-  charge(input: ChargeInput): Promise<ChargeResult>;
-}
 
 /** Currency formatting shared by the whole app, e.g. USD -> "$49.99". */
 export function formatMoney(amount: number | null | undefined, currency = "USD"): string {
@@ -44,126 +21,6 @@ export function formatMoney(amount: number | null | undefined, currency = "USD")
   } catch {
     return `${currency} ${safeAmount.toFixed(2)}`;
   }
-}
-
-/** Luhn checksum — a quick sanity check before sending card data anywhere. */
-export function luhnCheck(digits: string): boolean {
-  let sum = 0;
-  let double = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = digits.charCodeAt(i) - 48;
-    if (double) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-    double = !double;
-  }
-  return sum % 10 === 0;
-}
-
-/** Validate basic card fields. Returns an error message or null when valid. */
-export function validateCardDetails(card: CardDetails): string | null {
-  const number = (card.number ?? "").replace(/\s+/g, "");
-  if (number.length < 13 || number.length > 19 || !/^\d+$/.test(number)) {
-    return "Enter a valid card number.";
-  }
-  if (!luhnCheck(number)) {
-    return "This card number looks invalid.";
-  }
-  const m = (card.expiry ?? "").trim().match(/^(\d{2})\s*\/\s*(\d{2})$/);
-  if (!m) return "Enter expiry as MM/YY.";
-  const month = Number(m[1]);
-  const year = 2000 + Number(m[2]);
-  if (month < 1 || month > 12) return "Enter a valid expiry month.";
-  const now = new Date();
-  const exp = new Date(year, month, 1); // first day after the expiry month
-  if (exp <= now) return "This card has expired.";
-  if (!/^\d{3,4}$/.test(card.cvc ?? "")) return "Enter a valid security code.";
-  if (!(card.name ?? "").trim()) return "Enter the cardholder name.";
-  return null;
-}
-
-/** Simulated gateway — authorizes instantly, declines test cards ending 0002. */
-const mockProvider: PaymentProvider = {
-  id: "mock",
-  label: "Mock Payment Gateway",
-  async charge(input: ChargeInput) {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    const { card } = input;
-    const number = (card.number ?? "").replace(/\s+/g, "");
-    if (number.endsWith("0002")) {
-      return { ok: false, error: "Your bank declined this transaction. Try another card." };
-    }
-    const ref = `mock_ch_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    return { ok: true, ref };
-  },
-};
-
-/**
- * Real Stripe payment provider. Uses the Stripe REST API directly (no SDK
- * dependency). Requires STRIPE_SECRET_KEY in the environment.
- */
-const stripeProvider: PaymentProvider = {
-  id: "stripe",
-  label: "Stripe",
-  async charge(input: ChargeInput) {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    if (!secretKey) {
-      return { ok: false, error: "Stripe is not configured on this site." };
-    }
-
-    const [expMonth, expYear] = input.card.expiry.split("/").map((s) => s.trim());
-    const amountInCents = Math.round(input.amount * 100);
-
-    const params = new URLSearchParams();
-    params.append("amount", String(amountInCents));
-    params.append("currency", input.currency.toLowerCase());
-    params.append("description", input.description);
-    params.append("source[number]", input.card.number.replace(/\s+/g, ""));
-    params.append("source[exp_month]", expMonth);
-    params.append("source[exp_year]", `20${expYear}`);
-    params.append("source[cvc]", input.card.cvc);
-    params.append("source[name]", input.card.name);
-    params.append("capture", "true");
-
-    const res = await fetch("https://api.stripe.com/v1/charges", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      const msg =
-        data?.error?.message ??
-        (res.status === 402
-          ? "Your bank declined this transaction."
-          : "Payment processing failed. Please try again.");
-      return { ok: false, error: msg };
-    }
-
-    return { ok: true, ref: data.id };
-  },
-};
-
-/**
- * Return the configured payment provider. Swap implementations here or via
- * the PAYMENT_PROVIDER env var without touching the rest of the app.
- *
- * Fail-closed: only the explicitly-configured provider is used. An unknown
- * provider name throws instead of silently falling back to the mock, so a
- * production misconfiguration can never result in free (unsettled) cards.
- */
-export function getPaymentProvider(): PaymentProvider {
-  const id = (process.env.PAYMENT_PROVIDER ?? "mock").toLowerCase();
-  if (id === "mock") return mockProvider;
-  if (id === "stripe") return stripeProvider;
-  throw new Error(`Payment provider "${id}" is not configured.`);
 }
 
 /**

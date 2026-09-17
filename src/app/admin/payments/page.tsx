@@ -150,8 +150,6 @@ function PaymentStatus({ status }: { status: string }) {
 function ProviderChip({ provider }: { provider: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     flutterwave: { label: "Flutterwave", cls: "bg-sky-500/15 text-sky-300" },
-    stripe: { label: "Stripe", cls: "bg-violet-500/15 text-violet-300" },
-    mock: { label: "Mock", cls: "bg-zinc-500/15 text-zinc-400" },
     bank: { label: "Bank", cls: "bg-amber-500/15 text-amber-300" },
   };
   const entry = map[provider] ?? { label: provider || "—", cls: "bg-zinc-500/15 text-zinc-400" };

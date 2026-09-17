@@ -11,19 +11,18 @@
  *      purchase stays PENDING until an admin VERIFIES real receipt. Never paid
  *      on the customer's word alone.
  *
- *   2. "ATM Card"       — money moves through a real card processor. The
- *      gateway's brand is never shown to the customer. Fan cards pay through
- *      Flutterwave's hosted page (credentialed from Admin → Payment Settings);
- *      ticket orders use their registered gateway. If no card processor is
- *      configured this option is honestly shown as "not connected yet" and is
- *      never faked.
+ *   2. "ATM Card"       — money moves through Flutterwave V3, the site's only
+ *      card processor. EVERYTHING that sells (fan cards AND ticket orders)
+ *      pays by Flutterwave's hosted checkout — the card data never reaches
+ *      this server. The gateway's brand is never shown to the customer. If
+ *      Flutterwave isn't configured the option is honestly shown as "not
+ *      connected yet" and card payment is never faked.
  *
  * A "purchase" is a small wrapper over either a fans-card `Payment` row or a
  * `TicketOrder` row, exposing a common shape so the UI is identical everywhere.
  */
 
 import { listActiveBankAccounts, type PublicBankAccount } from "./banking";
-import { getGateway } from "./gateways";
 import { getFlutterwaveConfig, isFlutterwaveReady } from "@/lib/payments/flutterwave";
 
 // The two customer-facing methods. The ATM gateway brand is never surfaced.
@@ -80,17 +79,11 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
   const bankUnavailable = !bankForCurrency ? "Bank Transfer isn't set up yet on this site." : undefined;
 
   // --- ATM Card -----------------------------------------------------------
-  // Fan cards are charged through Flutterwave (hosted page, brand hidden).
-  // Ticket orders still use their registered gateway. If not connected, we
-  // show the option honestly (never a fake charge form).
-  let cardConnected: boolean;
-  if (plan.kind === "FAN_CARD") {
-    const fw = await getFlutterwaveConfig();
-    cardConnected = isFlutterwaveReady(fw);
-  } else {
-    const cardGateway = getGateway(UNIVERSAL_METHOD_CARD);
-    cardConnected = Boolean(cardGateway && cardGateway.hasCredentials());
-  }
+  // ALL card payments — fan cards and ticket orders — are charged through
+  // Flutterwave V3's hosted checkout (credentialed from Admin → Payment
+  // Settings). Unavailable (honestly) until Flutterwave is configured.
+  const fw = await getFlutterwaveConfig();
+  const cardConnected = isFlutterwaveReady(fw);
   const cardUnavailable = !cardConnected
     ? "ATM Card payments aren't enabled on this site yet."
     : undefined;
@@ -122,31 +115,4 @@ export async function buildPaymentMethods(plan: PurchasePlan): Promise<Universal
   else defaultMethod = methods.find((m) => m.available)?.method ?? null;
 
   return { methods, defaultMethod };
-}
-
-/** True once a real card processor is configured end-to-end. */
-export function isAtmCardReady(): boolean {
-  const g = getGateway(UNIVERSAL_METHOD_CARD);
-  return Boolean(g && g.hasCredentials());
-}
-
-export const ATM_CARD_PUBLIC_KEY_ENV = "STRIPE_PUBLIC_KEY";
-export const ATM_CARD_SECRET_KEY_ENV = "STRIPE_SECRET_KEY";
-
-/** Placement/status report for the admin ATM Card config. Never exposes values. */
-export function atmCardConfigStatus(): {
-  publicKey: boolean;
-  secretKey: boolean;
-  gatewayRegistered: boolean;
-  connected: boolean;
-} {
-  const publicKey = Boolean(process.env[ATM_CARD_PUBLIC_KEY_ENV]);
-  const secretKey = Boolean(process.env[ATM_CARD_SECRET_KEY_ENV]);
-  const gatewayRegistered = Boolean(getGateway(UNIVERSAL_METHOD_CARD));
-  return {
-    publicKey,
-    secretKey,
-    gatewayRegistered,
-    connected: gatewayRegistered && secretKey,
-  };
 }

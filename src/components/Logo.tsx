@@ -10,7 +10,7 @@ const TILE_STYLES: Record<LogoSize, string> = {
 
 const STAR =
   "M256 86 L294.21 203.41 L417.68 203.47 L317.82 276.09 L355.92 393.53 L256 321 L156.08 393.53 L194.18 276.09 L94.32 203.47 L217.79 203.41 Z";
-const STRIPE = "M110 297 L128 337 L402 215 L384 175 Z";
+const SHINE = "M110 297 L128 337 L402 215 L384 175 Z";
 
 export function StarGlyph({
   className = "h-[68%] w-[68%]",
@@ -20,7 +20,7 @@ export function StarGlyph({
   return (
     <svg viewBox="0 0 512 512" className={className} aria-hidden="true" focusable="false">
       <path fill="#ffffff" d={STAR} />
-      <path fill="#fbbf24" d={STRIPE} />
+      <path fill="#fbbf24" d={SHINE} />
     </svg>
   );
 }

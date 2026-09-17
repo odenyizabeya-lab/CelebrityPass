@@ -164,8 +164,8 @@ export default function AdminPayments({ methods, settlements }: { methods: Metho
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <input value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} placeholder="key (e.g. stripe)" className={inputCls} />
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name (e.g. Stripe)" className={inputCls} />
+          <input value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} placeholder="key (e.g. flutterwave)" className={inputCls} />
+          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name (e.g. Card)" className={inputCls} />
           <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })} className={inputCls}>
             <option value="CARD">Card</option>
             <option value="BANK_TRANSFER">Bank transfer</option>
@@ -176,7 +176,7 @@ export default function AdminPayments({ methods, settlements }: { methods: Metho
         <input
           value={envKeyInput}
           onChange={(e) => setEnvKeyInput(e.target.value)}
-          placeholder="Credential env var names, comma-separated (e.g. STRIPE_SECRET_KEY)"
+          placeholder="Credential env var names, comma-separated (e.g. FLUTTERWAVE_SECRET_KEY)"
           className={`${inputCls} mt-3`}
         />
         <div className="mt-3 grid gap-3 sm:grid-cols-3">

@@ -2,7 +2,6 @@
 // honest: never generates tickets/confirmations without a real payment.
 import { prisma } from "@/lib/db";
 import { computeEventStatus } from "@/lib/events/helpers";
-import { isCommerceState, requireGateway } from "./gateways";
 import { clampQuantity, newAccessToken, newOrderRef, newTicketCode, pushStatusHistory } from "./helpers";
 import { MAX_TICKETS_PER_ORDER } from "./types";
 import type { PrismaClient } from "@prisma/client";
@@ -316,76 +315,19 @@ export async function cancelOrderForHolder(orderRef: string, token: string | nul
 }
 
 /**
- * Attempt to pay for an order. With no payment gateway connected it ALWAYS
- * blocks honestly — it never fakes a success. When a real gateway + an enabled
- * payment method are configured, this route calls the gateway and only then
- * marks the order CONFIRMED.
+ * Mark a ticket order CONFIRMED after its Flutterwave payment is verified
+ * server-side (webhook). Lookup is by the stable `paymentRef` (the tx_ref we
+ * saved when the hosted checkout was created). Idempotent: an already
+ * confirmed order returns true without touching anything.
  */
-export async function attemptOrderPayment(orderRef: string, token: string | null, paymentMethodId?: string | null) {
-  const order = await getOrderForHolder(orderRef, token);
-  if (!order) return { ok: false, status: 404, event: "ORDER_NOT_FOUND", message: "Order not found." };
-  if (order.status === "CONFIRMED") return { ok: false, status: 409, event: "ALREADY_PAID", message: "This order is already paid." };
-  if (order.status === "CANCELLED" || order.status === "REFUNDED") return { ok: false, status: 409, event: "ORDER_CLOSED", message: `This order is ${order.status.toLowerCase()}.` };
-
-  const candidates = await prisma.paymentMethod.findMany({
-    where: { isEnabled: true, hasCredentials: true },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+export async function settleTicketOrderByPaymentRef(txRef: string): Promise<{ ok: boolean; refunded?: boolean }> {
+  const order = await prisma.ticketOrder.findFirst({
+    where: { paymentRef: txRef },
+    include: { event: { select: { name: true } }, items: true },
   });
-  let method = paymentMethodId ? candidates.find((m) => m.id === paymentMethodId) : candidates[0];
-  if (!method) {
-    method = candidates[0] ?? null;
-  }
-  if (!method) {
-    // No enabled, credential-ready payment method → log the attempt, stay pending.
-    await prisma.ticketTransaction.create({
-      data: {
-        orderId: order.id,
-        kind: "PAYMENT",
-        status: "FAILED",
-        amountCents: order.totalCents,
-        currency: order.currency,
-        message: "No payment method is enabled on this site yet. Complete the order at the official ticket source.",
-      },
-    });
-    return {
-      ok: false,
-      status: 409,
-      event: "NO_PAYMENT_METHOD",
-      message: "No payment method is set up on this site yet. Your order is saved, but payment can't be taken until an authorized payment method is configured.",
-    };
-  }
-
-  if (!isCommerceState(method.key)) {
-    await prisma.ticketTransaction.create({
-      data: {
-        orderId: order.id,
-        kind: "PAYMENT",
-        status: "FAILED",
-        amountCents: order.totalCents,
-        currency: order.currency,
-        provider: method.key,
-        message: "This payment method is not connected to a live gateway yet.",
-      },
-    });
-    return {
-      ok: false,
-      status: 409,
-      event: "GATEWAY_NOT_CONNECTED",
-      message: "This payment method isn't connected to a live gateway yet. Please use the official ticket source for now.",
-    };
-  }
-
-  // Real gateway connected → run the charge. Only on success do we confirm.
-  const gateway = requireGateway(method.key);
-  await prisma.ticketOrder.update({ where: { id: order.id }, data: { paymentStatus: "PROCESSING", status: "PAYMENT_PROCESSING", paymentMethodId: method.id, statusHistoryJson: pushStatusHistory(order.statusHistoryJson, { status: "PAYMENT_PROCESSING", at: new Date().toISOString(), note: "Payment processing." }) } });
-  await prisma.ticketTransaction.updateMany({ where: { orderId: order.id, kind: "PAYMENT", status: "INITIATED" }, data: { status: "PROCESSING", provider: method.key } }).catch(() => undefined);
-
-  const result = await gateway.charge({ amountCents: order.totalCents, currency: order.currency, description: `Tickets — ${order.event.name} (${order.orderRef})` });
-  if (!result.ok) {
-    await prisma.ticketOrder.update({ where: { id: order.id }, data: { status: "FAILED", paymentStatus: "FAILED", statusHistoryJson: pushStatusHistory(order.statusHistoryJson, { status: "FAILED", at: new Date().toISOString(), note: result.error }) } });
-    await prisma.ticketTransaction.create({ data: { orderId: order.id, kind: "PAYMENT", status: "FAILED", amountCents: order.totalCents, currency: order.currency, provider: method.key, message: result.error } });
-    return { ok: false, status: 402, event: "PAYMENT_DECLINED", message: result.error };
-  }
+  if (!order) return { ok: false };
+  if (order.status === "CONFIRMED") return { ok: true };
+  if (order.status === "CANCELLED" || order.status === "REFUNDED") return { ok: false, refunded: true };
 
   const paidAt = new Date();
   await prisma.ticketOrder.update({
@@ -395,15 +337,19 @@ export async function attemptOrderPayment(orderRef: string, token: string | null
       paymentStatus: "PAID",
       paidAt,
       amountPaidCents: order.totalCents,
-      paymentProvider: method.key,
-      paymentRef: result.ref,
+      paymentProvider: "flutterwave",
+      paymentRef: txRef,
       deliveryMethod: "OFFICIAL_ACCOUNT",
-      deliveryDetail: "Your order reference at the official ticket source will be provided in your confirmation.",
-      paymentMethodId: method.id,
-      statusHistoryJson: pushStatusHistory(order.statusHistoryJson, { status: "CONFIRMED", at: paidAt.toISOString(), note: `Paid (ref ${result.ref}).` }),
+      deliveryDetail: "Your official ticket source reference is being prepared.",
+      paymentMethodId: null,
+      statusHistoryJson: pushStatusHistory(order.statusHistoryJson, { status: "CONFIRMED", at: paidAt.toISOString(), note: `Paid via ATM Card (ref ${txRef}).` }),
     },
   });
-  await prisma.ticketTransaction.create({ data: { orderId: order.id, kind: "PAYMENT", status: "SUCCEEDED", amountCents: order.totalCents, currency: order.currency, provider: method.key, providerRef: result.ref, message: "Payment succeeded." } });
+  await prisma.ticketTransaction
+    .create({
+      data: { orderId: order.id, kind: "PAYMENT", status: "SUCCEEDED", amountCents: order.totalCents, currency: order.currency, provider: "flutterwave", providerRef: txRef, message: "ATM Card payment succeeded." },
+    })
+    .catch(() => undefined);
 
   // Fire confirmation email (non-blocking).
   import("../emails").then(({ notifyOrderConfirmed }) =>
@@ -417,9 +363,9 @@ export async function attemptOrderPayment(orderRef: string, token: string | null
       items: order.items.map((i) => ({ ticketName: i.ticketName, quantity: i.quantity, subtotalCents: i.unitPriceCents * i.quantity })),
       orderUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/order/${order.orderRef}?t=${order.accessToken}`,
     }),
-  );
+  ).catch(() => undefined);
 
-  return { ok: true, event: "CONFIRMED", paidRef: result.ref, order: await getOrderForHolder(orderRef, token) };
+  return { ok: true };
 }
 
 // ============================== ADMIN ==============================
