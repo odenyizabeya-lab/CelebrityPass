@@ -24,6 +24,7 @@ import { getAssistantUsage, type AssistantUsage } from "@/lib/ai/usage";
 export const ASSIST_SETTING_KEY = "assistant.gemini.key";
 export const ASSIST_SETTING_MODEL = "assistant.gemini.model";
 export const ASSIST_SETTING_BASE_URL = "assistant.gemini.base_url";
+export const ASSIST_SETTING_BUDGET = "assistant.gemini.daily_budget";
 export const ASSISTANT_DEFAULT_MODEL = "gemini-3.6-flash";
 export const ASSISTANT_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -119,6 +120,19 @@ export async function setAssistantBaseUrl(value: string): Promise<void> {
   await setSetting(ASSIST_SETTING_BASE_URL, value.trim());
 }
 
+/** Daily request budget set by the owner (requests/day shown in Google AI Studio). */
+export async function getAssistantDailyBudget(): Promise<number | null> {
+  const raw = (await getSetting(ASSIST_SETTING_BUDGET)).trim();
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export async function setAssistantDailyBudget(value: string): Promise<void> {
+  const n = Number.parseInt(value.trim(), 10);
+  await setSetting(ASSIST_SETTING_BUDGET, Number.isFinite(n) && n > 0 ? String(n) : "");
+}
+
 export type AssistantStatus = {
   keyConfigured: boolean;
   keyLast4: string;
@@ -131,12 +145,15 @@ export type AssistantStatus = {
   defaultModel: string;
   /** Real Gemini usage of the fan-chat key (requests + tokens + quota hits). */
   usage: AssistantUsage | null;
+  /** Owner-set requests/day soft budget, to see the meter burn down. */
+  dailyBudgetRequests: number | null;
 };
 
 /** Masked, client-safe summary of the current assistant configuration. */
 export async function getAssistantStatus(): Promise<AssistantStatus> {
   const cfg = await getAssistantConfig();
   const usage = await getAssistantUsage().catch(() => null);
+  const dailyBudgetRequests = await getAssistantDailyBudget().catch(() => null);
   return {
     keyConfigured: Boolean(cfg.key),
     keyLast4: maskSecret(cfg.key),
@@ -148,5 +165,6 @@ export async function getAssistantStatus(): Promise<AssistantStatus> {
     encryptionEnabled: Boolean(decryptionKey()),
     defaultModel: ASSISTANT_DEFAULT_MODEL,
     usage,
+    dailyBudgetRequests,
   };
 }

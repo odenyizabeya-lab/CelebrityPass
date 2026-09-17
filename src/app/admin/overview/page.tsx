@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CountUp from "@/components/CountUp";
+import AiUsageCard from "@/components/admin/ai/AiUsageCard";
 import { formatMoney } from "@/lib/payments";
 import { getPlatformStats } from "@/lib/services";
 import { prisma } from "@/lib/db";
@@ -79,6 +80,8 @@ export default async function AdminOverviewPage() {
           <p className="mt-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Total Transactions</p>
         </Link>
       </div>
+
+      <AiUsageCard />
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section>

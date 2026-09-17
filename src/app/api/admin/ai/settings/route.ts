@@ -4,7 +4,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
 import { getAiSettingsStatus, setAIModel, setGeminiKey, DEFAULT_AI_MODEL, AI_MODEL_OPTIONS, AI_PROVIDER_NAME } from "@/lib/ai/settings";
-import { getAssistantStatus, setAssistantKey, setAssistantModel, setAssistantBaseUrl } from "@/lib/ai/assistantConfig";
+import { getAssistantStatus, setAssistantKey, setAssistantModel, setAssistantBaseUrl, setAssistantDailyBudget } from "@/lib/ai/assistantConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
   }
   if (body.assistantBaseUrl !== undefined && typeof body.assistantBaseUrl === "string") {
     await setAssistantBaseUrl(body.assistantBaseUrl);
+  }
+  if (body.assistantDailyBudget !== undefined && typeof body.assistantDailyBudget === "string") {
+    await setAssistantDailyBudget(body.assistantDailyBudget);
   }
 
   const settings = await getAiSettingsStatus();
