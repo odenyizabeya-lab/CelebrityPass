@@ -9,6 +9,7 @@ import { touchFanPresence, touchTeamPresence, isCelebrityOnline } from "@/lib/ch
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { maybeAutoReply, catchUpUnansweredFanMessage } from "@/lib/chat/autoReply";
+import { fanHasActiveCard, lockConversationForPass, resolveFanConversationStatus, PASS_LOCKED_STATUS, PASS_REQUIRED_ERROR } from "@/lib/chat/passGate";
 import { rememberAsync } from "@/lib/ai/memory";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,17 @@ export async function GET(request: Request, { params }: Ctx) {
   }
 
   if (actor.fanId) touchFanPresence(actor.fanId).catch(() => {});
+
+  if (actor.type === "fan") {
+    // Buying the CelebrityPass unlocks a previously pass-locked chat instantly.
+    const effectiveStatus = await resolveFanConversationStatus(
+      actor.fanId,
+      conversation.celebrityId,
+      conversationId,
+      conversation.status,
+    );
+    conversation.status = effectiveStatus;
+  }
 
   // Catch-up: if the newest message is an unanswered fan message, run the
   // always-on AI reply inside this request so fans are never left hanging even
@@ -128,6 +140,7 @@ export async function POST(request: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Message too long" }, { status: 400 });
   }
 
+  let fanHasPass = true;
   if (actor.type === "fan") {
     const { allowed, reason } = await canFanSendMessage(
       actor.fanId as string,
@@ -136,6 +149,26 @@ export async function POST(request: Request, { params }: Ctx) {
     if (!allowed) {
       return NextResponse.json(
         { error: reason ?? "Not allowed to send messages here" },
+        { status: 403 },
+      );
+    }
+    // CelebrityPass gate: a fan without a card may send AT MOST the message that
+    // triggers the AI's "get your CelebrityPass" reply; once the conversation is
+    // locked, no further messages land until they hold an active card.
+    fanHasPass = await fanHasActiveCard(actor.fanId as string, conversation.celebrityId);
+    if (fanHasPass) {
+      // Buying the card unlocks a previously pass-locked chat instantly.
+      if (conversation.status === PASS_LOCKED_STATUS) {
+        conversation.status = await resolveFanConversationStatus(
+          actor.fanId as string,
+          conversation.celebrityId,
+          conversationId,
+          conversation.status,
+        );
+      }
+    } else if (conversation.status === PASS_LOCKED_STATUS) {
+      return NextResponse.json(
+        { error: PASS_REQUIRED_ERROR, passRequired: true },
         { status: 403 },
       );
     }
@@ -236,6 +269,12 @@ export async function POST(request: Request, { params }: Ctx) {
     // Remember what matters about this fan so the AI builds on past chats.
     rememberAsync({ conversationId, latestFanText: type === "text" ? text : `[sent ${type}]` });
     void maybeAutoReply(conversationId).catch((err) => console.error("[autoReply] trigger failed:", err));
+  }
+
+  // Passless fan: their first message just stored — lock the chat now so a fast
+  // double-send can't slip in before the AI's canned reply lands.
+  if (actor.type === "fan" && !fanHasPass) {
+    await lockConversationForPass(conversationId);
   }
 
   return NextResponse.json({ message: safeMessage(message, actor.fanId) }, { status: 201 });

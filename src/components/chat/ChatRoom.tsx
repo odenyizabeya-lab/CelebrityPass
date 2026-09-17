@@ -29,6 +29,8 @@ interface ReplyTo {
   deletedAt: string | null;
 }
 
+const passLockedText = "Chat locked — get your CelebrityPass";
+
 interface Msg {
   id: string;
   conversationId: string;
@@ -171,6 +173,7 @@ interface ComposerProps {
   onTyping: () => void;
   disabled: boolean;
   unavailable: boolean;
+  lockedPass?: boolean;
   /** Lets the parent focus the input (e.g. tap-to-type in the message area). */
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
@@ -187,7 +190,7 @@ function pickRecorderMime(): string | null {
   return null;
 }
 
-function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable, inputRef }: ComposerProps) {
+function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSendVoice, onTyping, disabled, unavailable, lockedPass, inputRef }: ComposerProps) {
   const [text, setText] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const [draftImage, setDraftImage] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
@@ -467,9 +470,11 @@ function Composer({ conversationId, celebrityName, onSendText, onSendImage, onSe
               placeholder={
                 disabled && unavailable
                   ? "Chat unavailable"
-                  : celebrityName
-                    ? `Message ${celebrityName.split(" ")[0]}…`
-                    : "Message…"
+                  : lockedPass
+                    ? "Get your CelebrityPass to chat…"
+                    : celebrityName
+                      ? `Message ${celebrityName.split(" ")[0]}…`
+                      : "Message…"
               }
               rows={1}
               className="max-h-[168px] min-h-[48px] flex-1 resize-none bg-transparent px-2 py-3 text-base leading-6 text-[#e9edef] placeholder-[#8696a0] caret-[#00a884] outline-none disabled:opacity-50 sm:text-[17px]"
@@ -594,6 +599,13 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   useEffect(() => {
     metaStatusRef.current = metaStatus;
   }, [metaStatus]);
+
+  // CelebrityPass gate state — computed before any send handlers so a locked
+  // chat never lets text/images/voice through.
+  const conversation = meta?.conversation;
+  const passLocked = conversation?.status === "LOCKED_NEEDS_PASS";
+  const isDisabled =
+    !conversation || conversation.status !== "ACTIVE" || blocked;
 
   // INSTANT OPEN — hydrate conversation + messages from local cache BEFORE the
   // first paint. The full chat UI (header, composer, cached messages) shows
@@ -924,6 +936,17 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         const latest = list[list.length - 1];
         if (latest?.createdAt) setSince(latest.createdAt);
         setMessagesFailed(false);
+        // The server reports the CelebrityPass lock/unlock in every snapshot —
+        // mirror it into meta so the composer + banner react the moment the
+        // AI's canned reply lands (or the fan buys their pass).
+        const serverStatus = (data.conversation as { status?: string } | undefined)?.status;
+        if (serverStatus && serverStatus !== conversation?.status) {
+          setMeta((prev) =>
+            prev && prev.conversation
+              ? { ...prev, conversation: { ...prev.conversation, status: serverStatus } }
+              : prev
+          );
+        }
       } catch {
         if (!disposed) setMessagesFailed(true);
       }
@@ -931,7 +954,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
     return () => {
       disposed = true;
     };
-  }, [meta, metaStatus, retryTick, conversationId]);
+  }, [meta, metaStatus, retryTick, conversationId, conversation?.status]);
 
   // Persist whatever we currently hold so the next open is instant/offline.
   // Runs after hydration, realtime receives, optimistic sends, read/delivered
@@ -1022,6 +1045,10 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
         return mergeServerMessages(prev, [normalized]);
       });
       if (normalized.createdAt) setSince(normalized.createdAt);
+      // The celebrity's reply may have just locked the chat (CelebrityPass
+      // gate) — re-fetch meta so the composer/banner react without waiting on
+      // the next snapshot.
+      if (normalized.senderType === "team") setRetryTick((t) => t + 1);
     },
     onRead: (event: {
       conversationId: string;
@@ -1134,7 +1161,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendText = async (body: string) => {
-    if (blocked || metaStatus === "unavailable") return;
+    if (blocked || metaStatus === "unavailable" || passLocked) return;
     const clientId = crypto.randomUUID();
     const optimistic: Msg = {
       id: `temp-${clientId}`,
@@ -1275,12 +1302,12 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const sendImage = (file: File, caption: string) => {
-    if (blocked || metaStatus === "unavailable") return;
+    if (blocked || metaStatus === "unavailable" || passLocked) return;
     void sendAttachmentMessage(crypto.randomUUID(), "image", caption, file);
   };
 
   const sendVoice = (blob: Blob) => {
-    if (blocked || metaStatus === "unavailable") return;
+    if (blocked || metaStatus === "unavailable" || passLocked) return;
     let mime = blob.type || "audio/webm";
     if (mime.includes("webm")) {
       mime = "audio/webm";
@@ -1348,9 +1375,6 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
   };
 
   const celebrity = meta?.celebrity;
-  const conversation = meta?.conversation;
-  const isDisabled =
-    !conversation || conversation.status !== "ACTIVE" || blocked;
 
   const handleMessagesTapStart = (e: React.PointerEvent<HTMLDivElement>) => {
     messageTapStartRef.current = { x: e.clientX, y: e.clientY };
@@ -1662,7 +1686,18 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                     You blocked this user.
                   </div>
                 )}
-                {conversation && conversation.status !== "ACTIVE" && (
+                {conversation && conversation.status === "LOCKED_NEEDS_PASS" && (
+                  <div className="mx-auto w-full max-w-sm rounded-2xl border border-primary-500/30 bg-primary-500/10 px-4 py-3 text-center">
+                    <p className="text-sm font-semibold text-white">
+                      {passLockedText}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                      {celebrity ? `${celebrity.name}'s` : "This"} chat opens the moment you get your CelebrityPass.
+                    </p>
+                    <PassCta celebrity={celebrity} />
+                  </div>
+                )}
+                {conversation && conversation.status !== "ACTIVE" && conversation.status !== "LOCKED_NEEDS_PASS" && (
                   <div className="mx-auto w-fit rounded-full bg-[#1f2c33] px-3.5 py-1.5 text-xs text-[#8696a0]">
                     This conversation is not active.
                   </div>
@@ -1691,16 +1726,31 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
                       <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
                     </svg>
                   </div>
-                  <div className="max-w-xs">
-                    <p className="text-sm font-semibold text-zinc-200">
-                      {celebrity ? `You're chatting with ${celebrity.name}` : "You're chatting on CelebrityPass"}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-zinc-500">
-                      {celebrity?.isVerified
-                        ? "This is a verified account on CelebrityPass — say hello and start the conversation!"
-                        : "Say hello and start the conversation!"}
-                    </p>
-                  </div>
+                  {passLocked ? (
+                    <div className="max-w-xs">
+                      <p className="text-sm font-semibold text-zinc-200">
+                        {celebrity ? `${celebrity.name} is waiting for you` : "Chat locked"}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                        Get your CelebrityPass first, then this chat opens up and you can talk to{" "}
+                        {celebrity ? celebrity.name : "them"} for real.
+                      </p>
+                      <div className="mt-4">
+                        <PassCta celebrity={celebrity} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="max-w-xs">
+                      <p className="text-sm font-semibold text-zinc-200">
+                        {celebrity ? `You're chatting with ${celebrity.name}` : "You're chatting on CelebrityPass"}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                        {celebrity?.isVerified
+                          ? "This is a verified account on CelebrityPass — say hello and start the conversation!"
+                          : "Say hello and start the conversation!"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1720,6 +1770,7 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
           onTyping={sendTyping}
           disabled={isDisabled || metaStatus === "unavailable"}
           unavailable={metaStatus === "unavailable"}
+          lockedPass={passLocked}
           inputRef={composerInputRef}
         />
       </div>
@@ -1797,5 +1848,20 @@ export default function ChatRoom({ conversationId }: { conversationId: string })
       )}
 
     </main>
+  );
+}
+
+function PassCta({ celebrity }: { celebrity?: { slug?: string; name?: string } | null }) {
+  if (!celebrity?.slug) return null;
+  return (
+    <Link
+      href={`/celebrity/${celebrity.slug}/join`}
+      className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#00a884] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#02c297] active:scale-95"
+    >
+      Get your CelebrityPass
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </Link>
   );
 }

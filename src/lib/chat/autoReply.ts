@@ -6,6 +6,7 @@ import { composeAutoReply } from "@/lib/ai/assistant";
 import { sendChatMessageNotification } from "@/lib/emails/senders";
 import { notifyFanOnTeamMessage } from "@/lib/chat/push";
 import { isGlobalAutoReplyEnabled } from "@/lib/chat/autoReplySettings";
+import { fanHasActiveCard, lockConversationForPass, passGateReply, PASS_LOCKED_STATUS } from "@/lib/chat/passGate";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -155,10 +156,19 @@ async function runAutoReply(conversationId: string) {
   const fan = conversation.fan;
   if (!fan || !fan.isActive || fan.unsubscribedAt) return;
 
-  // Manual mode: the global kickback switch or this celebrity's switch is off,
-  // so the only replies come from the admin/team inbox. The AI stays silent.
-  if (!(await isGlobalAutoReplyEnabled())) return;
-  if (conversation.celebrity.chatAutoReplyEnabled === false) return;
+  // CelebrityPass gate: a fan without an ACTIVE card for this celebrity cannot
+  // chat here — their first message earns one sweet canned reply telling them to
+  // get their pass, then the conversation stays locked. This always applies,
+  // even in manual (auto-reply off) mode: the AI only says the pass message.
+  const hasCard = await fanHasActiveCard(fan.id, conversation.celebrityId);
+  if (!hasCard) {
+    await lockConversationForPass(conversationId);
+  } else if (conversation.status === PASS_LOCKED_STATUS) {
+    // They just bought their CelebrityPass — unlock the chat.
+    await prisma.chatConversation
+      .update({ where: { id: conversationId }, data: { status: "ACTIVE" } })
+      .catch(() => {});
+  }
 
   const first = await newestRaw(conversationId);
   if (!first || first.senderType !== "fan") return;
@@ -172,13 +182,22 @@ async function runAutoReply(conversationId: string) {
 
   if (await alreadyAnswered(conversationId)) return;
 
-  const result = await composeAutoReply(conversationId);
-  if (!result?.text?.trim()) return;
-  console.log(`[autoReply] composed ${String(result.text).length} chars for ${conversationId}`);
-
-  if (!result.configured && !warnedNoKey) {
-    warnedNoKey = true;
-    console.warn("[autoReply] No assistant Gemini key configured — auto-replies are using offline templates. Paste a key in Admin → AI Settings for real chats.");
+  let text: string | null;
+  if (!hasCard) {
+    text = passGateReply(fan.name, conversation.celebrity.name);
+  } else {
+    // Manual mode: the global kickback switch or this celebrity's switch is off,
+    // so the only replies come from the admin/team inbox. The AI stays silent.
+    if (!(await isGlobalAutoReplyEnabled())) return;
+    if (conversation.celebrity.chatAutoReplyEnabled === false) return;
+    const result = await composeAutoReply(conversationId);
+    text = result?.text?.trim() || null;
+    if (!result?.configured && !warnedNoKey) {
+      warnedNoKey = true;
+      console.warn("[autoReply] No assistant Gemini key configured — auto-replies are using offline templates. Paste a key in Admin → AI Settings for real chats.");
+    }
+    if (!text) return;
+    console.log(`[autoReply] composed ${String(text).length} chars for ${conversationId}`);
   }
 
   // Re-signal typing right before landing, then finish the "typing" beat.
@@ -196,7 +215,7 @@ async function runAutoReply(conversationId: string) {
     teamEmail: AI_TEAM_EMAIL,
     clientId: `auto-${randomUUID()}`,
     type: "text",
-    body: result.text,
+    body: text,
     repliedToId: target.id,
   });
   clearTyping(conversationId, "team");

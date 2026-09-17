@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentFanId, isAdminAuthed } from "@/lib/auth";
 import { isConversationAccessible } from "@/lib/chat/access";
+import { resolveFanConversationStatus } from "@/lib/chat/passGate";
 import { touchFanPresence, touchTeamPresence } from "@/lib/chat/presence";
 import { celebrityImageFlags } from "@/lib/images";
 
@@ -50,6 +51,17 @@ export async function GET(_request: Request, { params }: Ctx) {
   if (fanId) touchFanPresence(fanId).catch(() => {});
   else touchTeamPresence(celebrity.id).catch(() => {});
 
+  let status = conversation.status;
+  if (fanId) {
+    // Buying the CelebrityPass unlocks a previously pass-locked chat instantly.
+    status = await resolveFanConversationStatus(
+      fanId,
+      conversation.celebrityId,
+      conversationId,
+      status,
+    );
+  }
+
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   const online = !!(celebrity.chatLastSeenAt && celebrity.chatLastSeenAt > fiveMinAgo);
 
@@ -90,7 +102,7 @@ export async function GET(_request: Request, { params }: Ctx) {
     conversation: {
       id: conversation.id,
       celebrityId: conversation.celebrityId,
-      status: conversation.status,
+      status,
       muted: conversation.mutedByFan,
       pinned: conversation.pinnedByFan,
     },
