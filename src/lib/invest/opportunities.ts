@@ -26,6 +26,44 @@ export function parseEligibility(json: string | null): OpportunityEligibility | 
   }
 }
 
+export type OpportunityPeriod = {
+  opensAt?: string;
+  closesAt?: string;
+  lockupDays?: number;
+  maturityLabel?: string;
+};
+
+export function parseInvestmentPeriod(json: string | null): OpportunityPeriod | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json) as OpportunityPeriod;
+    if (!v || typeof v !== "object") return null;
+    return {
+      opensAt: typeof v.opensAt === "string" ? v.opensAt : undefined,
+      closesAt: typeof v.closesAt === "string" ? v.closesAt : undefined,
+      lockupDays: typeof v.lockupDays === "number" ? v.lockupDays : undefined,
+      maturityLabel: typeof v.maturityLabel === "string" ? v.maturityLabel : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type OpportunityFees = { subscriptionRate?: number };
+
+export function parseFees(json: string | null): OpportunityFees | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json) as OpportunityFees;
+    if (!v || typeof v !== "object") return null;
+    return {
+      subscriptionRate: typeof v.subscriptionRate === "number" ? v.subscriptionRate : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type OpportunityDisclosure = { key: string; version: string; title?: string };
 
 export function parseDisclosures(json: string | null): OpportunityDisclosure[] {

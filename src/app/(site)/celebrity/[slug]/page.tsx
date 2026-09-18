@@ -22,8 +22,7 @@ import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
 import { NO_VERIFIED_OFFERING_COPY } from "@/lib/profiles/investor";
-import { listOpportunitiesForCelebrity } from "@/lib/invest/opportunities";
-import CelebrityInvestWidget, { type CelebrityOpp } from "@/components/invest/CelebrityInvestWidget";
+import { MarketsQuoteCard } from "@/components/invest-app/MarketsQuoteCard";
 import QRCode from "qrcode";
 
 export const revalidate = 60;
@@ -311,30 +310,6 @@ export default async function CelebrityPage({ params }: Props) {
   // offer to invest. Enforced again server-side in the APIs — not UI alone.
   const fanSystem = celebrity.fansCardEnabled;
   const profileClassLabel = PROFILE_TYPE_LABELS[celebrity.profileType];
-
-  // Real investment offers exist ONLY on business/political profiles. The
-  // widget below renders strictly inside the non-fan branch — actors,
-  // actresses and musicians are never given an investment flow.
-  const investOpportunities = !fanSystem
-    ? await safeAsync(async () => {
-        const rows = await listOpportunitiesForCelebrity(celebrity.id);
-        return rows.map(
-          (o) =>
-            ({
-              id: o.id,
-              slug: o.slug,
-              name: o.name,
-              companyName: o.companyName,
-              description: o.description,
-              minAmount: o.minAmount ? o.minAmount.toNumber() : null,
-              maxAmount: o.maxAmount ? o.maxAmount.toNumber() : null,
-              raisedAmount: o.raisedAmount.toNumber(),
-              currency: o.currency,
-            }) satisfies CelebrityOpp,
-        );
-      }, [])
-    : [];
-  const hasInvestOffers = investOpportunities.length > 0;
 
   return (
     <div>
@@ -634,42 +609,18 @@ export default async function CelebrityPage({ params }: Props) {
                 <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
                   Factual, person-specific business and investment information about {celebrity.name}, drawn only from verified authoritative sources. This is not an offer to invest.
                 </p>
-                {hasInvestOffers ? (
-                  <>
-                    <div className="mt-10">
-                      <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">
-                        Verified booking · {celebrity.name}&apos;s offering
-                      </p>
-                      <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                        Invest in {investOpportunities.length === 1 ? investOpportunities[0].name : "these ventures"}
-                      </h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                        Subscribe directly on this page. Pay by bank transfer or ATM, upload your receipt, and our team
-                        verifies the real money before your investment is active. Every cent is ledger-confirmed.
-                      </p>
-                      <div className="mt-5 max-w-xl">
-                        <CelebrityInvestWidget celebrityName={celebrity.name} opportunities={investOpportunities} />
-                      </div>
-                    </div>
-                    <div className="mt-6 max-w-2xl rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Important</p>
-                      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                        Nothing on this page is investment advice. Only invest what you can afford to leave locked for the
-                        stated term, and always verify independently with official, authoritative sources before acting.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-8">
-                    <InvestorSection celebrity={celebrity} />
-                  </div>
-                )}
+                <div className="mt-8">
+                  <InvestorSection celebrity={celebrity} />
+                </div>
+                <div className="mt-6 max-w-xl">
+                  <MarketsQuoteCard symbol="TSLA" label="Live markets · example security" />
+                </div>
                 <div className="mt-6">
                   <Link
-                    href="/invest/opportunities"
+                    href="/invest/markets"
                     className="group inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/[0.08] px-5 py-2.5 text-sm font-bold text-amber-300 transition hover:bg-amber-400/20"
                   >
-                    Explore the investing platform
+                    Explore the markets platform
                     <svg className="h-4 w-4 transition group-hover:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path d="M13 5l7 7-7 7-1.4-1.4L16.2 13H4v-2h12.2l-4.6-4.6z" />
                     </svg>

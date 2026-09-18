@@ -34,6 +34,10 @@ const PUBLIC_PREFIXES = [
   "/discovery",
   "/faq",
   "/memberships",
+  // Public invest/market pages (market info is indexed + explorable). The
+  // portfolio page and everything investment-sensitive stays login-gated via
+  // the private sub-path exclusion below.
+  "/invest",
   // Static brand/PWA icons (icons are public assets; only icon files live here).
   "/icons",
 ];
@@ -90,8 +94,13 @@ function isPublicPath(pathname: string): boolean {
     return true;
   }
   // Private sub-paths of public prefixes must remain login-gated: fan cards
-  // (personal data), the join/purchase funnel, and ticket checkout.
-  if (pathname.includes("/fan/") || pathname.endsWith("/join")) {
+  // (personal data), the join/purchase funnel, ticket checkout, and the
+  // brokerage portfolio (holdings/orders = personal data).
+  if (
+    pathname.includes("/fan/") ||
+    pathname.endsWith("/join") ||
+    pathname.startsWith("/invest/portfolio")
+  ) {
     return false;
   }
   if (pathname === "/") {
