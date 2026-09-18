@@ -27,10 +27,18 @@ export function investErrorResponse(err: unknown): NextResponse {
     switch (err.code) {
       case "AMOUNT_INVALID":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
-      case "PAYMENTS_DISABLED":
+      case "NOT_OPEN":
+      case "NOT_ELIGIBLE":
+      case "INVALID_PROOF":
+      case "ALREADY_SUBMITTED":
+      case "AMOUNT_MISMATCH":
+      case "INVALID":
+      case "ALREADY_PAID":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });
+      case "BANK_NOT_CONFIGURED":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 503 });
-      case "PAYMENT_FAILED":
-        return NextResponse.json({ error: err.message, code: err.code }, { status: 502 });
+      case "NOT_FOUND":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 404 });
       case "NO_FAN":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 404 });
       default:

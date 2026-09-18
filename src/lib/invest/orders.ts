@@ -153,11 +153,11 @@ export async function createSubscription(input: {
               fees: fee,
               status: "INITIATED",
               eligibilityChecksJson: JSON.stringify(checks),
-              provider: "demo",
+              provider: "bank-transfer",
             },
           });
 
-          const gatewayEventId = `demo-order-settle:${order.id}`;
+          const gatewayEventId = `bank-transfer-settle:${order.id}`;
           const position = await tx.investmentPosition.create({
             data: {
               investorId: account.id,
@@ -179,10 +179,10 @@ export async function createSubscription(input: {
                 { account: positionAccount(account.id, opp.id), amount: input.amount },
                 { account: "platform:fees", amount: fee },
               ]),
-              source: "demo-provider",
+              source: "bank-transfer",
               gatewayEventId,
-              providerRef: `demo:${gatewayEventId}`,
-              provider: "demo",
+              providerRef: `bank:${gatewayEventId}`,
+              provider: "bank-transfer",
               orderId: order.id,
               positionId: position.id,
               description: `Investment in ${opp.name} (${formatMoney(input.amount)})`,
@@ -210,7 +210,7 @@ export async function createSubscription(input: {
               investorId: account.id,
               type: "INVESTMENT_CONFIRMED",
               title: "Investment confirmed",
-              body: `Your ${formatMoney(input.amount)} subscription to ${opp.name} is confirmed and recorded in your demo portfolio.`,
+              body: `Your ${formatMoney(input.amount)} subscription to ${opp.name} is confirmed and recorded in your portfolio.`,
             },
           });
 

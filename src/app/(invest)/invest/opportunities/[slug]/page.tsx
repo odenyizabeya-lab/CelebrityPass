@@ -119,15 +119,24 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-2">
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
-          <h2 className="text-lg font-extrabold text-white">Subscribe</h2>
+          <h2 className="text-lg font-extrabold text-white">Invest in this opportunity</h2>
           {fanId ? (
             acceptFunds ? (
               <>
                 <p className="mt-1 text-sm text-zinc-400">
                   {kycStatus === "VERIFIED" ? "Identity verified." : `Your KYC status: ${kycStatus}. You will be blocked server-side if this investment requires verified identity.`}
                 </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Pay by bank transfer or ATM, upload your receipt, and wait for manual verification. Nothing is credited until the real transfer is confirmed.
+                </p>
                 <div className="mt-4">
-                  <SubscribeForm slug={opp.slug} minAmount={opp.minAmount && !opp.minAmount.isZero() ? opp.minAmount.toNumber() : 100} maxAmount={opp.maxAmount ? opp.maxAmount.toNumber() : null} currency={opp.currency} />
+                  <SubscribeForm
+                    opportunityId={opp.id}
+                    slug={opp.slug}
+                    minAmount={opp.minAmount && !opp.minAmount.isZero() ? opp.minAmount.toNumber() : 100}
+                    maxAmount={opp.maxAmount ? opp.maxAmount.toNumber() : null}
+                    currency={opp.currency}
+                  />
                 </div>
               </>
             ) : (

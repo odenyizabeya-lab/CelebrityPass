@@ -1,19 +1,10 @@
 import Link from "next/link";
-import { isDemoMode, investModeLabel } from "@/lib/invest/mode";
 
 export const dynamic = "force-dynamic";
 
 export default async function InvestLayout({ children }: { children: React.ReactNode }) {
-  const demo = await isDemoMode();
-  const mode = await investModeLabel();
-
   return (
     <div className="min-h-screen bg-zinc-950">
-      {demo && (
-        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-amber-400">
-          {mode} — simulated funds only, no real money, no real payouts
-        </div>
-      )}
       <header className="border-b border-zinc-800 bg-zinc-900/60 px-4 py-3">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <Link href="/invest" className="text-sm font-black uppercase tracking-wide text-white">

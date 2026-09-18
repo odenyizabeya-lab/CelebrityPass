@@ -22,6 +22,8 @@ import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
 import { NO_VERIFIED_OFFERING_COPY } from "@/lib/profiles/investor";
+import { listOpportunitiesForCelebrity } from "@/lib/invest/opportunities";
+import CelebrityInvestWidget, { type CelebrityOpp } from "@/components/invest/CelebrityInvestWidget";
 import QRCode from "qrcode";
 
 export const revalidate = 60;
@@ -309,6 +311,30 @@ export default async function CelebrityPage({ params }: Props) {
   // offer to invest. Enforced again server-side in the APIs — not UI alone.
   const fanSystem = celebrity.fansCardEnabled;
   const profileClassLabel = PROFILE_TYPE_LABELS[celebrity.profileType];
+
+  // Real investment offers exist ONLY on business/political profiles. The
+  // widget below renders strictly inside the non-fan branch — actors,
+  // actresses and musicians are never given an investment flow.
+  const investOpportunities = !fanSystem
+    ? await safeAsync(async () => {
+        const rows = await listOpportunitiesForCelebrity(celebrity.id);
+        return rows.map(
+          (o) =>
+            ({
+              id: o.id,
+              slug: o.slug,
+              name: o.name,
+              companyName: o.companyName,
+              description: o.description,
+              minAmount: o.minAmount ? o.minAmount.toNumber() : null,
+              maxAmount: o.maxAmount ? o.maxAmount.toNumber() : null,
+              raisedAmount: o.raisedAmount.toNumber(),
+              currency: o.currency,
+            }) satisfies CelebrityOpp,
+        );
+      }, [])
+    : [];
+  const hasInvestOffers = investOpportunities.length > 0;
 
   return (
     <div>
@@ -611,6 +637,23 @@ export default async function CelebrityPage({ params }: Props) {
                 <div className="mt-8">
                   <InvestorSection celebrity={celebrity} />
                 </div>
+                {hasInvestOffers && (
+                  <div className="mt-10">
+                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">
+                      Verified booking · {celebrity.name}&apos;s offering
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                      Invest in {investOpportunities.length === 1 ? investOpportunities[0].name : "these ventures"}
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                      Subscribe directly on this page. Pay by bank transfer or ATM, upload your receipt, and our team
+                      verifies the real money before your investment is active. Every cent is ledger-confirmed.
+                    </p>
+                    <div className="mt-5 max-w-xl">
+                      <CelebrityInvestWidget celebrityName={celebrity.name} opportunities={investOpportunities} />
+                    </div>
+                  </div>
+                )}
                 <div className="mt-6">
                   <Link
                     href="/invest/opportunities"

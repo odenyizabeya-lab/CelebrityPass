@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentFanId } from "@/lib/auth";
 import { getOrCreateInvestorAccount, getInvestorAccountByFan } from "@/lib/invest/account";
 import { investorBalances, positionBookValue } from "@/lib/invest/ledger";
-import { isDemoMode, formatMoney } from "@/lib/invest/mode";
+import { formatMoney } from "@/lib/invest/mode";
 import { listInvestorTransactions, listInvestorPositions } from "@/lib/invest/orders";
 import { safeAsync } from "@/lib/safe-data";
 import DepositForm from "@/components/invest/DepositForm";
@@ -39,8 +39,6 @@ export default async function InvestHubPage(props: { searchParams?: Promise<{ de
         )
       : [];
 
-  const demo = await isDemoMode();
-
   if (!account) {
     return (
       <Main>
@@ -67,7 +65,7 @@ export default async function InvestHubPage(props: { searchParams?: Promise<{ de
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Investor Hub</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">Your investor account</h1>
-          <p className="mt-2 text-sm text-zinc-400">Account #{account.investorNumber} · {demo ? "DEMO / TEST environment" : "Live environment"}</p>
+          <p className="mt-2 text-sm text-zinc-400">Account #{account.investorNumber} · deposits verified manually from bank receipts</p>
         </div>
         <Link href="/invest/opportunities" className="btn-grad rounded-full px-6 py-2.5 text-sm font-bold text-white">
           Browse investments
@@ -86,13 +84,12 @@ export default async function InvestHubPage(props: { searchParams?: Promise<{ de
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
-          <h2 className="text-lg font-extrabold text-white">{demo ? "Add demo funds" : "Deposit funds"}</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            {demo
-              ? "Top up your simulated cash balance. No real money moves — ever, in demo mode."
-              : "Pay with your ATM / debit / credit card. Your deposit lands in your investor ledger after the charge is verified."}
+<h2 className="text-lg font-extrabold text-white">Deposit funds</h2>
+          <p className="text-sm leading-relaxed text-zinc-400">
+            Pay by bank transfer or ATM and upload your receipt. A real deposit reference is generated for you and your
+            money is credited only after our team verifies the payment.
           </p>
-          <DepositForm cardEnabled={!demo} />
+          <DepositForm />
         </section>
 
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">

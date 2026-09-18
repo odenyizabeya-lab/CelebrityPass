@@ -412,6 +412,7 @@ model InvestmentOpportunity {
   orders     InvestmentOrder[]
   documents  InvestmentDocument[]
   disclosures DisclosureAcceptance[]
+  depositProofs BankTransferProof[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -502,6 +503,7 @@ model Transaction {
   description String?
   postedAt    DateTime?
   entries     LedgerEntry[]
+  bankTransferProofs BankTransferProof[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -1216,11 +1218,15 @@ model BankTransferProof {
   mimeType        String?
   status          String       @default("PENDING_VERIFICATION") // PENDING_VERIFICATION | APPROVED | REJECTED
   adminNote       String?
-  // Which purchase this proof applies to. Only ONE of the two is set.
+  // Which purchase this proof applies to. Only ONE of the three is set.
   paymentId       String? // fans-card Payment (if it's a card purchase)
   payment         Payment?     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   ticketOrderId   String? // ticket order (if it's a ticket purchase)
   ticketOrder     TicketOrder? @relation(fields: [ticketOrderId], references: [id], onDelete: Cascade)
+  transactionId   String? // investor deposit (if it's an invest bank-transfer deposit)
+  transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  opportunityId   String? // the investment the deposit was paying toward (optional)
+  opportunity     InvestmentOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
   reviewedById    String?
   reviewedAt      DateTime?
   createdAt       DateTime     @default(now())
@@ -1229,6 +1235,8 @@ model BankTransferProof {
   @@index([status])
   @@index([paymentId])
   @@index([ticketOrderId])
+  @@index([transactionId])
+  @@index([opportunityId])
   @@index([bankAccountId])
 }
 

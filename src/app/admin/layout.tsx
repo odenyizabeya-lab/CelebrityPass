@@ -38,7 +38,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AdminLink href="/admin/payments/verify" label="Verify Transfers" />
             <AdminLink href="/admin/ai-settings" label="AI Settings" />
             <AdminLink href="/admin/payment-settings" label="Payment Settings" />
-            <AdminLink href="/admin/invest/opportunities" label="Investor (Demo)" />
+            <AdminLink href="/admin/invest/deposits" label="Investor Deposits" />
+            <AdminLink href="/admin/invest/opportunities" label="Investments" />
             <AdminLink href="/admin/security" label="Account & Security" />
             <Link
               href="/"

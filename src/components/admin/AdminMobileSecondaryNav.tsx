@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/marketing/overview", label: "Marketing" },
   { href: "/admin/payments/bank", label: "Bank Accounts" },
   { href: "/admin/payments/verify", label: "Verify Transfers" },
+  { href: "/admin/invest/deposits", label: "Investor Deposits" },
   { href: "/admin/ai-settings", label: "AI Settings" },
   { href: "/admin/payment-settings", label: "Payment Settings" },
   { href: "/admin/notifications", label: "Notifications" },

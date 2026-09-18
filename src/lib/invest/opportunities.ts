@@ -188,6 +188,21 @@ export async function getOpportunityById(id: string): Promise<OpportunityView | 
   return toOpportunityView(row, totals.get(row.id) ?? new Prisma.Decimal(0));
 }
 
+/**
+ * Open opportunities linked to one celebrity (business/political people only —
+ * never surfaced for the fan-system/entertainment profiles).
+ */
+export async function listOpportunitiesForCelebrity(celebrityId: string): Promise<OpportunityView[]> {
+  const rows = (await prisma.investmentOpportunity.findMany({
+    where: { linkedCelebrityId: celebrityId, status: { in: ["OPEN", "PENDING"] } },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    include: { linkedCelebrity: { select: { slug: true, name: true } } },
+  })) as unknown as OpportunityRow[];
+  if (rows.length === 0) return [];
+  const totals = await raisedTotals(rows.map((r) => r.id));
+  return rows.map((row) => toOpportunityView(row, totals.get(row.id) ?? new Prisma.Decimal(0)));
+}
+
 /** Server-side amount gate against the platform range AND this opportunity's own limits. */
 export function validateOppAmount(opp: { minAmount: Prisma.Decimal | null; maxAmount: Prisma.Decimal | null }, amount: Prisma.Decimal): string | null {
   return validateInvestAmount(amount, opp.minAmount, opp.maxAmount);
