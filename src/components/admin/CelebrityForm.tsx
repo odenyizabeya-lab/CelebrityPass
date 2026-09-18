@@ -6,7 +6,14 @@ import { useState } from "react";
 import type { Celebrity } from "@prisma/client";
 import { slugify, tryParseJson, type CardDesign, type SocialLinks } from "@/lib/utils";
 import { EVENT_TYPES } from "@/lib/events/types";
-import type { ScanResult } from "@/lib/ai/types";
+import type { ScanResult, ScanInvestor } from "@/lib/ai/types";
+import {
+  ALL_CATEGORIES,
+  CATEGORY_OPTIONS,
+  PROFILE_TYPES,
+  suggestProfileType,
+  type ProfileClass,
+} from "@/lib/profiles/classes";
 
 type PreparedTier = { name: string; description: string; price: number | null; currency: string };
 
@@ -34,6 +41,8 @@ type CelebrityLike = Partial<
     | "isFeatured"
     | "isActive"
     | "isVerified"
+    | "profileType"
+    | "fansCardEnabled"
     | "instagramFollowers"
     | "tiktokFollowers"
     | "facebookFollowers"
@@ -57,6 +66,11 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [name, setName] = useState(celebrity?.name ?? "");
   const [slug, setSlug] = useState(celebrity?.slug ?? "");
   const [category, setCategory] = useState(celebrity?.category ?? "Public Figure");
+  const [profileType, setProfileType] = useState<ProfileClass>(
+    celebrity?.profileType ? (celebrity.profileType as ProfileClass) : suggestProfileType(celebrity?.category ?? null),
+  );
+  const [profileTypeTouched, setProfileTypeTouched] = useState(false);
+  const [fansCardEnabled, setFansCardEnabled] = useState(celebrity?.fansCardEnabled ?? true);
   const [profession, setProfession] = useState(celebrity?.profession ?? "");
   const [bio, setBio] = useState(celebrity?.bio ?? "");
   const [country, setCountry] = useState(celebrity?.country ?? "");
@@ -85,6 +99,8 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [includeEvents, setIncludeEvents] = useState(true);
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
   const [preparedTiers, setPreparedTiers] = useState<PreparedTier[]>([]);
+  // Person-specific investment info found by the scanner (create mode only).
+  const [investorPreview, setInvestorPreview] = useState<ScanInvestor | null>(null);
 
   /** Never send a multi-megabyte photo. Compress anything still raster and
  * bigger than ~700KB so the saved image and the JSON payload both stay sane
@@ -114,6 +130,8 @@ const submit = async (e: React.FormEvent) => {
       name,
       slug: slug || undefined,
       category,
+      profileType,
+      fansCardEnabled,
       profession,
       bio: bio.trim() === "" ? null : bio.trim(),
       country,
@@ -139,6 +157,9 @@ const submit = async (e: React.FormEvent) => {
       // them (with the premium ladder) in the same request, so a new community
       // can never lose its tiers to the background-save race on redirect.
       baseMemberships: mode === "create" ? preparedTiers : undefined,
+      // Person-specific investment info from the AI scan — stored strictly under
+      // THIS celebrity's id, never shared with other people.
+      investorProfile: mode === "create" ? investorPreview : undefined,
     };
     try {
       const url = edit ? `/api/celebrities/${celebrity!.id}` : "/api/celebrities";
@@ -201,11 +222,30 @@ const submit = async (e: React.FormEvent) => {
   const toggleEvent = (i: number) =>
     setSelectedEvents((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)));
 
+  /** Choosing a canonical category auto-suggests its profile class, unless the
+   *  admin already picked one explicitly. Picking an entertainment category
+   *  clears any scanned investor info — the fan system and the investment
+   *  section are separate and never combined. */
+  const selectCategory = (value: string) => {
+    setCategory(value);
+    if (!profileTypeTouched) {
+      const group = Object.entries(CATEGORY_OPTIONS).find(([, cats]) => cats.includes(value));
+      if (group) {
+        setProfileType(group[0] as ProfileClass);
+        if (group[0] === "entertainment") setInvestorPreview(null);
+      }
+    }
+  };
+
   const applyScan = (result: ScanResult) => {
     const p = result.profile;
     if (p) {
       setName(p.name);
       setCategory(p.category);
+      setProfileType(p.profileType);
+      setProfileTypeTouched(true);
+      setFansCardEnabled(p.fansCardEnabled);
+      setInvestorPreview(p.investorProfile ?? null);
       setProfession(p.profession);
       setCountry(p.country);
       setCity(p.city ?? "");
@@ -358,6 +398,73 @@ const submit = async (e: React.FormEvent) => {
         </div>
       </div>
 
+      {/* Profile class — decides which feature system this person uses. The
+          stored value is authoritative (never inferred purely from fame). */}
+      <div className="mt-6 rounded-2xl border border-white/10 bg-ink-900/40 p-5">
+        <h2 className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400">Profile Class</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">
+          Determines what this page is about: <strong className="text-zinc-300">Entertainment</strong> runs the CelebrityPass
+          fan system (fan card, membership tiers, fan chat); <strong className="text-zinc-300">Business / Investor</strong> and{" "}
+          <strong className="text-zinc-300">Political</strong> are factual, verified profiles with no fan system and never an
+          implied offer to invest. Your choice is stored per person and enforced server-side.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {PROFILE_TYPES.map((pt) => (
+            <label
+              key={pt.value}
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
+                profileType === pt.value
+                  ? "border-primary-500/60 bg-primary-500/10"
+                  : "border-white/10 bg-ink-900/60 hover:border-white/20"
+              }`}
+            >
+              <input
+                type="radio"
+                name="profileType"
+                checked={profileType === pt.value}
+                onChange={() => {
+                  setProfileType(pt.value);
+                  setProfileTypeTouched(true);
+                  if (pt.value === "entertainment") setInvestorPreview(null);
+                }}
+                className="mt-1 h-4 w-4 accent-primary-500"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-white">{pt.label}</span>
+                <span className="mt-0.5 block text-[11px] leading-4 text-zinc-500">
+                  {pt.value === "entertainment"
+                    ? "CelebrityPass fan card, tiers, fans & fan chat."
+                    : pt.value === "business"
+                      ? "Factual business/investment profile with verified sources."
+                      : "Official public profile; investment info only when separately verified."}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-300">CelebrityPass Fan System</p>
+            <p className="mt-0.5 text-xs leading-5 text-zinc-500">
+              {fansCardEnabled
+                ? "Fans can register for a fan card, tiers and fan chat for this person."
+                : "No fan card, fan tiers or fan chat for this person — this is a factual, verified profile."}
+            </p>
+            {!fansCardEnabled && profileType === "entertainment" && (
+              <p className="mt-1 text-xs font-semibold text-amber-300">
+                Entertainment profiles normally keep this ON. Turning it OFF makes this a factual profile with no fan system.
+              </p>
+            )}
+            {fansCardEnabled && profileType !== "entertainment" && (
+              <p className="mt-1 text-xs font-semibold text-amber-300">
+                Business/political profiles normally keep this OFF. Only enable it if you intentionally want the fan system here.
+              </p>
+            )}
+          </div>
+          <Toggle label="Enabled" checked={fansCardEnabled} onChange={setFansCardEnabled} />
+        </div>
+      </div>
+
       {error && (
         <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
       )}
@@ -411,7 +518,31 @@ const submit = async (e: React.FormEvent) => {
         </div>
         <div>
           <label className={labelCls}>Category</label>
-          <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls} placeholder="Music" />
+          <select
+            value={ALL_CATEGORIES.includes(category) ? category : ""}
+            onChange={(e) => selectCategory(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">— Choose a category —</option>
+            {PROFILE_TYPES.map((ct) => (
+              <optgroup key={ct.value} label={ct.label}>
+                {CATEGORY_OPTIONS[ct.value].map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            {category && !ALL_CATEGORIES.includes(category) && (
+              <optgroup label="Custom (legacy)">
+                <option value={category}>{category}</option>
+              </optgroup>
+            )}
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">
+            Choose the category that best describes this person. “Public Figure” and other legacy values remain but are
+            discouraged.
+          </p>
         </div>
         <div>
           <label className={labelCls}>Profession</label>
@@ -640,6 +771,53 @@ const submit = async (e: React.FormEvent) => {
                     </label>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {investorPreview && (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.05] px-4 py-4">
+                <h3 className="text-xs font-black uppercase tracking-[0.15em] text-amber-300">
+                  Person-specific business / investment info (found for {name})
+                </h3>
+                <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+                  Saved strictly under this person&apos;s own profile id. Only verified, sourced facts are kept — never
+                  invented, never copied from another person. Review every field before creating.
+                </p>
+                {investorPreview.sector && (
+                  <p className="mt-3 text-sm text-zinc-200">
+                    <span className="font-bold text-zinc-400">Sector:</span> {investorPreview.sector}
+                  </p>
+                )}
+                {investorPreview.overview && (
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    <span className="font-bold text-zinc-400">Overview:</span> {investorPreview.overview}
+                  </p>
+                )}
+                {investorPreview.ventures && (
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    <span className="font-bold text-zinc-400">Ventures &amp; roles:</span> {investorPreview.ventures}
+                  </p>
+                )}
+                {(investorPreview.sources?.length ?? 0) > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Sources</p>
+                    {(investorPreview.sources ?? []).map((s, i) => (
+                      <a
+                        key={i}
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate text-xs text-sky-300 underline underline-offset-2 hover:text-sky-200"
+                      >
+                        {s.label || s.url}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-3 text-[11px] text-zinc-500">
+                  {investorPreview.verified ? "Marked as verified." : "Not yet marked verified."} You can finish the
+                  verification details on the community page after saving.
+                </p>
               </div>
             )}
 

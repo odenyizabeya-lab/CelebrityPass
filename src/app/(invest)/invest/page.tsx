@@ -13,9 +13,10 @@ import KycForm from "@/components/invest/KycForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function InvestHubPage() {
+export default async function InvestHubPage(props: { searchParams?: Promise<{ deposit?: string }> }) {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/invest");
+  const { deposit } = (await props.searchParams) ?? {};
 
   const [account, kyc, recentTx, positions] = await Promise.all([
     safeAsync(() => getOrCreateInvestorAccount(fanId), null),
@@ -53,6 +54,15 @@ export default async function InvestHubPage() {
 
   return (
     <Main>
+      {deposit && (
+        <div className="mb-6 rounded-2xl border border-zinc-700 bg-zinc-900/80 px-4 py-3 text-sm text-zinc-200">
+          {deposit === "confirmed"
+            ? "Deposit confirmed — your funds are in your investor ledger."
+            : deposit === "failed"
+              ? "Your deposit was not completed. No money was moved. Try again or use Bank Transfer."
+              : `Your deposit was ${deposit}.`}
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Investor Hub</p>
@@ -76,9 +86,13 @@ export default async function InvestHubPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
-          <h2 className="text-lg font-extrabold text-white">Add demo funds</h2>
-          <p className="mt-1 text-sm text-zinc-400">Top up your simulated cash balance. No real money moves — ever, in demo mode.</p>
-          <DepositForm />
+          <h2 className="text-lg font-extrabold text-white">{demo ? "Add demo funds" : "Deposit funds"}</h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            {demo
+              ? "Top up your simulated cash balance. No real money moves — ever, in demo mode."
+              : "Pay with your ATM / debit / credit card. Your deposit lands in your investor ledger after the charge is verified."}
+          </p>
+          <DepositForm cardEnabled={!demo} />
         </section>
 
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">

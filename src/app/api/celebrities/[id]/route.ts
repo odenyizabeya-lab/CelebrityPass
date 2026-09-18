@@ -14,6 +14,8 @@ import {
   type DuplicateCode,
 } from "@/lib/dedupe";
 import { normalizeSocialUrl, type SocialPlatform } from "@/lib/social/resolve";
+import { normalizeProfileType } from "@/lib/profiles/classes";
+import { sanitizeInvestorProfile } from "@/lib/profiles/investor";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +174,50 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (body.isFeatured !== undefined) data.isFeatured = Boolean(body.isFeatured);
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
   if (body.isVerified !== undefined) data.isVerified = Boolean(body.isVerified);
+  // Profile class + fan-system switch. Validated to the three canonical values
+  // so junk can never be stored; server-enforced everywhere, not just in the UI.
+  if (body.profileType !== undefined) data.profileType = normalizeProfileType(String(body.profileType));
+  if (body.fansCardEnabled !== undefined) data.fansCardEnabled = Boolean(body.fansCardEnabled);
+  // Investor content is stored only for business/political profiles — the
+  // CelebrityPass fan system and the investment/business section stay separate
+  // (an entertainment profile can never carry investor content). The resulting
+  // profile type is whatever this request leaves it at.
+  const resultingProfileType = data.profileType !== undefined ? String(data.profileType) : celebrity.profileType;
+  if (body.investorProfile !== undefined && resultingProfileType !== "entertainment") {
+    const investor = sanitizeInvestorProfile(body.investorProfile);
+    if (investor) {
+      data.investorProfile = {
+        upsert: {
+          update: {
+            enabled: investor.enabled,
+            overview: investor.overview,
+            sector: investor.sector,
+            ventures: investor.ventures,
+            opportunities: investor.opportunities,
+            eligibility: investor.eligibility,
+            risks: investor.risks,
+            disclaimer: investor.disclaimer,
+            sourcesJson: investor.sourcesJson,
+            verifiedAt: investor.verifiedAt,
+            updatedBy: "admin-form",
+          },
+          create: {
+            enabled: investor.enabled,
+            overview: investor.overview,
+            sector: investor.sector,
+            ventures: investor.ventures,
+            opportunities: investor.opportunities,
+            eligibility: investor.eligibility,
+            risks: investor.risks,
+            disclaimer: investor.disclaimer,
+            sourcesJson: investor.sourcesJson,
+            verifiedAt: investor.verifiedAt,
+            updatedBy: "admin-form",
+          },
+        },
+      };
+    }
+  }
 
   const followerFields = ["instagramFollowers", "tiktokFollowers", "facebookFollowers"] as const;
   const anyFollower = followerFields.some((f) => body[f] !== undefined && body[f] !== null && body[f] !== "");

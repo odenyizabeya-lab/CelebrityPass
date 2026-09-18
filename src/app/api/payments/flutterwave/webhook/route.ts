@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/utils";
 import { settlePayment } from "@/lib/payments";
 import { settleTicketOrderByPaymentRef } from "@/lib/ticketing/service";
+import { settleInvestDepositByProviderRef } from "@/lib/invest/deposits";
 import { verifyFlutterwaveWebhook, verifyFlutterwaveTransaction } from "@/lib/payments/flutterwave";
 
 export const dynamic = "force-dynamic";
@@ -51,14 +52,51 @@ export async function POST(request: NextRequest) {
   if (!reference) return NextResponse.json({ ok: true, ignored: true });
 
   // Resolve the purchase: fan-card Payment (by gatewayRef, provider flutterwave)
-  // or ticket order (by the paymentRef we saved when creating its checkout).
+  // or ticket order (by the paymentRef we saved when creating its checkout) or
+  // an investor deposit (by the providerRef saved when creating its checkout).
   const payment = await prisma.payment.findUnique({ where: { gatewayRef: reference } });
   const ticketOrder =
     !payment || payment.provider !== "flutterwave"
       ? await prisma.ticketOrder.findFirst({ where: { paymentRef: reference }, include: { event: { select: { name: true } } } })
       : null;
 
-  if (!payment && !ticketOrder) return NextResponse.json({ ok: true, ignored: true });
+  if (!payment && !ticketOrder) {
+    // Invest deposit path: the webhook is the ONLY thing that credits the
+    // investor ledger. Verify the charge server-side before settling.
+    const investDeposit = await prisma.transaction.findUnique({ where: { providerRef: reference } });
+    if (investDeposit && investDeposit.provider === "flutterwave" && investDeposit.kind === "DEPOSIT") {
+      if (FAILURE_STATUSES.has(chargeStatus)) {
+        if (investDeposit.status === "PENDING") {
+          await prisma.transaction.update({ where: { id: investDeposit.id }, data: { status: "FAILED" } });
+        }
+        return NextResponse.json({ ok: true, settled: false, failed: true });
+      }
+      if (!SUCCESS_EVENTS.has(event) || !SUCCESS_STATUSES.has(chargeStatus)) {
+        return NextResponse.json({ ok: true, settled: false });
+      }
+      if (!transactionId) return NextResponse.json({ ok: true, settled: false });
+
+      const verified = await verifyFlutterwaveTransaction(transactionId);
+      if (!verified.ok) return NextResponse.json({ ok: true, settled: false });
+
+      const tx = verified.tx;
+      const refOk = tx.txRef === reference;
+      const amountOk = Number(Number(tx.amount).toFixed(2)) === Number(Number(investDeposit.amount).toFixed(2));
+      const currencyOk = tx.currency.toUpperCase() === (investDeposit.currency || "USD").toUpperCase();
+      if (!refOk || !amountOk || !currencyOk || !SUCCESS_STATUSES.has(tx.status)) {
+        return NextResponse.json({ ok: true, settled: false });
+      }
+
+      try {
+        const settled = await settleInvestDepositByProviderRef(reference, { gatewayRef: transactionId });
+        if (!settled.ok) return NextResponse.json({ ok: true, settled: false });
+        return NextResponse.json({ ok: true, settled: true });
+      } catch {
+        return NextResponse.json({ ok: true, settled: false });
+      }
+    }
+    return NextResponse.json({ ok: true, ignored: true });
+  }
 
   // ------------------------------------------------------------------ TICKET
   if (ticketOrder) {

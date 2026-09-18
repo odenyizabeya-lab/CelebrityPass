@@ -27,7 +27,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const paymentId = (searchParams.get("ref") || "").trim();
   const txRef = (searchParams.get("tx_ref") || searchParams.get("reference") || "").trim();
+  const kind = (searchParams.get("kind") || "").trim();
   if (!paymentId && !txRef) return NextResponse.redirect(request.nextUrl.origin);
+
+  // Investor card deposit: the ref is the pending Transaction id. The webhook
+  // (never this redirect) settles the ledger once the charge is verified.
+  if (kind === "invest-deposit" && paymentId) {
+    return handleInvestDeposit(request, paymentId);
+  }
 
   const payment = await prisma.payment.findUnique({
     where: paymentId ? { id: paymentId } : { gatewayRef: txRef },
@@ -150,6 +157,111 @@ function confirmationPage({ paymentId, celebrity }: { paymentId: string; celebri
         setTimeout(function () {
           window.location.reload();
         }, 3000);
+        return;
+      }
+      setTimeout(poll, INTERVAL);
+    }
+
+    setTimeout(poll, 500);
+  })();
+</script>
+</body>
+</html>`;
+
+  return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+/** Redirect path for a settled/failed invest deposit callback. */
+function investResolution(request: NextRequest, status: string): Response {
+  const host = request.nextUrl.origin;
+  return NextResponse.redirect(`${host}/invest?deposit=${encodeURIComponent(status)}`);
+}
+
+/** Card deposit callback — shows a confirming page; the webhook settles. */
+async function handleInvestDeposit(request: NextRequest, txnId: string): Promise<Response> {
+  const { searchParams } = request.nextUrl;
+  const statusParam = (searchParams.get("status") ?? "").toLowerCase();
+  const host = request.nextUrl.origin;
+
+  const txn = await prisma.transaction.findUnique({ where: { id: txnId }, select: { id: true, kind: true, status: true, amount: true } });
+  if (!txn || txn.kind !== "DEPOSIT") return NextResponse.redirect(request.nextUrl.origin);
+
+  // Flutterwave reports a user cancelling / the attempt failing via ?status=…
+  if (ABANDONED_STATUSES.has(statusParam) && (txn.status === "PENDING" || txn.status === "INITIATED")) {
+    await prisma.transaction.update({ where: { id: txn.id }, data: { status: "FAILED" } });
+    return investResolution(request, "failed");
+  }
+
+  if (txn.status === "SUCCESSFUL") return investResolution(request, "confirmed");
+  if (txn.status === "FAILED") return investResolution(request, "failed");
+  if (txn.status === "CANCELLED" || txn.status === "REFUNDED" || txn.status === "REVERSED") {
+    return investResolution(request, txn.status.toLowerCase());
+  }
+  if (txn.status !== "PENDING" && txn.status !== "INITIATED") return investResolution(request, txn.status.toLowerCase());
+
+  return confirmInvestDepositPage({ txnId: txn.id, amount: txn.amount.toString(), url: host });
+}
+
+function confirmInvestDepositPage({ txnId, amount, url }: { txnId: string; amount: string; url: string }): Response {
+  const pollUrl = `/api/invest/deposits/${encodeURIComponent(txnId)}`;
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Confirming your deposit — CelebrityPass</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #09090b; color: #fafafa; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .card { max-width: 430px; width: 100%; background: #111113; border: 1px solid #27272a; border-radius: 20px; padding: 40px 32px; text-align: center; }
+  .spinner { width: 52px; height: 52px; margin: 0 auto 24px; border-radius: 50%; border: 4px solid #27272a; border-top-color: #f97316; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 1.25rem; margin: 0 0 8px; font-weight: 800; }
+  p { color: #a1a1aa; font-size: 0.9rem; line-height: 1.6; margin: 6px 0; }
+  .muted { color: #71717a; font-size: 0.78rem; margin-top: 14px; }
+  a { color: #f97316; font-size: 0.85rem; font-weight: 700; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1>Confirming your deposit</h1>
+    <p>We&rsquo;re just confirming your card deposit of <strong>$${esc(amount)} USD</strong>.</p>
+    <p>This usually takes a few seconds. Don&rsquo;t close this window.</p>
+    <p class="muted">If you&rsquo;re not redirected automatically, refresh this page in a moment.</p>
+  </div>
+<script>
+  (function () {
+    var URL = ${JSON.stringify(pollUrl)};
+    var ORIGIN = ${JSON.stringify(url)};
+    var tries = 0;
+    var MAX_TRIES = 40; // ~100s of polling
+    var INTERVAL = 2500;
+
+    function go(path) {
+      if (window.stop) window.stop();
+      window.location.assign(ORIGIN + path);
+    }
+
+    async function poll() {
+      tries += 1;
+      try {
+        var res = await fetch(URL, { cache: "no-store", credentials: "include" });
+        if (res.status === 401 || res.status === 403) throw new Error("auth");
+        var data = await res.json();
+        var status = data && data.deposit && data.deposit.status;
+        if (status === "SUCCESSFUL") { go("/invest?deposit=confirmed"); return; }
+        if (status === "FAILED" || status === "CANCELLED" || status === "REFUNDED" || status === "REVERSED") {
+          go("/invest?deposit=" + encodeURIComponent(String(status).toLowerCase())); return;
+        }
+      } catch (err) {
+        // transient/network/auth errors — keep polling; the webhook settles anyway.
+      }
+      if (tries >= MAX_TRIES) {
+        setTimeout(function () { window.location.reload(); }, 3000);
         return;
       }
       setTimeout(poll, INTERVAL);

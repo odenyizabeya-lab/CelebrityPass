@@ -62,10 +62,15 @@ export async function POST(request: NextRequest) {
 
   const level = await prisma.membershipLevel.findUnique({
     where: { id: levelId },
-    include: { celebrity: { select: { id: true, slug: true, name: true, isActive: true } } },
+    include: { celebrity: { select: { id: true, slug: true, name: true, isActive: true, fansCardEnabled: true } } },
   });
   if (!level || !level.isActive || !level.celebrity?.isActive) {
     return NextResponse.json({ error: "Membership level not available" }, { status: 404 });
+  }
+  // Business/political profiles do not run the CelebrityPass fan program —
+  // no fan-card payment can ever be created for them, server-side.
+  if (level.celebrity.fansCardEnabled === false) {
+    return NextResponse.json({ error: "This profile does not offer CelebrityPass memberships." }, { status: 403 });
   }
   if (level.price == null || level.price <= 0) {
     return NextResponse.json({ error: "This level is free — no payment needed" }, { status: 400 });

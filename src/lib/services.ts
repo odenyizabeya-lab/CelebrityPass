@@ -8,6 +8,10 @@ import { representedCountryList } from "./countries";
 import type { FollowerCounts } from "./followers";
 import type { CardDesign, MembershipLevelType, SocialLinks } from "./utils";
 import type { GoogleInfo } from "./google-info";
+import type { ProfileClass } from "./profiles/classes";
+import { normalizeProfileType } from "./profiles/classes";
+import type { InvestorView } from "./profiles/investor";
+import { toInvestorView } from "./profiles/investor";
 
 /** Short CDN-cache-busting version token from the stored image hash. */
 function imgVersion(hash: string | null): string {
@@ -123,6 +127,8 @@ export type CelebritySummary = {
   isWorldLeader: boolean;
   isActive: boolean;
   isVerified: boolean;
+  profileType: ProfileClass;
+  fansCardEnabled: boolean;
   fanCount: number;
   countryCount: number;
   createdAt: Date;
@@ -190,6 +196,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
         imageSourceUrl: true,
         profileImageHash: true,
         coverImageHash: true,
+        profileType: true,
+        fansCardEnabled: true,
       },
     }),
     celebrityImageFlags(),
@@ -238,6 +246,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       isWorldLeader: isWorldLeaderName(c.googleInfo),
       isActive: c.isActive,
       isVerified: c.isVerified,
+      profileType: normalizeProfileType(c.profileType),
+      fansCardEnabled: c.fansCardEnabled,
       fanCount: displayFanCountFor(c),
       countryCount: displayCountryCount(totalCountries),
       createdAt: c.createdAt,
@@ -260,6 +270,7 @@ export type CelebrityDetail = CelebritySummary & {
   socialLinks: SocialLinks;
   cardDesign: CardDesign;
   memberships: MembershipLevelType[];
+  investor: InvestorView | null;
 };
 
 /** Slugs of all active communities (used for static generation). */
@@ -319,6 +330,23 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
         imageSourceUrl: true,
         profileImageHash: true,
         coverImageHash: true,
+        profileType: true,
+        fansCardEnabled: true,
+        investorProfile: {
+          select: {
+            enabled: true,
+            overview: true,
+            sector: true,
+            ventures: true,
+            opportunities: true,
+            eligibility: true,
+            risks: true,
+            disclaimer: true,
+            sourcesJson: true,
+            verifiedAt: true,
+            updatedAt: true,
+          },
+        },
         memberships: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
       },
     });
@@ -368,6 +396,8 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
     isWorldLeader: isWorldLeaderName(celebrity.googleInfo),
     isActive: celebrity.isActive,
     isVerified: celebrity.isVerified,
+    profileType: normalizeProfileType(celebrity.profileType),
+    fansCardEnabled: celebrity.fansCardEnabled,
     fanCount: displayFanCountFor(celebrity),
     countryCount: displayCountryCount(totalCountries),
     createdAt: celebrity.createdAt,
@@ -380,6 +410,9 @@ export const getCelebrityBySlug = cache(async (slug: string): Promise<CelebrityD
     googleUrl: celebrity.googleUrl,
     socialLinks: tryParseJson<SocialLinks>(celebrity.socialLinks, {}),
     cardDesign: tryParseJson<CardDesign>(celebrity.cardDesign, { primary: celebrity.accentColor }),
+    investor: celebrity.investorProfile
+      ? toInvestorView(celebrity.investorProfile)
+      : null,
     memberships: celebrity.memberships.map((m) => ({
       id: m.id,
       name: m.name,

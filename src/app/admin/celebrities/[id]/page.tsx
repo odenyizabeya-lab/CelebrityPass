@@ -3,9 +3,11 @@ import CountUp from "@/components/CountUp";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import CelebrityForm from "@/components/admin/CelebrityForm";
 import MembershipsManager from "@/components/admin/MembershipsManager";
+import InvestorProfileManager from "@/components/admin/InvestorProfileManager";
 import DeleteCelebrityButton from "@/components/admin/DeleteCelebrityButton";
 import RefreshGooglePanelButton from "@/components/admin/RefreshGooglePanelButton";
 import { prisma } from "@/lib/db";
+import { toInvestorView } from "@/lib/profiles/investor";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,11 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
     },
   });
   if (!celebrity) notFound();
+
+  const investorRow = await prisma.investorProfile.findUnique({
+    where: { celebrityId: id },
+  });
+  const investor = investorRow ? toInvestorView(investorRow) : null;
 
   const fans = await prisma.fan.findMany({
     where: { cards: { some: { celebrityId: id } } },
@@ -84,6 +91,14 @@ export default async function EditCelebrityPage({ params }: { params: Promise<{ 
 
       <div className="mt-8">
         <MembershipsManager celebrityId={celebrity.id} initial={celebrity.memberships} />
+      </div>
+
+      <div className="mt-8">
+        <InvestorProfileManager
+          celebrityId={celebrity.id}
+          celebrityName={celebrity.name}
+          initial={investor}
+        />
       </div>
 
       <div className="glass mt-8 rounded-3xl border-rose-500/20 p-6 sm:p-8">

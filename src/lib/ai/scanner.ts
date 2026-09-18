@@ -29,23 +29,52 @@ import {
 import type {
   IdentifiedPerson,
   ScanEvent,
+  ScanInvestor,
   ScanOutcome,
   ScanProfile,
 } from "./types";
+import {
+  normalizeCategory,
+  normalizeProfileType,
+} from "@/lib/profiles/classes";
 
-export const CELEBRITY_CATEGORIES = ["Actor", "Musician", "Athlete", "Creator", "Public Figure", "Artist"] as const;
-
-/** Safe category: force any AI output into the platform's existing set. */
-function normalizeCategory(raw: string | null | undefined): string {
-  const v = (raw ?? "").trim();
-  if (CELEBRITY_CATEGORIES.includes(v as (typeof CELEBRITY_CATEGORIES)[number])) return v;
-  const lower = v.toLowerCase();
-  if (/actor|actress/.test(lower)) return "Actor";
-  if (/singer|music|rapper|vocal|musician/.test(lower)) return "Musician";
-  if (/football|cricket|athlete|soccer|player|basketb|tennis|boxing/.test(lower)) return "Athlete";
-  if (/youtuber|creator|influencer|streamer/.test(lower)) return "Creator";
-  if (/artist|painter|sculptor|photographer/.test(lower)) return "Artist";
-  return "Public Figure";
+/** Safe category: force any AI output into the platform's canonical set. */
+export function normalizeInvestor(raw: unknown): ScanInvestor | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const verified = r.verified === true;
+  const sector = asString(r.sector, 120) || null;
+  const overview = asString(r.overview, 1500) || null;
+  const ventures = asString(r.ventures, 1200) || null;
+  const opportunities = asString(r.opportunities, 1200) || null;
+  const eligibility = asString(r.eligibility, 800) || null;
+  const risks = asString(r.risks, 800) || null;
+  const disclaimer = asString(r.disclaimer, 800) || null;
+  const rawSources = Array.isArray(r.sources) ? r.sources : [];
+  const sources = rawSources
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+    .map((s) => ({
+      label: asString(s.label, 140),
+      url: asString(s.url, 500),
+      date: typeof s.date === "string" && s.date.trim() ? s.date.trim().slice(0, 60) : null,
+    }))
+    .filter((s) => s.label && /^https?:\/\//i.test(s.url))
+    .slice(0, 8);
+  // Only a meaningful, person-specific result survives; empty/unverified with no
+  // content stays null so the page says "no verified offering found" honestly.
+  if (!verified && !overview && !ventures && !opportunities) return null;
+  return {
+    enabled: false, // never auto-published — an admin explicitly enables it
+    verified,
+    sector,
+    overview,
+    ventures,
+    opportunities,
+    eligibility,
+    risks,
+    disclaimer,
+    sources,
+  };
 }
 
 function asString(v: unknown, max = 8000): string {
@@ -85,7 +114,7 @@ type RawProfileSchema = Awaited<ReturnType<typeof researchProfile>>;
 type RawEventsSchema = Awaited<ReturnType<typeof researchEvents>>;
 
 /** Maps a raw Gemini profile into the exact ScanProfile type. */
-function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
+export function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
   const membership =
     Array.isArray(raw.base_memberships) && raw.base_memberships.length >= 5
       ? raw.base_memberships.slice(0, 5)
@@ -103,10 +132,20 @@ function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
     }))
     .slice(0, 5);
 
+  // The verified profile class drives which feature system this page uses:
+  // entertainment = CelebrityPass fan system; business/political = factual
+  // profiles (fan system OFF). The class is authoritative over the AI's raw
+  // flags so a "rich actor" is never misclassified as business just for being
+  // wealthy, and a head of state is never given a fan-card page.
+  const profileType = normalizeProfileType(raw.profile_type);
+  const fansCardEnabled = profileType === "entertainment";
+
   return {
     name: asString(raw.name, 120) || name,
     aliases: asArray(raw.aliases).slice(0, 8),
-    category: normalizeCategory(raw.category),
+    category: normalizeCategory(raw.category) ?? "Public Figure",
+    profileType,
+    fansCardEnabled,
     profession: asString(raw.profession, 120) || "Public Figure",
     country: asString(raw.country, 80) || "",
     city: asString(raw.city, 80) || null,
@@ -129,6 +168,9 @@ function normalizeProfile(name: string, raw: RawProfileSchema): ScanProfile {
       accent: asString(raw.card_design?.accent, 9) || raw.accent_color || "#f59e0b",
     },
     baseMemberships: cleanMembership,
+    // Person-specific business/investment info — entertainment (fan-system)
+    // profiles never carry investor content, so the two systems stay separate.
+    investorProfile: profileType === "entertainment" ? null : normalizeInvestor(raw.investor_profile),
     sourceUrls: asArray(raw.source_urls).slice(0, 8),
   };
 }

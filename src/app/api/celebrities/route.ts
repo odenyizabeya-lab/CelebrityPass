@@ -20,6 +20,8 @@ import {
 import { sendNewCelebrityAnnouncement } from "@/lib/emails/senders";
 import { normalizeSocialUrl } from "@/lib/social/resolve";
 import { sanitizeBaseMemberships } from "@/lib/memberships";
+import { normalizeProfileType } from "@/lib/profiles/classes";
+import { sanitizeInvestorProfile } from "@/lib/profiles/investor";
 import { upsertPremiumLevels } from "../../../../prisma/premium-levels.mjs";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +80,13 @@ export async function POST(request: NextRequest) {
 
   const category = String(body.category ?? "Public Figure");
   const accentColor = String(body.accentColor ?? "#8b5cf6");
+  // Profile class + fan-system switch. Business/political profiles default the
+  // CelebrityPass fan system OFF; entertainment defaults ON. Stored per person.
+  const profileType = normalizeProfileType(body.profileType ? String(body.profileType) : null);
+  const fansCardEnabled =
+    body.fansCardEnabled !== undefined
+      ? Boolean(body.fansCardEnabled)
+      : profileType === "entertainment";
 
   // Auto-build everything for a brand-new celebrity: photos, follower counts.
   const userProfileImage = body.profileImage ? String(body.profileImage) : null;
@@ -145,6 +154,8 @@ export async function POST(request: NextRequest) {
         nameKey,
         name,
         category,
+        profileType,
+        fansCardEnabled,
         country: String(body.country ?? ""),
         city: body.city ? String(body.city) : null,
         profession: String(body.profession ?? ""),
@@ -260,6 +271,38 @@ export async function POST(request: NextRequest) {
   clearReadCache();
   invalidateCelebrityMedia();
   revalidateCelebrityPages(celebrity.slug);
+
+  // Persist the person-specific investment/business profile found by the AI
+  // scan — written strictly under THIS celebrity's id, never shared with any
+  // other person. Only sanitized, verified factual content survives, and only
+  // for business/political profiles: the CelebrityPass fan system and the
+  // investment/business section are kept fully separate.
+  if (body.investorProfile && profileType !== "entertainment") {
+    const investor = sanitizeInvestorProfile(body.investorProfile);
+    if (investor && (investor.enabled || investor.overview || investor.ventures)) {
+      try {
+        await prisma.investorProfile.create({
+          data: {
+            celebrityId: celebrity.id,
+            enabled: investor.enabled,
+            overview: investor.overview,
+            sector: investor.sector,
+            ventures: investor.ventures,
+            opportunities: investor.opportunities,
+            eligibility: investor.eligibility,
+            risks: investor.risks,
+            disclaimer: investor.disclaimer,
+            sourcesJson: investor.sourcesJson,
+            verifiedAt: investor.verifiedAt,
+            updatedBy: "ai-scan",
+          },
+        });
+      } catch (err) {
+        // A failed investor profile must never fail the celebrity create.
+        console.error(`[create celebrity] investor profile failed for ${celebrity.slug}:`, err);
+      }
+    }
+  }
 
   // Notify fans who opted into "New celebrity added" updates. A real, curated
   // customer-facing announcement — never fires for ordinary edits.

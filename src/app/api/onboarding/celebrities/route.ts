@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const celebrities = await prisma.celebrity.findMany({
-    where: { isActive: true },
+    where: { isActive: true, fansCardEnabled: true },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const found = await prisma.celebrity.findMany({
-    where: { id: { in: ids }, isActive: true },
+    where: { id: { in: ids }, isActive: true, fansCardEnabled: true },
     select: { id: true },
   });
   if (found.length !== ids.length) {

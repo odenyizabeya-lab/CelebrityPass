@@ -306,6 +306,8 @@ const PROFILE_SCHEMA = {
     name: STRING,
     aliases: { type: "ARRAY", items: STRING },
     category: STRING,
+    profile_type: { type: "STRING", enum: ["entertainment", "business", "political"] },
+    fans_card: BOOLEAN,
     profession: STRING,
     country: STRING,
     city: STRING_NULL,
@@ -335,11 +337,34 @@ const PROFILE_SCHEMA = {
         properties: { name: STRING, description: STRING, price: NUMBER_NULL, currency: STRING },
       },
     },
+    investor_profile: {
+      type: "OBJECT",
+      nullable: true,
+      properties: {
+        verified: BOOLEAN,
+        sector: STRING_NULL,
+        overview: STRING_NULL,
+        ventures: STRING_NULL,
+        opportunities: STRING_NULL,
+        eligibility: STRING_NULL,
+        risks: STRING_NULL,
+        disclaimer: STRING_NULL,
+        sources: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: { label: STRING, url: STRING, date: STRING_NULL },
+          },
+        },
+      },
+    },
     source_urls: { type: "ARRAY", items: STRING },
   },
   required: [
     "name",
     "category",
+    "profile_type",
+    "fans_card",
     "profession",
     "country",
     "accent_color",
@@ -404,15 +429,30 @@ export function identifyPerson(c: GeminiCredential, imageDataUri: string) {
   });
 }
 
-const PROFILE_SYSTEM = `You are a meticulous celebrity researcher for the "CelebrityPass" fan-card platform.
+const PROFILE_SYSTEM = `You are a meticulous celebrity researcher for the "CelebrityPass" platform.
 You research ONE identified person using live web search and return a structured profile for admin review.
 Rules:
 - Use Google Search grounding to verify every fact. NEVER invent information, URLs, follower counts, or prices from memory alone.
 - name: the person's most common public display name.
-- category: pick EXACTLY one of: Actor | Musician | Athlete | Creator | Public Figure | Artist.
+- category: pick the EXACT, reliable category that describes what this person actually does. Entertainment options: Actor | Actress | Singer | Musician | Rapper | Comedian | Athlete | Creator | Influencer | Artist | Dancer | Model | TV Presenter. Business options: Entrepreneur | CEO | Businessperson | Investor | Company Founder | Business Leader | Venture Capitalist | Chairman. Political options: President | Prime Minister | Chancellor | Government Official | Politician | Senator | Governor | Minister | Diplomat.
+- profile_type: the one verified class this person belongs to: "entertainment" (performers, athletes, creators), "business" (entrepreneurs, CEOs, founders, investors, business people), or "political" (heads of government, elected/appointed officials). Base it ONLY on their documented public role — never on fame alone (a rich actor is still "entertainment"; a famous CEO is still "business"; a head of state is "political").
+- fans_card: true ONLY when profile_type is "entertainment". false for business and political — their pages are factual, never fan-card pages.
 - profession: concise factual headline, e.g. "Singer & Songwriter" or "Footballer".
 - country / city: birthplace or primary residence country/city, null only if truly unknown.
 - website: the person's verified OFFICIAL website, else null.
+
+INVESTOR / BUSINESS PROFILE (only for business and political people, and only from verified activity):
+investor_profile describes BOTH optional as well: verifiable business/investment facts FOR THIS ONE PERSON ONLY:
+- verified: true ONLY when you confirmed the facts in authoritative sources (official company pages, government/regulator filings, reputable press, the company's own documented history).
+- sector: the industry/industries of their documented business activity (e.g. "Technology", "Real Estate", "Finance").
+- overview: a factual summary of the person's public business/investment life — roles held, ventures they founded or led, board seats. NO offers, NO amounts, NO minimums, NO promised returns.
+- ventures: named companies/ventures the person is publicly documented as founding or leading.
+- opportunities: HOW eligible investors may engage WITH THEM, ONLY if this is publicly documented (e.g. a registered regulated private fund with official fund documentation). Otherwise omit — never invent an offering, a deposit minimum, a return figure, or a claim that the person personally accepts investments.
+- eligibility: documented eligibility rules (accredited/geographic) only if they exist publicly.
+- risks: material risks an investor would weigh, if documented.
+- disclaimer: a one-sentence honest disclaimer (a clear default is added automatically when omitted).
+- sources: the authoritative public URLs backing these facts (2-6 recommended). NEVER invent a source URL.
+- When the person has NO verifiable business/investment activity, or you could not verify it, return investor_profile as null — do NOT fabricate one.
 
 SOCIAL LINKS (critical — only these 4 platforms are supported):
 socials supports EXACTLY four keys: facebook, instagram, tiktok, google.
@@ -423,12 +463,14 @@ socials supports EXACTLY four keys: facebook, instagram, tiktok, google.
 - If you could NOT reliably verify an official account on a platform, return null for that platform. Do NOT guess, never fabricate a handle or URL.
 - URLs must come from the search results you actually saw.
 
+- fans_card: see above (true only for entertainment).
 - followers: published follower counts ONLY when the search results show them; otherwise null (the platform fills realistic placeholders).
 - accent_color: suggest a fitting brand hex color (e.g. "#8b5cf6").
 - card_design: badge_text like "OFFICIAL FAN MEMBER", a short watermark, and an accent hex.
 - base_memberships: 5 paid fan-card tiers, matching this platform's standard membership scheme: LEVEL 1 "Silver" $200, LEVEL 2 "Gold" $350, LEVEL 3 "Platinum" $500, LEVEL 4 "Premium" $1,000, LEVEL 5 "VIP" $1,700. There is NO free tier. Keep the names and prices exactly as listed above; provide an accessible, factual description per tier. Do NOT invent different prices.
 - source_urls: the real public URLs (authoritative: official site, verified socials, Wikipedia, reputable press) you actually used for evidence. Include at least 1 and at most 8.
-- Return null for anything you could NOT verify. Do not fabricate.`;
+- Return null for anything you could NOT verify. Do not fabricate.
+- IMPORTANT: This profile is for ONE person. Never import, copy, or template facts from other people — every detail must describe this exact person.`;
 
 function profilePrompt(name: string): string {
   return `Research this celebrity: ${name}.
@@ -440,6 +482,8 @@ export function researchProfile(c: GeminiCredential, name: string, useSearch: bo
     name: string;
     aliases?: string[];
     category: string;
+    profile_type: string;
+    fans_card: boolean;
     profession: string;
     country: string;
     city: string | null;
@@ -454,6 +498,17 @@ export function researchProfile(c: GeminiCredential, name: string, useSearch: bo
     };
     card_design: { badge_text: string | null; watermark: string | null; accent: string | null };
     base_memberships: Array<{ name: string; description: string; price: number | null; currency: string }>;
+    investor_profile?: {
+      verified: boolean;
+      sector: string | null;
+      overview: string | null;
+      ventures: string | null;
+      opportunities: string | null;
+      eligibility: string | null;
+      risks: string | null;
+      disclaimer: string | null;
+      sources: { label: string; url: string; date: string | null }[];
+    } | null;
     source_urls: string[];
   }>({
     credential: c,

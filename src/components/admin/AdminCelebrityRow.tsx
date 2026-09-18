@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AdminListDeleteButton from "@/components/admin/AdminListDeleteButton";
+import { PROFILE_TYPE_LABELS, type ProfileClass } from "@/lib/profiles/classes";
 
 /**
  * A whole-row tappable celebrity entry — tapping anywhere on the row opens the
@@ -26,6 +27,8 @@ export default function AdminCelebrityRow({
   isVerified,
   isFeatured,
   isActive,
+  profileType,
+  fansCardEnabled,
   fans,
   levels,
   hasProfile,
@@ -39,6 +42,8 @@ export default function AdminCelebrityRow({
   isVerified: boolean;
   isFeatured: boolean;
   isActive: boolean;
+  profileType: string;
+  fansCardEnabled: boolean;
   fans: number;
   levels: number;
   hasProfile: boolean;
@@ -76,6 +81,26 @@ export default function AdminCelebrityRow({
           {isFeatured && (
             <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-bold text-gold-400">
               ★ Featured
+            </span>
+          )}
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              profileType === "business"
+                ? "bg-sky-500/15 text-sky-300"
+                : profileType === "political"
+                  ? "bg-rose-500/15 text-rose-300"
+                  : "bg-purple-500/15 text-purple-300"
+            }`}
+            title="Profile class"
+          >
+            {PROFILE_TYPE_LABELS[(profileType as ProfileClass) ?? "entertainment"]}
+          </span>
+          {!fansCardEnabled && (
+            <span
+              className="rounded-full bg-zinc-600/20 px-2 py-0.5 text-[10px] font-bold text-zinc-400"
+              title="CelebrityPass fan system is OFF for this profile"
+            >
+              No fan system
             </span>
           )}
         </div>

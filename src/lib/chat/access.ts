@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getAdminEmails } from "@/lib/admin/settings";
 import { CHAT_ACCESS_OFF_DEFAULT_MESSAGE } from "@/lib/chat/constants";
+import { FAN_SYSTEM_OFF_MESSAGE } from "@/lib/profiles/classes";
 import type { ChatConversation } from "@prisma/client";
 
 /**
@@ -34,10 +35,14 @@ export async function canFanSendMessage(
       isActive: true,
       chatAccessEnabled: true,
       chatAccessOffMessage: true,
+      fansCardEnabled: true,
     },
   });
   if (!celebrity || !celebrity.isActive) {
     return { allowed: false, reason: "Chat is unavailable for this celebrity" };
+  }
+  if (celebrity.fansCardEnabled === false) {
+    return { allowed: false, reason: FAN_SYSTEM_OFF_MESSAGE };
   }
   if (celebrity.chatAccessEnabled === false) {
     return {
@@ -83,12 +88,21 @@ export async function getFanChatGate(
       isActive: true,
       chatAccessEnabled: true,
       chatAccessOffMessage: true,
+      fansCardEnabled: true,
     },
   });
   if (!celebrity || !celebrity.isActive) {
     return {
       blocked: true,
       reason: "Chat is unavailable for this celebrity",
+      chatAccessEnabled: true,
+      chatAccessOffMessage: CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
+    };
+  }
+  if (celebrity.fansCardEnabled === false) {
+    return {
+      blocked: true,
+      reason: FAN_SYSTEM_OFF_MESSAGE,
       chatAccessEnabled: true,
       chatAccessOffMessage: CHAT_ACCESS_OFF_DEFAULT_MESSAGE,
     };

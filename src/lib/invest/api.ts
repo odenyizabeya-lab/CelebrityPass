@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentFanId } from "@/lib/auth";
 import { getOrCreateInvestorAccount } from "./account";
 import { InvestError } from "./orders";
+import { InvestDepositError } from "./deposits";
 
 /** Map an InvestError to an honest HTTP response (client can never fake success). */
 export function investErrorResponse(err: unknown): NextResponse {
@@ -18,6 +19,20 @@ export function investErrorResponse(err: unknown): NextResponse {
       case "NOT_OPEN":
       case "DISCLOSURES_REQUIRED":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });
+      default:
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
+    }
+  }
+  if (err instanceof InvestDepositError) {
+    switch (err.code) {
+      case "AMOUNT_INVALID":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
+      case "PAYMENTS_DISABLED":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 503 });
+      case "PAYMENT_FAILED":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 502 });
+      case "NO_FAN":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 404 });
       default:
         return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
     }

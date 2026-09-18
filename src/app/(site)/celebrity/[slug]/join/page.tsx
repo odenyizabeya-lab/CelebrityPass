@@ -14,6 +14,10 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
   const celebrity = await safeAsync(async () => getCelebrityBySlug(slug), null);
   if (!celebrity) notFound();
   if (slug !== celebrity.slug) redirect(`/celebrity/${celebrity.slug}`);
+  // Business/political (and any fan-system-disabled) profiles never run the
+  // CelebrityPass fan program — the fan-card join flow is not reachable for
+  // them. The registration API also rejects it server-side.
+  if (!celebrity.fansCardEnabled) redirect(`/celebrity/${celebrity.slug}`);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">

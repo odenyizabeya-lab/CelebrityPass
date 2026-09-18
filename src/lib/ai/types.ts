@@ -4,6 +4,8 @@
 // database schema — all prepared data maps onto existing Celebrity /
 // MembershipLevel / CelebrityEvent fields.
 
+import type { ProfileClass } from "@/lib/profiles/classes";
+
 export type IdentifiedPerson = {
   identified: boolean;
   bestName: string | null;
@@ -34,12 +36,37 @@ export type PrepMembershipTier = {
   currency: string;
 };
 
+/**
+ * Person-specific business/investment info the research found FOR THIS ONE
+ * PERSON. Saved strictly under their own profile id — never shared, copied, or
+ * blended with another person's info. Only verified, sourced facts are kept;
+ * offerings/minimums/returns are never invented.
+ */
+export type ScanInvestor = {
+  /** Whether the section may be shown publicly (never auto-true from raw input). */
+  enabled: boolean;
+  /** Whether the research confirmed the facts against authoritative sources. */
+  verified: boolean;
+  sector: string | null;
+  overview: string | null;
+  ventures: string | null;
+  opportunities: string | null;
+  eligibility: string | null;
+  risks: string | null;
+  disclaimer: string | null;
+  sources: { label: string; url: string; date: string | null }[];
+};
+
 export type ScanProfile = {
   /** Display name exactly as the celebrity is commonly known. */
   name: string;
   aliases: string[] | null;
-  /** One of: Actor | Musician | Athlete | Creator | Public Figure | Artist */
+  /** One of the canonical categories (see src/lib/profiles/classes.ts). */
   category: string;
+  /** Verified profile class: entertainment (Fan system) | business | political. */
+  profileType: ProfileClass;
+  /** Whether this person's page runs the CelebrityPass fan system. */
+  fansCardEnabled: boolean;
   profession: string;
   country: string;
   city: string | null;
@@ -57,6 +84,8 @@ export type ScanProfile = {
   };
   /** Exactly 2 prepared base membership tiers (paid Premium / VIP standard). */
   baseMemberships: PrepMembershipTier[];
+  /** Person-specific investment/business info, or null when none is verified. */
+  investorProfile: ScanInvestor | null;
   /** Public source URLs the research actually used (evidence trail). */
   sourceUrls: string[];
 };

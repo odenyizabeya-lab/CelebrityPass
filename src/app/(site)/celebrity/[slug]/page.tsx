@@ -20,6 +20,8 @@ import { canonicalSocialLinks, type CanonicalSocialLinks } from "@/lib/social/re
 import { safeAsync } from "@/lib/safe-data";
 import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
+import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
+import { NO_VERIFIED_OFFERING_COPY } from "@/lib/profiles/investor";
 import QRCode from "qrcode";
 
 export const revalidate = 60;
@@ -167,15 +169,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // shared generic image when a real profile photo exists.
   const image = c.profileImageUrl ? `${APP_URL}${c.profileImageUrl}` : isHttpUrl(c.profileImage) ? c.profileImage : undefined;
   const ogTitle = c.name;
+  // Fan communities brand the page as an official fan community + fan card;
+  // business/political profiles are factual official profiles, never fan pages.
+  const isFanCommunity = c.fansCardEnabled;
+  const pageTitle = isFanCommunity
+    ? `${c.name} — Official Fan Community & Fan Card`
+    : `${c.name} — Official Profile & Verified Info`;
 
   return {
-    title: `${c.name} — Official Fan Community & Fan Card`,
+    title: pageTitle,
     description,
     alternates: { canonical: url },
     openGraph: {
       type: "profile",
       title: ogTitle,
-      description: `Official CelebrityPass profile for ${c.name}.`,
+      description: isFanCommunity
+        ? `Official CelebrityPass profile for ${c.name}.`
+        : `Verified, factual profile for ${c.name}. BUSINESS/INVESTMENT NOTE: nothing here is an offer to invest.`,
       url,
       siteName: "CelebrityPass",
       firstName: c.name.split(" ").slice(0, 1).join(" ") || undefined,
@@ -185,7 +195,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: image ? "summary_large_image" : "summary",
       title: ogTitle,
-      description: `Official CelebrityPass profile for ${c.name}.`,
+      description: isFanCommunity
+        ? `Official CelebrityPass profile for ${c.name}.`
+        : `Verified, factual profile for ${c.name}. Nothing here is an offer to invest.`,
       ...(image ? { images: [image] } : {}),
     },
   };
@@ -289,6 +301,14 @@ export default async function CelebrityPage({ params }: Props) {
   const standardTiers = celebrity.memberships.filter((l) => (l.price ?? 0) < PREMIUM_MIN_PRICE);
   const premiumTiers = celebrity.memberships.filter((l) => (l.price ?? 0) >= PREMIUM_MIN_PRICE);
   const firstName = (celebrity.name.trim().split(/\s+/)[0] ?? celebrity.name).trim();
+
+  // Person-specific feature segmentation: ONLY actors, actresses and musicians
+  // run the CelebrityPass fan system (fan cards, membership, chat). Everyone
+  // else (business people, politicials, athletes, creators) gets the verified
+  // Business & Investment profile instead — no fan cards, never an implied
+  // offer to invest. Enforced again server-side in the APIs — not UI alone.
+  const fanSystem = celebrity.fansCardEnabled;
+  const profileClassLabel = PROFILE_TYPE_LABELS[celebrity.profileType];
 
   return (
     <div>
@@ -444,54 +464,87 @@ export default async function CelebrityPage({ params }: Props) {
             </p>
             <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="countries.title" /></p>
           </div>
-          <div className="glass rounded-3xl px-6 py-5">
-            <p className="text-3xl font-black text-white">{celebrity.memberships.length}</p>
-            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.onCommunity" /></p>
-          </div>
-          <div className="glass rounded-3xl px-6 py-5">
-            <p className="text-3xl font-black text-white">{celebrity.isFeatured ? <><span aria-hidden>*</span> <T k="membership.featured" /></> : <T k="membership.open" />}</p>
-            <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.communityStatus" /></p>
-          </div>
+          {fanSystem ? (
+            <>
+              <div className="glass rounded-3xl px-6 py-5">
+                <p className="text-3xl font-black text-white">{celebrity.memberships.length}</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.onCommunity" /></p>
+              </div>
+              <div className="glass rounded-3xl px-6 py-5">
+                <p className="text-3xl font-black text-white">{celebrity.isFeatured ? <><span aria-hidden>*</span> <T k="membership.featured" /></> : <T k="membership.open" />}</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="membership.communityStatus" /></p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="glass rounded-3xl px-6 py-5">
+                <p className="truncate text-2xl font-black text-white sm:text-3xl">{celebrity.category}</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500">Category</p>
+              </div>
+              <div className="glass rounded-3xl px-6 py-5">
+                <p className="text-2xl font-black text-white sm:text-3xl">{profileClassLabel}</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500">Profile Class</p>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* CTA row — Get Fan Card | Chat Now, side-by-side, equal width */}
-        <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4">
-          <Link
-            href={`/celebrity/${celebrity.slug}/join`}
-            className="btn-grad inline-flex min-w-0 items-center justify-center gap-2.5 rounded-full px-3 py-4 text-sm font-bold text-white transition active:scale-[0.98] sm:px-6 sm:text-base"
-          >
-            <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
-            </svg>
-            <span className="min-w-0 text-center leading-snug"><T k="join.getFanCard" /></span>
-          </Link>
-          <ChatNowButton
-            celebrityId={celebrity.id}
-            celebrity={{
-              id: celebrity.id,
-              slug: celebrity.slug,
-              name: celebrity.name,
-              profileImage: celebrity.profileImageUrl ?? "",
-              isVerified: celebrity.isVerified,
-            }}
-          />
-        </div>
+        {/* CTA row — fan communities get Get Fan Card | Chat Now. Factual
+            profiles (business/political) get a neutral anchor to their verified
+            profile info, never a fan card purchase. */}
+        {fanSystem ? (
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4">
+            <Link
+              href={`/celebrity/${celebrity.slug}/join`}
+              className="btn-grad inline-flex min-w-0 items-center justify-center gap-2.5 rounded-full px-3 py-4 text-sm font-bold text-white transition active:scale-[0.98] sm:px-6 sm:text-base"
+            >
+              <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
+              </svg>
+              <span className="min-w-0 text-center leading-snug"><T k="join.getFanCard" /></span>
+            </Link>
+            <ChatNowButton
+              celebrityId={celebrity.id}
+              celebrity={{
+                id: celebrity.id,
+                slug: celebrity.slug,
+                name: celebrity.name,
+                profileImage: celebrity.profileImageUrl ?? "",
+                isVerified: celebrity.isVerified,
+              }}
+            />
+          </div>
+        ) : (
+          <div className="mt-10 flex flex-wrap gap-3 sm:gap-4">
+            <a
+              href="#profile"
+              className="btn-grad inline-flex min-w-0 items-center justify-center gap-2.5 rounded-full px-3 py-4 text-sm font-bold text-white transition active:scale-[0.98] sm:px-6 sm:text-base"
+            >
+              <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V8h-2v4zm0 3v-1h-2v1z" />
+              </svg>
+              <span className="min-w-0 text-center leading-snug">Explore {celebrity.name}&apos;s Profile</span>
+            </a>
+          </div>
+        )}
 
         {/* Body grid */}
         <div className="mt-16 grid gap-12 lg:grid-cols-[1.4fr_1fr]">
           {/* Bio + community info */}
           <div className="space-y-14">
-            <section>
-              <h2 className="text-2xl font-black tracking-tight"><T k="membership.aboutCommunity" /></h2>
+            <section id="profile">
+              <h2 className="text-2xl font-black tracking-tight">About {celebrity.name}</h2>
               {celebrity.bio && (
                 <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-200">{celebrity.bio}</p>
               )}
               <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-500">
-                CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of
-                each community and do not represent contracts with, or endorsement by, the celebrity.
+                {fanSystem
+                  ? "CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of each community and do not represent contracts with, or endorsement by, the celebrity."
+                  : "This profile presents factual information about this person sourced from public, authoritative references. Nothing on this page is an offer, solicitation, or endorsement — including no offer to invest."}
               </p>
             </section>
 
+            {fanSystem ? (
 <section>
   <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">Join The Exclusive Community</p>
   <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
@@ -546,18 +599,49 @@ export default async function CelebrityPage({ params }: Props) {
     </div>
   )}
 </section>
+            ) : (
+              <section id="investment-section">
+                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">Business &amp; Investment Profile</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  Verified Business &amp; <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-transparent">Investment Info</span>
+                </h2>
+                <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
+                  Factual, person-specific business and investment information about {celebrity.name}, drawn only from verified authoritative sources. This is not an offer to invest.
+                </p>
+                <div className="mt-8">
+                  <InvestorSection celebrity={celebrity} />
+                </div>
+                <div className="mt-6">
+                  <Link
+                    href="/invest/opportunities"
+                    className="group inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/[0.08] px-5 py-2.5 text-sm font-bold text-amber-300 transition hover:bg-amber-400/20"
+                  >
+                    Explore the investing platform
+                    <svg className="h-4 w-4 transition group-hover:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path d="M13 5l7 7-7 7-1.4-1.4L16.2 13H4v-2h12.2l-4.6-4.6z" />
+                    </svg>
+                  </Link>
+                </div>
+              </section>
+            )}
           </div>
 
-          {/* Fan card preview */}
+          {/* Side panel */}
           <aside>
             <div className="lg:sticky lg:top-24">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500"><T k="membership.fanCardPreview" /></h3>
-              <div className="mt-4">
-                <CardPreview celebrity={celebrity} />
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                <T k="membership.fanCardPreviewSub" vars={{ name: celebrity.name }} />
-              </p>
+              {fanSystem ? (
+                <>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500"><T k="membership.fanCardPreview" /></h3>
+                  <div className="mt-4">
+                    <CardPreview celebrity={celebrity} />
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+                    <T k="membership.fanCardPreviewSub" vars={{ name: celebrity.name }} />
+                  </p>
+                </>
+              ) : (
+                <ProfileFacts celebrity={celebrity} profileClassLabel={profileClassLabel} />
+              )}
             </div>
           </aside>
         </div>
@@ -1016,6 +1100,182 @@ function FollowerTile({
     </a>
   ) : (
     <div className={cls}>{inner}</div>
+  );
+}
+
+const dateFmt = new Intl.DateTimeFormat("en", { dateStyle: "long" });
+function fmtDate(iso: string): string {
+  try {
+    return dateFmt.format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Person-specific verified business/investment info. Rendered ONLY for the one
+ * person it belongs to (keyed 1:1 to the profile id) — content is never copied
+ * between profiles. When nothing is verified, we say so plainly rather than
+ * inventing an offering, minimum, return or partnership.
+ */
+function InvestorSection({ celebrity }: { celebrity: CelebrityDetail }) {
+  const investor = celebrity.investor;
+  const showInvestor =
+    !!investor &&
+    (investor.enabled || !!investor.overview || !!investor.ventures);
+  if (!showInvestor) {
+    return (
+      <div className="space-y-5">
+        <div className="glass rounded-3xl px-6 py-8 text-center">
+          <p className="text-base font-semibold text-zinc-200">
+            {NO_VERIFIED_OFFERING_COPY}
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-zinc-500">
+            We show only verified, sourced facts about {celebrity.name}. If a
+            real, documented investment opportunity is found and checked, it
+            appears here — never invented, never copied from another person.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
+            Important
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            Nothing on this page is investment advice and no content here is an
+            offer to invest. Always verify independently with official,
+            authoritative sources before acting.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const verifiedDate = investor.verifiedAt ? fmtDate(investor.verifiedAt) : null;
+  const hasOpportunityText = !!(investor.opportunities || investor.eligibility);
+
+  return (
+    <div className="space-y-5">
+      {investor.sector && (
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+            Sector
+          </p>
+          <span className="mt-2 inline-flex rounded-full bg-white/[0.06] px-3.5 py-1.5 text-sm font-bold text-white ring-1 ring-white/15">
+            {investor.sector}
+          </span>
+        </div>
+      )}
+      {investor.overview && (
+        <ProfileBlock title="Overview" text={investor.overview} />
+      )}
+      {investor.ventures && (
+        <ProfileBlock title="Ventures & Roles" text={investor.ventures} />
+      )}
+      {investor.opportunities && (
+        <ProfileBlock
+          title="How Eligible Investors May Engage"
+          text={investor.opportunities}
+        />
+      )}
+      {investor.eligibility && (
+        <ProfileBlock title="Who Is Eligible" text={investor.eligibility} />
+      )}
+      {investor.risks && (
+        <ProfileBlock title="Risks to Weigh" text={investor.risks} />
+      )}
+      {investor.sources.length > 0 && (
+        <div className="glass rounded-3xl px-6 py-6">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+            Verification Sources
+          </p>
+          <ul className="mt-3 space-y-2.5">
+            {investor.sources.map((s, i) => (
+              <li key={i}>
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group inline-flex max-w-full items-baseline gap-1.5 text-sm text-sky-300 underline decoration-sky-300/30 underline-offset-2 hover:decoration-sky-300"
+                >
+                  <span className="truncate">{s.label}</span>
+                  {s.date && (
+                    <span className="shrink-0 text-xs text-zinc-500">
+                      · {s.date}
+                    </span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+          {verifiedDate && (
+            <p className="mt-4 text-xs text-zinc-500">
+              Last verified {verifiedDate}.
+            </p>
+          )}
+        </div>
+      )}
+      {hasOpportunityText && (
+        <div className="rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
+            Investment Disclaimer
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+            {investor.disclaimer ||
+              "This information describes documented public business activity. It is not an offer to invest, a recommendation, or a guarantee. Investments carry risk; verify every detail against the authoritative sources cited and consult a qualified adviser before acting."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="glass rounded-3xl px-6 py-6">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+        {title}
+      </p>
+      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-zinc-200">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function ProfileFacts({
+  celebrity,
+  profileClassLabel,
+}: {
+  celebrity: CelebrityDetail;
+  profileClassLabel: string;
+}) {
+  const facts = [
+    { label: "Name", value: celebrity.name },
+    { label: "Category", value: celebrity.category },
+    { label: "Profile Class", value: profileClassLabel },
+    ...(celebrity.profession ? [{ label: "Role", value: celebrity.profession }] : []),
+    ...(celebrity.country ? [{ label: "Country", value: celebrity.country }] : []),
+    ...(celebrity.city ? [{ label: "City", value: celebrity.city }] : []),
+  ];
+  return (
+    <div className="glass rounded-3xl px-6 py-6">
+      <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
+        Profile Facts
+      </h3>
+      <dl className="mt-4 space-y-3">
+        {facts.map((f) => (
+          <div key={f.label}>
+            <dt className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">
+              {f.label}
+            </dt>
+            <dd className="mt-0.5 text-sm font-semibold text-white">{f.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-5 border-t border-white/10 pt-4 text-xs leading-relaxed text-zinc-500">
+        Verified official profile information. Nothing here is an offer to invest.
+      </p>
+    </div>
   );
 }
 

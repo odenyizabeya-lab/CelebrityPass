@@ -18,6 +18,14 @@ export async function POST(request: NextRequest) {
   if (!celebrity || !celebrity.isActive) {
     return NextResponse.json({ error: "Celebrity community not found" }, { status: 404 });
   }
+  // Business/political profiles do not run the CelebrityPass fan program —
+  // enforced here server-side so no fan card can ever be purchased for them.
+  if (celebrity.fansCardEnabled === false) {
+    return NextResponse.json(
+      { error: "This profile does not offer CelebrityPass memberships." },
+      { status: 403 },
+    );
+  }
 
   const name = String(body.name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();

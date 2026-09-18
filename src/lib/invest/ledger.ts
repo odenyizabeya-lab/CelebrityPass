@@ -129,6 +129,52 @@ export async function isGlobalLedgerBalanced(): Promise<boolean> {
   return !!agg._sum.amount && agg._sum.amount.isZero();
 }
 
+/**
+ * Settle a PENDING transaction once a real gateway charge is verified: mark it
+ * SUCCESSFUL and write its balanced ledger entries in one atomic step. Ledger
+ * entries move an account balance; they are posted only here, never by the
+ * frontend. Idempotent — an already-settled transaction is left untouched and
+ * a second call returns "already". Fails closed for non-pending rows.
+ */
+export async function settlePendingTransaction(input: {
+  txnId: string;
+  legs: LedgerLeg[];
+  gatewayEventId?: string | null;
+  providerRef?: string | null;
+  description?: string | null;
+}): Promise<"settled" | "already" | "not-pending" | "not-found"> {
+  const entries = buildBalancedEntries(input.legs);
+
+  async function run(tx: Prisma.TransactionClient): Promise<"settled" | "already" | "not-pending" | "not-found"> {
+    const txn = await tx.transaction.findUnique({ where: { id: input.txnId } });
+    if (!txn) return "not-found";
+    if (txn.status === "SUCCESSFUL") return "already";
+    if (txn.status !== "PENDING" && txn.status !== "INITIATED") return "not-pending";
+
+    await tx.transaction.update({
+      where: { id: txn.id },
+      data: {
+        status: "SUCCESSFUL",
+        postedAt: new Date(),
+        ...(input.gatewayEventId ? { gatewayEventId: input.gatewayEventId } : {}),
+        ...(input.providerRef ? { providerRef: input.providerRef } : {}),
+        ...(input.description ? { description: input.description } : {}),
+      },
+    });
+    await tx.ledgerEntry.createMany({
+      data: entries.map((e) => ({
+        txnId: txn.id,
+        account: e.account,
+        amount: e.amount,
+        currency: txn.currency ?? "USD",
+      })),
+    });
+    return "settled";
+  }
+
+  return prisma.$transaction((tx) => run(tx), { maxWait: 10000, timeout: 30000 });
+}
+
 /** Derived cash balance for an investor (SUM over the cash ledger account). */
 export async function cashBalance(investorId: string): Promise<Prisma.Decimal> {
   const agg = await prisma.ledgerEntry.aggregate({

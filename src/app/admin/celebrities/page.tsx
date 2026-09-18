@@ -43,6 +43,8 @@ export default async function AdminCelebritiesPage({
         isVerified: true,
         isFeatured: true,
         isActive: true,
+        profileType: true,
+        fansCardEnabled: true,
         _count: { select: { fans: true, memberships: true } },
       },
     }),
@@ -148,6 +150,8 @@ export default async function AdminCelebritiesPage({
                 isVerified={c.isVerified}
                 isFeatured={c.isFeatured}
                 isActive={c.isActive}
+                profileType={c.profileType}
+                fansCardEnabled={c.fansCardEnabled}
                 fans={c._count.fans}
                 levels={c._count.memberships}
                 hasProfile={Boolean(imageFlags.get(c.slug)?.hasProfile)}
