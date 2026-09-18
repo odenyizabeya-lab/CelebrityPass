@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentFanId } from "@/lib/auth";
-import { createMarketOrder } from "@/lib/invest/brokerage";
+import { createMarketOrder, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
 import { getCompany } from "@/lib/invest/companies";
+import { getAlpacaLastQuote } from "@/lib/invest/alpaca";
 import { makeRateLimiter } from "@/lib/secure";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unknown symbol." }, { status: 400 });
   }
 
-  const quote = await getQuote(company.symbol);
+  // Sync the brokerage account so buying power reflects the real provider.
+  await syncBrokerAccount(fanId).catch(() => {});
+
+  // Price from the live market-data provider when available; otherwise fall
+  // back to the brokerage's own quote so a real order can still be priced.
+  let quote = await getQuote(company.symbol);
+  if (quote.source === "unavailable" || quote.price === null) {
+    const brokerQuote = await getAlpacaLastQuote(company.symbol);
+    if (brokerQuote.source === "live" && brokerQuote.price > 0) {
+      quote = {
+        ...quote,
+        price: brokerQuote.price,
+        change: null,
+        changePct: null,
+        provider: "alpaca",
+        source: "live",
+      };
+    }
+  }
   if (quote.source === "unavailable" || quote.price === null) {
     return NextResponse.json({ error: "Unable to load live market data. No order can be placed right now." }, { status: 503 });
   }

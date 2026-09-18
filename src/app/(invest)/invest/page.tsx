@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentFanId } from "@/lib/auth";
-import { getBrokerAccount, getPositions } from "@/lib/invest/brokerage";
+import { getBrokerAccount, getPositions, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
 import { safeAsync } from "@/lib/safe-data";
@@ -12,7 +12,7 @@ export default async function InvestHomePage() {
   const fanId = await getCurrentFanId();
 
   const [account, positions, featuredQuotes] = await Promise.all([
-    fanId ? safeAsync(() => getBrokerAccount(fanId), null) : Promise.resolve(null),
+    fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
     fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
     Promise.all(COMPANY_CATALOG.slice(0, 4).map((c) => getQuote(c.symbol))),
   ]);

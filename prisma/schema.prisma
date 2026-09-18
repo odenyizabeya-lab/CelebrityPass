@@ -1757,6 +1757,7 @@ model MarketPosition {
 
   @@index([accountId, symbol])
   @@index([isDemo])
+  @@unique([accountId, symbol])
 }
 
 // Immutable per-account ledger of money/security movements. A DEPOSIT is never

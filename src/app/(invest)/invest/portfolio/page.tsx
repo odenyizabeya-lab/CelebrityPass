@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentFanId } from "@/lib/auth";
-import { getBrokerAccount, getOrders, getPositions, getTransactions, quantityToNumber } from "@/lib/invest/brokerage";
+import { getOrders, getPositions, getTransactions, quantityToNumber, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
 import { getCompany } from "@/lib/invest/companies";
 import { safeAsync } from "@/lib/safe-data";
@@ -15,7 +15,7 @@ export default async function PortfolioPage() {
   if (!fanId) redirect("/login?next=/invest/portfolio");
 
   const [account, positions, transactions, orders] = await Promise.all([
-    safeAsync(() => getBrokerAccount(fanId), null),
+    safeAsync(() => syncBrokerAccount(fanId), null),
     safeAsync(() => getPositions(fanId), []),
     safeAsync(() => getTransactions(fanId, 30), []),
     safeAsync(() => getOrders(fanId, 30), []),
