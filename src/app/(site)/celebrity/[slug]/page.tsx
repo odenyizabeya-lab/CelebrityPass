@@ -634,24 +634,34 @@ export default async function CelebrityPage({ params }: Props) {
                 <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
                   Factual, person-specific business and investment information about {celebrity.name}, drawn only from verified authoritative sources. This is not an offer to invest.
                 </p>
-                <div className="mt-8">
-                  <InvestorSection celebrity={celebrity} />
-                </div>
-                {hasInvestOffers && (
-                  <div className="mt-10">
-                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">
-                      Verified booking · {celebrity.name}&apos;s offering
-                    </p>
-                    <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                      Invest in {investOpportunities.length === 1 ? investOpportunities[0].name : "these ventures"}
-                    </h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                      Subscribe directly on this page. Pay by bank transfer or ATM, upload your receipt, and our team
-                      verifies the real money before your investment is active. Every cent is ledger-confirmed.
-                    </p>
-                    <div className="mt-5 max-w-xl">
-                      <CelebrityInvestWidget celebrityName={celebrity.name} opportunities={investOpportunities} />
+                {hasInvestOffers ? (
+                  <>
+                    <div className="mt-10">
+                      <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">
+                        Verified booking · {celebrity.name}&apos;s offering
+                      </p>
+                      <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                        Invest in {investOpportunities.length === 1 ? investOpportunities[0].name : "these ventures"}
+                      </h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                        Subscribe directly on this page. Pay by bank transfer or ATM, upload your receipt, and our team
+                        verifies the real money before your investment is active. Every cent is ledger-confirmed.
+                      </p>
+                      <div className="mt-5 max-w-xl">
+                        <CelebrityInvestWidget celebrityName={celebrity.name} opportunities={investOpportunities} />
+                      </div>
                     </div>
+                    <div className="mt-6 max-w-2xl rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Important</p>
+                      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                        Nothing on this page is investment advice. Only invest what you can afford to leave locked for the
+                        stated term, and always verify independently with official, authoritative sources before acting.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-8">
+                    <InvestorSection celebrity={celebrity} />
                   </div>
                 )}
                 <div className="mt-6">
