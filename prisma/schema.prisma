@@ -81,6 +81,18 @@ model Celebrity {
   // Message fans see while chat access is OFF (default: "Please get your
   // CelebrityPass before chatting here."). Admin-editable per celebrity.
   chatAccessOffMessage String?
+  // Reliable profile class that drives which feature system this page uses:
+  // "entertainment" (CelebrityPass / fan-card system) | "business" | "political".
+  // Admin-set, suggested from the category, persisted per profile.
+  profileType          String                  @default("entertainment")
+  // Whether the CelebrityPass FAN system (fan cards, fan membership tiers,
+  // fan chat) applies to this profile. Entertainment profiles default ON;
+  // business/political default OFF. Server-enforced, never UI alone.
+  fansCardEnabled      Boolean                 @default(true)
+  investorProfile      InvestorProfile?
+  // Investment opportunities linked to this person's verified business profile
+  // (business/political people only). Never fan-card related.
+  investorOpportunities InvestmentOpportunity[]
   fans                 FanCard[]
   memberships          MembershipLevel[]
   payments             Payment[]
@@ -161,6 +173,7 @@ model Fan {
   messageReports     MessageReport[]
   pushSubscriptions  PushSubscription[]
   chatCalls          ChatCall[]
+  investorAccount    InvestorAccount? // separate investor system (same login)
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 }
@@ -246,9 +259,415 @@ model FanCard {
   @@index([status])
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Business / investment profile (person-specific, NON-fan system)
+// ─────────────────────────────────────────────────────────────────────────────
+// One verified investment/business profile PER person, keyed 1:1 to a unique
+// celebrityId. Every field below belongs to that single person and is NEVER
+// copied from other people's profiles — updating one person can never change
+// another. Only content verified against authoritative sources may be stored;
+// administrators/AI must never invent offering amounts, minimums, returns, or
+// claims that the person personally accepts investments.
+model InvestorProfile {
+  id            String    @id @default(cuid())
+  celebrityId   String    @unique
+  celebrity     Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+
+  // Whether this person's verified business/investment section is shown to the
+  // public. Always off until real, verified content exists.
+  enabled       Boolean   @default(false)
+  // Short factual summary of the person's public business/investment life
+  // (e.g. roles held, ventures founded, board seats). No offer numbers.
+  overview      String?
+  sector        String? // e.g. "Technology", "Real Estate", "Consumer Goods"
+  ventures      String? // Documented ventures/companies the person founded/led
+  opportunities String? // How/where eligible investors can engage, IF publicly documented; null otherwise
+  eligibility   String? // Who is eligible (e.g. accredited/geographic rules), IF documented
+  risks         String? // Material risks an investor should weigh
+  disclaimer    String? // Always shown near any opportunity text
+  // Authoritative sources backing the above, serialized as JSON
+  // [ { "label": string, "url": string, "date": string|null } ].
+  sourcesJson   String?
+  // Date the human/automated verification last happened.
+  verifiedAt    DateTime?
+  updatedBy     String? // admin email that last edited this
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 // A payment for a fan card membership. Free levels can be issued without a
 // Payment row; paid levels create a PENDING payment that becomes the fan card
 // after it is marked PAID.
+// ─────────────────────────────────────────────────────────────────────────────
+// INVESTOR SYSTEM (separate from CelebrityPass fan membership)
+// ─────────────────────────────────────────────────────────────────────────────
+// A completely separate financial product. Investors log in with their existing
+// fan account; there is NO card, NO membership tier, NO fan-chat overlap.
+// Until a real provider + legal/regulatory/custody stack exists the whole
+// product runs in DEMO/TEST MODE: every balance and transaction is explicitly
+// labeled DEMO, and no "SUCCESSFUL" state is ever produced by the frontend —
+// only by a verified backend/provider event.
+//
+// Money is `Decimal @db.Decimal(20,2)` (currency units, 2dp) so values up to
+// USD 15,000,000 stay exact; balances are DERIVED from the immutable ledger,
+// never stored as a single mutable number.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// One investor account, linked 1:1 to a fan login. NEVER a card-holder.
+model InvestorAccount {
+  id             String    @id @default(cuid())
+  fanId          String    @unique
+  fan            Fan       @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  investorNumber String    @unique // e.g. INV-000001 (globally unique)
+
+  // Professional identity (only what is actually required/true).
+  legalFullName String?
+  country       String?
+
+  kycStatus      String   @default("NOT_STARTED") // NOT_STARTED | PENDING | UNDER_REVIEW | VERIFIED | REJECTED | ADDITIONAL_INFORMATION_REQUIRED
+  accountStatus  String   @default("ACTIVE") // ACTIVE | RESTRICTED | SUSPENDED | CLOSED
+  riskFlag       String? // null | MANUAL_REVIEW | VELOCITY | DUPLICATE — flag, never a "verified" claim
+  riskFlagReason String?
+
+  // TEST/DEMO vs live: until real infrastructure exists this is always true and
+  // every screen must say "DEMO / TEST MODE".
+  isDemo Boolean @default(true)
+
+  twoFactorEnabled Boolean @default(false)
+  pwdChangedAt      DateTime?
+
+  kyc                  KycRecord?
+  positions            InvestmentPosition[]
+  orders               InvestmentOrder[]
+  transactions         Transaction[]
+  withdrawals          Withdrawal[]
+  disclosureAcceptances DisclosureAcceptance[]
+  adjustments          Adjustment[]
+  complianceAlerts     ComplianceAlert[]
+  notifications        InvestNotification[]
+  documents            InvestmentDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountStatus])
+  @@index([kycStatus])
+}
+
+// KYC identity record. Stores only the minimum required facts and REFERENCES to
+// secured documents (never file bytes in the DB, never returned to clients).
+model KycRecord {
+  id            String          @id @default(cuid())
+  investorId    String          @unique
+  investor      InvestorAccount @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  status        String          @default("NOT_STARTED") // NOT_STARTED | PENDING | UNDER_REVIEW | VERIFIED | REJECTED | ADDITIONAL_INFORMATION_REQUIRED
+  legalFullName String?
+  dateOfBirth   String? // ISO date string; never required unless actually needed
+  country       String?
+  documentType  String? // passport | national_id | drivers_license etc.
+  documentRef   String? // secure storage reference to the uploaded file
+  submittedAt   DateTime?
+  reviewedById  String? // admin identity who decided (no FK — stays auditable)
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// A real investment opening on the platform, OWNED by the platform team only.
+// Every limit is this opportunity's own legitimate rule (min/max/target are
+// never globally invented). Nothing here is auto-approved or fake.
+model InvestmentOpportunity {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  companyName String?
+  // STOCK | BOND | FUND | ETF | PRIVATE | CROWDFUNDING | OTHER — each type has its own rules in eligibilityJson
+  investmentType String  @default("OTHER")
+  description   String?
+  status        String  @default("DRAFT") // DRAFT | OPEN | PENDING | FULLY_FUNDED | CLOSED | COMPLETED | SUSPENDED
+
+  // This opportunity's own defined range. System rejects any subscription
+  // outside [minAmount, maxAmount]; null = not applicable for this vehicle.
+  minAmount     Decimal? @db.Decimal(20, 2)
+  maxAmount     Decimal? @db.Decimal(20, 2)
+  targetAmount  Decimal? @db.Decimal(20, 2)
+  currency      String   @default("USD")
+
+  // The amount actually RAISED is always derived from confirmed ledger-backed
+  // positions — it is never entered by hand.
+  feesJson          String? // { subscriptionRate, managementRate, other } — from the actual terms
+  investmentPeriodJson String? // { opensAt, closesAt, lockupDays, maturityLabel }
+  liquidityText     String? // honest liquidity description, e.g. "Illiquid; locked until maturity"
+  risksText         String? // material risks of THIS vehicle
+  expectedReturnText String? // ONLY when supported by actual documented terms; otherwise left null
+  eligibilityJson   String? // { minAgeYears, countries[], investorTypes[], kycRequired, text }
+  disclosuresJson   String? // [{ key, version, title }] — must be acknowledged before subscribing
+  legalTermsText    String? // plain-language terms snapshot (versions tracked in InvestmentDocument)
+  linkedCelebrityId String?
+  linkedCelebrity   Celebrity? @relation(fields: [linkedCelebrityId], references: [id], onDelete: SetNull)
+  createdById       String? // admin identity
+
+  positions  InvestmentPosition[]
+  orders     InvestmentOrder[]
+  documents  InvestmentDocument[]
+  disclosures DisclosureAcceptance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([investmentType])
+  @@index([linkedCelebrityId])
+}
+
+// A confirmed holding. Only ever created AFTER the corresponding transaction
+// reached SUCCESSFUL (verified backend/provider settlement). "Current value" is
+// shown only when a legitimately documented valuation exists — otherwise the UI
+// says "Current valuation unavailable".
+model InvestmentPosition {
+  id             String                @id @default(cuid())
+  investorId     String
+  investor       InvestorAccount       @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  opportunityId  String
+  opportunity    InvestmentOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  amount         Decimal               @db.Decimal(20, 2)
+  currency       String                @default("USD")
+  status         String                @default("ACTIVE") // ACTIVE | COMPLETED
+  acquiredAt     DateTime              @default(now())
+  closedAt       DateTime?
+  // A valuation is only ever set from a documented source (valuationSource) at
+  // valuationAt; otherwise UNAVAILABLE with no fake number.
+  valuationStatus String              @default("UNAVAILABLE") // UNAVAILABLE | DOCUMENTED
+  currentValue    Decimal?            @db.Decimal(20, 2)
+  valuationSource String?
+  valuationAt     DateTime?
+  transactions    Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([investorId])
+  @@index([opportunityId, status])
+}
+
+// A subscription intent + lifecycle. Status is moved by the backend only.
+model InvestmentOrder {
+  id            String                @id @default(cuid())
+  investorId    String
+  investor      InvestorAccount       @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   InvestmentOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  amount        Decimal               @db.Decimal(20, 2)
+  currency      String                @default("USD")
+  fees          Decimal               @default(0) @db.Decimal(20, 2)
+  status        String                @default("INITIATED") // INITIATED | PENDING | PROCESSING | SUCCESSFUL | FAILED | CANCELLED | REFUNDED
+  eligibilityChecksJson String? // snapshot of the checks that passed server-side
+  provider      String                @default("demo") // demo | real-gateway key once connected
+  providerRef   String?               @unique // real/simulated provider ref (never fabricated by the client)
+  gatewayEventId String?              @unique // idempotency guard against replay webhooks
+  transactions  Transaction[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([investorId])
+  @@index([opportunityId, status])
+  @@index([status])
+}
+
+// Immutable ledger-backed money movement. kinds: DEPOSIT | INVESTMENT |
+// WITHDRAWAL | DISTRIBUTION | FEE | REFUND | ADJUSTMENT. direction: CREDIT |
+// DEBIT. Every row is mirrored as balanced LedgerEntry rows (double entry).
+// SUCCESSFUL only after backend/provider verification.
+model Transaction {
+  id          String          @id @default(cuid())
+  txnRef      String          @unique // TXN-xxxx (consumer-facing)
+  investorId  String
+  investor    InvestorAccount @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  kind        String // DEPOSIT | INVESTMENT | WITHDRAWAL | DISTRIBUTION | FEE | REFUND | ADJUSTMENT
+  direction   String // CREDIT | DEBIT
+  amount      Decimal         @db.Decimal(20, 2)
+  currency    String          @default("USD")
+  status      String          @default("INITIATED") // INITIATED | PENDING | PROCESSING | SUCCESSFUL | FAILED | CANCELLED | REFUNDED | REVERSED
+  orderId     String?
+  order       InvestmentOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  positionId  String?
+  position    InvestmentPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  withdrawalId String?         @unique
+  withdrawal   Withdrawal?     @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+  provider    String? // gateway key / "demo"
+  providerRef String?          @unique // real/simulated provider charge ref — can never settle twice
+  gatewayEventId String?       @unique // provider event id — idempotency
+  source      String // "demo-provider" | gateway key | "admin-adjustment"
+  description String?
+  postedAt    DateTime?
+  entries     LedgerEntry[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([investorId, kind])
+  @@index([status])
+  @@index([orderId])
+  @@index([positionId])
+  @@index([withdrawalId])
+}
+
+// Double-entry accounting row. One Transaction produces balanced entries;
+// balances are a DERIVED SUM over entries, never a stored mutable number.
+model LedgerEntry {
+  id       String      @id @default(cuid())
+  txnId    String
+  txn      Transaction @relation(fields: [txnId], references: [id], onDelete: Cascade)
+  account  String // e.g. "investor:<id>:cash" | "investor:<id>:position:<oppId>" | "platform:liability"
+  amount   Decimal     @db.Decimal(20, 2) // signed (positive credit, negative debit)
+  currency String      @default("USD")
+  postedAt DateTime    @default(now())
+
+  @@index([account])
+  @@index([txnId])
+}
+
+// A withdrawal request with a strict lifecycle — "COMPLETED" only after the
+// real/simulated provider confirms the outbound payment.
+model Withdrawal {
+  id              String          @id @default(cuid())
+  ref             String          @unique // WDR-xxxx
+  investorId      String
+  investor        InvestorAccount @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  amount          Decimal         @db.Decimal(20, 2)
+  currency        String          @default("USD")
+  fees            Decimal         @default(0) @db.Decimal(20, 2)
+  status          String          @default("REQUESTED") // REQUESTED | UNDER_REVIEW | APPROVED | REJECTED | PROCESSING | COMPLETED | FAILED
+  destinationJson String? // masked payment method label only (never raw numbers)
+  reviewNote      String?
+  approvedById    String?
+  approvedAt      DateTime?
+  transaction     Transaction? // the payment transaction that settled this request (1:1, FK on Transaction)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([investorId, status])
+  @@index([status])
+}
+
+// An audited financial correction. Without an approved Adjustment row no
+// balance/position can ever change outside a confirmed transaction.
+model Adjustment {
+  id              String          @id @default(cuid())
+  ref             String          @unique // ADJ-xxxx
+  investorId      String
+  investor        InvestorAccount @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  amount          Decimal         @db.Decimal(20, 2) // signed
+  currency        String          @default("USD")
+  status          String          @default("PENDING") // PENDING | APPROVED | REJECTED
+  reason          String // required
+  adminEmail      String // admin identity
+  reference       String? // related order/txn/ref
+  previousBalance Decimal? @db.Decimal(20, 2)
+  newBalance      Decimal? @db.Decimal(20, 2)
+  approvedById    String?
+  approvedAt      DateTime?
+  transactionId   String? // filled when the adjustment posts as a ledger transaction (plain auditable ref)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([investorId, status])
+}
+
+// A required disclosure the investor explicitly acknowledged BEFORE investing.
+model DisclosureAcceptance {
+  id              String                @id @default(cuid())
+  investorId      String
+  investor        InvestorAccount       @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  opportunityId   String?
+  opportunity     InvestmentOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  documentKey     String // e.g. "risk-disclosure"
+  documentVersion String // exact version acknowledged
+  documentTitle   String?
+  acceptedAt      DateTime              @default(now())
+  ipAddress       String? // legally appropriate metadata
+  userAgent       String?
+
+  @@unique([investorId, opportunityId, documentKey, documentVersion])
+  @@index([investorId])
+}
+
+// Offering/terms documents (opportunity) and investor documents (statements,
+// receipts). Only references to securely stored files — never raw content here.
+model InvestmentDocument {
+  id            String                @id @default(cuid())
+  opportunityId String?
+  opportunity   InvestmentOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  investorId    String?
+  investor      InvestorAccount?      @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  title         String
+  kind          String // OFFERING | TERMS | RISK_DISCLOSURE | INVESTOR_AGREEMENT | STATEMENT | RECEIPT | REPORT
+  version       String
+  storageRef    String? // secure storage path/reference
+  fileName      String?
+  mimeType      String?
+  isPublic      Boolean               @default(false) // public only when genuinely provided for disclosure
+  uploadedById  String?
+  createdAt     DateTime              @default(now())
+
+  @@index([opportunityId])
+  @@index([investorId])
+}
+
+// Append-only audit trail: who did what, when. actorId is a string id (fan id,
+// admin email, "system") — deliberately no FK so it survives entity deletion.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorType   String // admin | investor | system
+  actorId     String?
+  action      String // ACCOUNT_CREATED | KYC_SUBMITTED | KYC_DECISION | ORDER_CREATED | PAYMENT_CONFIRMED | WITHDRAWAL_* | ADJUSTMENT_* | DOCUMENT_ACK | LOGIN | PERMISSION_CHANGE
+  entityType  String? // InvestorAccount | InvestmentOrder | ... (Prisma model name)
+  entityId    String?
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+}
+
+// AML/fraud-watch surfaced to the compliance view. A flag, never an accusation;
+// a human must review. No fake "AML verified" badges anywhere.
+model ComplianceAlert {
+  id          String          @id @default(cuid())
+  investorId  String?
+  investor    InvestorAccount? @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  level       String          @default("LOW") // LOW | MEDIUM | HIGH
+  ruleKey     String // VELOCITY_LIMIT | DUPLICATE_ACCOUNT | SUSPICIOUS_AMOUNT | KYC_REQUIRED | WITHDRAWAL_REVIEW | LIMIT_EXCEEDED
+  message     String
+  detailsJson String?
+  status      String          @default("OPEN") // OPEN | REVIEWED | RESOLVED | DISMISSED
+  reviewedById String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status])
+  @@index([investorId])
+}
+
+// Investor-facing notifications. Never sends "success" before the state is real.
+model InvestNotification {
+  id         String          @id @default(cuid())
+  investorId String
+  investor   InvestorAccount @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  type       String // ORDER_SUBMITTED | PAYMENT_PENDING | PAYMENT_CONFIRMED | INVESTMENT_CONFIRMED | WITHDRAWAL_* | KYC_* | DOCUMENT_UPDATE | SECURITY_ALERT
+  title      String
+  body       String?
+  readAt     DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@index([investorId])
+  @@index([type])
+}
+
 model Payment {
   id                String           @id @default(cuid())
   fanId             String
