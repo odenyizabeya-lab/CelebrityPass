@@ -222,7 +222,7 @@ export default function CelebrityInvestWidget({ celebrityName, opportunities }: 
     e.preventDefault();
     if (!intent) return;
     if (!file) {
-      setError("Attach a photo/screenshot of your ATM slip or transfer receipt.");
+      setError("Attach a photo/screenshot of your bank transfer receipt.");
       return;
     }
     setBusy(true);
@@ -415,7 +415,7 @@ export default function CelebrityInvestWidget({ celebrityName, opportunities }: 
         <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.06] p-4">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Step 3 — Upload your receipt</p>
           <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-            Attach a clear photo or screenshot of your ATM slip / bank transfer receipt showing the amount and the deposit
+            Attach a clear photo or screenshot of your bank transfer receipt showing the amount and the deposit
             reference <span className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono font-bold text-white">{intent.depositRef}</span>.
             Our team verifies it against the real bank statement before crediting you.
           </p>
@@ -452,7 +452,7 @@ export default function CelebrityInvestWidget({ celebrityName, opportunities }: 
         </div>
 
         <label className="block text-sm text-zinc-400">
-          Receipt image (photo of ATM slip or transfer)
+          Receipt image (photo of bank transfer)
           <input
             type="file"
             accept="image/*"
@@ -612,7 +612,7 @@ export default function CelebrityInvestWidget({ celebrityName, opportunities }: 
         <TrustItem
           icon={<BankTransfer className="h-5 w-5" />}
           title="Bank-to-bank only"
-          body="You pay from your own bank app or ATM. No card, no auto-charge, no hidden fees."
+          body="You pay from your own bank app. No card, no auto-charge, no hidden fees."
         />
         <TrustItem
           icon={<ClipboardCheck className="h-5 w-5" />}
@@ -632,7 +632,7 @@ export default function CelebrityInvestWidget({ celebrityName, opportunities }: 
           {[
             ["Choose your amount", "Pick a USD investment between the published minimum and maximum."],
             ["Pay once from your bank", "Send the exact amount to the named beneficiary using your deposit reference."],
-            ["Upload your receipt", "Photo of the ATM slip or transfer — proof is always kept."],
+            ["Upload your receipt", "Photo of the bank transfer — proof is always kept."],
             ["We verify and credit", "A human matches your receipt to the bank statement; only then is it credited."],
           ].map(([t, b]) => (
             <li key={t} className="flex items-start gap-3">

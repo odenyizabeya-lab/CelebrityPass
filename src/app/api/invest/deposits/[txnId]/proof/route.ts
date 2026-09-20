@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentFanId } from "@/lib/auth";
-import { submitInvestDepositProof } from "@/lib/invest/deposits";
+import { submitInvestDepositProof, DEPOSIT_METHODS, type DepositMethod } from "@/lib/invest/deposits";
 import { investErrorResponse } from "@/lib/invest/api";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/invest/deposits/[txnId]/proof
-//   Attach the customer's Bank Transfer / ATM receipt (image upload) to a
-//   pending deposit. Stays PENDING_VERIFICATION until the admin approves.
+//   Attach the customer's Bank Transfer or ATM receipt (image upload) to the
+//   pending deposit — locked to the deposit's own method. Stays
+//   PENDING_VERIFICATION until the admin approves.
 export async function POST(request: NextRequest, ctx: { params: Promise<{ txnId: string }> }) {
   const fanId = await getCurrentFanId();
   if (!fanId) return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
@@ -23,10 +24,16 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ txnId:
     return NextResponse.json({ error: "Enter a valid transfer amount." }, { status: 400 });
   }
 
+  const rawMethod = String(body.method ?? "").trim();
+  const method: DepositMethod | undefined = DEPOSIT_METHODS.includes(rawMethod as DepositMethod)
+    ? (rawMethod as DepositMethod)
+    : undefined;
+
   try {
     const result = await submitInvestDepositProof({
       fanId,
       txnId,
+      method,
       senderName: body.senderName ? String(body.senderName) : null,
       reference: body.reference ? String(body.reference) : null,
       transferDate: body.transferDate ? String(body.transferDate) : null,

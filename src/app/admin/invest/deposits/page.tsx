@@ -5,6 +5,7 @@ import Link from "next/link";
 
 type DepositProof = {
   id: string;
+  method: string;
   amountCents: number;
   currency: string;
   senderName: string | null;
@@ -27,9 +28,17 @@ type DepositProof = {
   opportunitySlug: string | null;
 };
 
+const QUEUES = [
+  { method: "bank-transfer", title: "Manual Bank Transfer", emoji: "🏦", accent: "text-sky-400" },
+  { method: "atm-deposit", title: "ATM Deposits", emoji: "🏧", accent: "text-emerald-400" },
+] as const;
+
+type MethodKey = (typeof QUEUES)[number]["method"];
+
 const FILTERS = ["PENDING_VERIFICATION", "APPROVED", "REJECTED"] as const;
 
 export default function AdminInvestDepositsPage() {
+  const [queue, setQueue] = useState<MethodKey>("bank-transfer");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("PENDING_VERIFICATION");
   const [rows, setRows] = useState<DepositProof[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +47,17 @@ export default function AdminInvestDepositsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    fetch("/api/admin/invest/deposits")
+    fetch(`/api/admin/invest/deposits?method=${queue}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed"))))
       .then((d) => setRows(d.proofs))
       .catch(() => setError("Could not load investor deposits."));
-  }, []);
+  }, [queue]);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    setOpenId(null);
+    setNote("");
+  }, [queue, filter]);
 
   const filtered = rows.filter((p) => p.status === filter);
 
@@ -54,7 +68,7 @@ export default function AdminInvestDepositsPage() {
       const res = await fetch(`/api/admin/invest/deposits/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, adminNote: note.trim() || undefined }),
+        body: JSON.stringify({ decision, adminNote: note.trim() || undefined, method: queue }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not review this deposit.");
@@ -74,10 +88,34 @@ export default function AdminInvestDepositsPage() {
         <div>
           <h1 className="text-2xl font-black text-white">Investor Deposits</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Review each Bank Transfer / ATM receipt against your real bank statement before approving. Nothing is auto-paid.
+            Bank Transfer and ATM deposits are two permanently separate queues. Granting a deposit in the wrong queue is
+            blocked server-side — approve only after confirming the real payment in your bank statement.
           </p>
         </div>
         <Link href="/admin/invest" className="text-sm text-zinc-400 hover:text-white">← Investor overview</Link>
+      </div>
+
+      {/* Method queues */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {QUEUES.map((q) => (
+          <button
+            key={q.method}
+            onClick={() => setQueue(q.method)}
+            className={`rounded-2xl border p-3 text-left transition ${
+              queue === q.method
+                ? "border-primary-500/60 bg-primary-500/[0.08] ring-1 ring-primary-500/30"
+                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{q.emoji}</span>
+              <span className={`font-bold ${queue === q.method ? "text-white" : "text-zinc-300"}`}>{q.title}</span>
+            </div>
+            <p className={`mt-1 text-[11px] uppercase tracking-wider ${q.accent}`}>
+              {queue === q.method ? "Selected queue" : "View queue"}
+            </p>
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -98,7 +136,7 @@ export default function AdminInvestDepositsPage() {
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl bg-white/[0.03] p-8 text-center text-sm text-zinc-500 ring-1 ring-white/10">
-          No deposits in this state.
+          No deposits in this state in the {QUEUES.find((q) => q.method === queue)?.title} queue.
         </div>
       ) : (
         <div className="space-y-3">
@@ -108,6 +146,11 @@ export default function AdminInvestDepositsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-lg font-black text-white">${(p.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                      p.method === "ATM_DEPOSIT" ? "bg-emerald-500/15 text-emerald-400" : "bg-sky-500/15 text-sky-400"
+                    }`}>
+                      {p.method === "ATM_DEPOSIT" ? "🏧 ATM" : "🏦 Bank Transfer"}
+                    </span>
                     <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
                       p.status === "APPROVED"
                         ? "bg-emerald-500/15 text-emerald-400"
@@ -124,7 +167,7 @@ export default function AdminInvestDepositsPage() {
                   <p className="text-xs text-zinc-500">
                     Deposit {p.depositRef ?? p.txnRef ?? "—"}
                     {p.senderName ? ` · sender: ${p.senderName}` : ""}
-                    {p.reference ? ` · ref: ${p.reference}` : ""}
+                    {p.reference ? ` · ${p.method === "ATM_DEPOSIT" ? "atm txn" : "ref"}: ${p.reference}` : ""}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {p.opportunityName ? `Investment: ${p.opportunityName}` : "General deposit"} ·{" "}
@@ -168,6 +211,10 @@ export default function AdminInvestDepositsPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-xl bg-white/[0.03] p-3 text-sm text-zinc-300">
                       <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Deposit</p>
+                      <p className="mt-1">
+                        Method:{" "}
+                        <span className="font-bold text-white">{p.method === "ATM_DEPOSIT" ? "ATM Deposit" : "Bank Transfer"}</span>
+                      </p>
                       <p className="mt-1">
                         Reference: <span className="font-mono text-white">{p.depositRef ?? "—"}</span>
                       </p>

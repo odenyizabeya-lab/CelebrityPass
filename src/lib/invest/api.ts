@@ -32,6 +32,7 @@ export function investErrorResponse(err: unknown): NextResponse {
       case "INVALID_PROOF":
       case "ALREADY_SUBMITTED":
       case "AMOUNT_MISMATCH":
+      case "METHOD_MISMATCH":
       case "INVALID":
       case "ALREADY_PAID":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });

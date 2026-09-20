@@ -77,7 +77,7 @@ export default function SubscribeForm({
     e.preventDefault();
     if (!intent) return;
     if (!file) {
-      setError("Attach a photo/screenshot of your ATM slip or transfer receipt.");
+      setError("Attach a photo/screenshot of your bank transfer receipt.");
       return;
     }
     setBusy(true);
@@ -155,7 +155,7 @@ export default function SubscribeForm({
     return (
       <div className="space-y-3">
         <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.06] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Pay by bank transfer / ATM</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Pay by manual bank transfer</p>
           <p className="mt-2 text-sm leading-relaxed text-zinc-300">
             Transfer <span className="font-black text-white">${money(Number(intent.amount))} {currency}</span> to the
             account below and quote your deposit reference so we can match it to you.
@@ -270,10 +270,10 @@ export default function SubscribeForm({
           className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-white outline-none focus:border-primary-500"
         />
       </label>
-      <p className="text-xs text-zinc-500">Range ${money(lo)} – ${money(hi)} · paid by bank transfer or ATM.</p>
+      <p className="text-xs text-zinc-500">Range ${money(lo)} – ${money(hi)} · paid by manual bank transfer.</p>
       {error && <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-400">{error}</p>}
       <button type="submit" disabled={busy || !!amountError} className="btn-grad rounded-full px-6 py-2.5 text-sm font-bold text-white disabled:opacity-50">
-        {busy ? "Processing…" : "Pay by bank transfer / ATM"}
+        {busy ? "Processing…" : "Pay by bank transfer"}
       </button>
     </form>
   );

@@ -10,7 +10,7 @@ export default async function MorePage() {
     ...(fanId
       ? [{ href: "/invest/portfolio", label: "Portfolio", desc: "Holdings, orders and history" }]
       : [{ href: "/login?next=/invest/portfolio", label: "Portfolio", desc: "Sign in to see your portfolio" }]),
-    { href: "/invest/deposit", label: "Deposit money", desc: "Add cash by Bank Transfer / ATM" },
+    { href: "/invest/deposit", label: "Deposit money", desc: "Add cash by bank transfer or ATM deposit" },
     { href: "/invest/markets", label: "Markets", desc: "Eligible publicly traded securities" },
     { href: "/invest/news", label: "News", desc: "Official company news sources" },
     { href: "/account", label: "Account & security", desc: "Profile, security and preferences" },

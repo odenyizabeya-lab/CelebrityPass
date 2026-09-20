@@ -1217,6 +1217,9 @@ model BankTransferProof {
   fileName        String? // stored proof filename
   fileUrl         String? // where the proof is stored
   mimeType        String?
+  // For investor deposits: which deposit channel this proof belongs to so the
+  // admin queues are permanently separated — BANK_TRANSFER or ATM_DEPOSIT.
+  method          String       @default("BANK_TRANSFER") // BANK_TRANSFER | ATM_DEPOSIT
   status          String       @default("PENDING_VERIFICATION") // PENDING_VERIFICATION | APPROVED | REJECTED
   adminNote       String?
   // Which purchase this proof applies to. Only ONE of the three is set.
@@ -1234,6 +1237,7 @@ model BankTransferProof {
   updatedAt       DateTime     @updatedAt
 
   @@index([status])
+  @@index([method])
   @@index([paymentId])
   @@index([ticketOrderId])
   @@index([transactionId])

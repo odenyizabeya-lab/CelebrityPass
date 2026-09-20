@@ -8,19 +8,23 @@ import { createSubscription } from "./orders";
 import { getActiveBankAccountForCurrency, type PublicBankAccount } from "@/lib/ticketing/banking";
 
 /**
- * Investor deposits — paid by MANUAL Bank Transfer / ATM only.
+ * Investor deposits — paid by MANUAL Bank Transfer or ATM Deposit ONLY.
+ *
+ * The two channels (Bank Transfer and ATM Deposit) are fully separate: every
+ * deposit intent, reference prefix, proof, pending status and admin queue is
+ * method-specific so they can never be mixed up or approved across methods.
  *
  * This is the real-money path: no auto-credit, no card gateway, no simulation.
  *
- *   1. createBankTransferDepositIntent creates a PENDING ledger Transaction —
- *      nothing is ever credited until an admin verifies real receipt.
- *   2. The customer sees the admin-managed bank account + a unique deposit
- *      reference and pays from their bank/ATM app.
- *   3. submitInvestDepositProof attaches a receipt (amount, sender, proof
+ *   1. createDepositIntent creates a PENDING ledger Transaction for the chosen
+ *      method — nothing is ever credited until an admin verifies a real receipt.
+ *   2. The customer sees the method-specific instructions + destination account
+ *      + a unique deposit reference (INVBT-… bank transfer / INVATM-… ATM).
+ *   3. submitInvestDepositProof attaches a receipt (amount, reference, proof
  *      image) to that pending deposit → status PENDING_VERIFICATION.
- *   4. An admin reviews the actual receipt and APPROVES (settles the ledger
- *      credit, and subscribes the payment toward the chosen investment) or
- *      REJECTS (nothing moves).
+ *   4. An admin reviews the actual receipt in the matching queue and APPROVES
+ *      (settles the ledger credit, and subscribes the payment toward the chosen
+ *      investment) or REJECTS (nothing moves).
  *
  * The frontend can never set a successful state — every credit originates
  * here, in the admin-reviewed path.
@@ -34,31 +38,52 @@ export class InvestDepositError extends Error {
   }
 }
 
+export const DEPOSIT_METHODS = ["bank-transfer", "atm-deposit"] as const;
+export type DepositMethod = (typeof DEPOSIT_METHODS)[number];
+
+/** Map a flow method to the stored proof.method discriminator. */
+export function proofMethodFor(method: DepositMethod): string {
+  return method === "atm-deposit" ? "ATM_DEPOSIT" : "BANK_TRANSFER";
+}
+
 export type DepositIntent = {
-  mode: "bank-transfer";
+  mode: DepositMethod;
+  method: DepositMethod;
   pendingTxnId: string;
-  /** Reference the customer must quote on the transfer. */
+  /** Reference the customer must quote on the transfer / ATM deposit. */
   depositRef: string;
   amount: string;
   currency: string;
-  /** The admin-managed bank account to pay into (null when none configured). */
+  /** The admin-managed destination account to pay into (null when none configured). */
   bankAccount: PublicBankAccount | null;
+  /** ATM deposit instructions (admin-configured) — null for Bank Transfer. */
+  atmInstructions: string | null;
   opportunityId: string | null;
 };
 
+const METHOD_LABEL: Record<DepositMethod, string> = {
+  "bank-transfer": "Bank Transfer",
+  "atm-deposit": "ATM Deposit",
+};
+
 /**
- * Open a deposit intent for manual Bank Transfer / ATM.
+ * Open a deposit intent for manual Bank Transfer or ATM Deposit.
  *
  * Validates the platform range ($100–$15,000,000) and (optionally) the target
- * opportunity's own limits, creates a PENDING ledger transaction and returns
- * the unique reference + the bank account to pay into. Nothing credits.
+ * opportunity's own limits, creates a PENDING ledger transaction stamped with
+ * the chosen method and returns the unique reference + destination account.
+ * Nothing credits.
  */
-export async function createBankTransferDepositIntent(input: {
+export async function createDepositIntent(input: {
   fanId: string;
   amount: Prisma.Decimal;
+  method?: DepositMethod;
   opportunityId?: string | null;
   ipAddress?: string | null;
 }): Promise<DepositIntent> {
+  const method: DepositMethod = input.method ?? "bank-transfer";
+  if (!DEPOSIT_METHODS.includes(method)) throw new InvestDepositError("INVALID", "Unknown deposit method.");
+
   const error = validateInvestAmount(input.amount);
   if (error) throw new InvestDepositError("AMOUNT_INVALID", error);
 
@@ -76,7 +101,7 @@ export async function createBankTransferDepositIntent(input: {
 
   const bankAccount = await getActiveBankAccountForCurrency("USD");
   if (!bankAccount) {
-    throw new InvestDepositError("BANK_NOT_CONFIGURED", "Bank Transfer isn't set up on this site yet. Please contact the team.");
+    throw new InvestDepositError("BANK_NOT_CONFIGURED", `${METHOD_LABEL[method]} isn't set up on this site yet. Please contact the team.`);
   }
 
   // PENDING deposit transaction FIRST — the ledger is only ever touched when an
@@ -88,14 +113,14 @@ export async function createBankTransferDepositIntent(input: {
     amount: input.amount,
     legs: [],
     pendingOnly: true,
-    source: "bank-transfer",
-    provider: "bank-transfer",
-    description: `Deposit ${formatMoney(input.amount)} via Bank Transfer / ATM`,
+    source: method,
+    provider: method,
+    description: `Deposit ${formatMoney(input.amount)} via ${METHOD_LABEL[method]}`,
   });
 
-  // The reference the customer quotes on their transfer. Stored as providerRef
-  // so an approval can always map back to exactly this pending deposit.
-  const depositRef = `INVBT-${pending.txnRef}`;
+  // The method-specific reference the customer quotes. Stored as providerRef so
+  // an approval can always map back to exactly this pending deposit.
+  const depositRef = `${method === "atm-deposit" ? "INVATM" : "INVBT"}-${pending.txnRef}`;
   await prisma.transaction
     .update({ where: { id: pending.id }, data: { providerRef: depositRef } })
     .catch(() => undefined);
@@ -106,19 +131,42 @@ export async function createBankTransferDepositIntent(input: {
     action: "PAYMENT_PENDING",
     entityType: "Transaction",
     entityId: pending.id,
-    details: { kind: "DEPOSIT", amount: input.amount.toFixed(2), method: "bank-transfer", depositRef },
+    details: { kind: "DEPOSIT", amount: input.amount.toFixed(2), method, depositRef },
     ipAddress: input.ipAddress,
   }).catch(() => {});
 
+  const atmInstructions = method === "atm-deposit" ? await getAtmInstructionsForIntent() : null;
+
   return {
-    mode: "bank-transfer",
+    mode: method,
+    method,
     pendingTxnId: pending.id,
     depositRef,
     amount: input.amount.toFixed(2),
     currency: "USD",
     bankAccount,
+    atmInstructions,
     opportunityId: input.opportunityId ?? null,
   };
+}
+
+/** Backwards-compatible name: open a Bank Transfer deposit intent. */
+export async function createBankTransferDepositIntent(input: {
+  fanId: string;
+  amount: Prisma.Decimal;
+  opportunityId?: string | null;
+  ipAddress?: string | null;
+}): Promise<DepositIntent> {
+  return createDepositIntent({ ...input, method: "bank-transfer" });
+}
+
+async function getAtmInstructionsForIntent(): Promise<string | null> {
+  try {
+    const { getAtmInstructions } = await import("./atm");
+    return await getAtmInstructions();
+  } catch {
+    return null;
+  }
 }
 
 // ===== Customer receipt submission =====
@@ -149,13 +197,15 @@ function validateProofShape(input: {
 }
 
 /**
- * Attach a bank-transfer receipt to a pending investor deposit. The deposit
+ * Attach a bank-transfer/ATM receipt to a pending investor deposit. The deposit
  * never credits here — it stays PENDING_VERIFICATION until an admin confirms
- * the actual receipt.
+ * the actual receipt. The method is locked to the deposit's own method so a
+ * Bank Transfer receipt can never be posted onto an ATM deposit (or vice versa).
  */
 export async function submitInvestDepositProof(input: {
   fanId: string;
   txnId: string;
+  method?: DepositMethod;
   senderName?: string | null;
   reference?: string | null;
   transferDate?: string | null;
@@ -176,6 +226,16 @@ export async function submitInvestDepositProof(input: {
       throw new InvestDepositError("ALREADY_PAID", "This deposit is already confirmed. Nothing more to upload.");
     }
     throw new InvestDepositError("INVALID", `This deposit is ${txn.status.toLowerCase()} and can no longer be submitted.`);
+  }
+
+  // Method lock: the deposit was created for exactly one channel; the customer
+  // may only submit a receipt for that same method.
+  const method: DepositMethod = txn.provider === "atm-deposit" ? "atm-deposit" : "bank-transfer";
+  if (input.method && input.method !== method) {
+    throw new InvestDepositError(
+      "METHOD_MISMATCH",
+      `This deposit is for ${METHOD_LABEL[method]}. Please submit its receipt from the ${METHOD_LABEL[method]} flow.`,
+    );
   }
 
   const account = await prisma.investorAccount.findUnique({
@@ -215,6 +275,7 @@ export async function submitInvestDepositProof(input: {
       fileName: input.fileName || null,
       fileUrl: input.fileUrl || null,
       mimeType: input.mimeType || null,
+      method: proofMethodFor(method),
       status: "PENDING_VERIFICATION",
       transactionId: txn.id,
       opportunityId: input.opportunityId ? await resolveFriendlyOpportunity(input.opportunityId) : null,
@@ -227,12 +288,13 @@ export async function submitInvestDepositProof(input: {
     action: "PROOF_SUBMITTED",
     entityType: "BankTransferProof",
     entityId: proof.id,
-    details: { kind: "DEPOSIT", amountCents: input.amountCents, depositRef: txn.providerRef, txnId: txn.id },
+    details: { kind: "DEPOSIT", method, amountCents: input.amountCents, depositRef: txn.providerRef, txnId: txn.id },
     ipAddress: input.ipAddress,
   }).catch(() => {});
 
   void notifyDepositProofSubmitted({
     fanId: input.fanId,
+    method,
     amountCents: input.amountCents,
     currency: (input.currency ?? "USD").toUpperCase(),
   });
@@ -250,7 +312,7 @@ async function resolveFriendlyOpportunity(opportunityId: string): Promise<string
 }
 
 /** Fire-and-forget notifications: admins get pinged to the verify queue. */
-async function notifyDepositProofSubmitted(args: { fanId: string; amountCents: number; currency: string }) {
+async function notifyDepositProofSubmitted(args: { fanId: string; method: DepositMethod; amountCents: number; currency: string }) {
   try {
     const [{ notifyAdminBankTransferPending }, adminEmails] = await Promise.all([
       import("../emails"),
@@ -262,10 +324,10 @@ async function notifyDepositProofSubmitted(args: { fanId: string; amountCents: n
         amountCents: args.amountCents,
         currency: args.currency,
         senderName: "Investor",
-        reference: "Investor deposit",
-        bankAccount: `${args.currency} · Bank transfer`,
+        reference: `${METHOD_LABEL[args.method]} deposit`,
+        bankAccount: `${args.currency} · ${METHOD_LABEL[args.method]}`,
         purchase: "investor deposit (awaiting verification)",
-        verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/admin/invest/deposits`,
+        verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/admin/invest/deposits?method=${args.method}`,
       });
     }
   } catch (err) {
@@ -277,6 +339,7 @@ async function notifyDepositProofSubmitted(args: { fanId: string; amountCents: n
 
 export type DepositProofRow = {
   id: string;
+  method: string;
   amountCents: number;
   currency: string;
   senderName: string | null;
@@ -303,6 +366,7 @@ export type DepositProofRow = {
 
 function serializeDepositProof(row: {
   id: string;
+  method: string;
   amountCents: number;
   currency: string;
   senderName: string | null;
@@ -321,6 +385,7 @@ function serializeDepositProof(row: {
 }): DepositProofRow {
   return {
     id: row.id,
+    method: row.method,
     amountCents: row.amountCents,
     currency: row.currency,
     senderName: row.senderName,
@@ -346,9 +411,18 @@ function serializeDepositProof(row: {
   };
 }
 
-export async function listPendingInvestDepositProofs(): Promise<DepositProofRow[]> {
+/**
+ * All investor deposit proofs, newest first. When `method` is given, only that
+ * single channel is returned (BANK_TRANSFER or ATM_DEPOSIT) so the admin queues
+ * stay permanently separate.
+ */
+export async function listPendingInvestDepositProofs(method?: DepositMethod): Promise<DepositProofRow[]> {
   const rows = await prisma.bankTransferProof.findMany({
-    where: { status: { in: ["PENDING_VERIFICATION", "APPROVED", "REJECTED"] }, transactionId: { not: null } },
+    where: {
+      status: { in: ["PENDING_VERIFICATION", "APPROVED", "REJECTED"] },
+      transactionId: { not: null },
+      ...(method ? { method: proofMethodFor(method) } : {}),
+    },
     include: {
       bankAccount: { select: { currency: true, countryName: true } },
       transaction: {
@@ -404,11 +478,14 @@ export type DepositDecisionResult =
  * Admin approves an invest deposit: settle the pending ledger credit (real
  * money confirmed) and — when the deposit was for a specific investment —
  * subscribe the investor automatically. Idempotent: a proof already decided or
- * a transaction already settled is never double-credited.
+ * a transaction already settled is never double-credited. `method` locks the
+ * decision to the matching queue so the wrong payment method can never be
+ * approved.
  */
 export async function approveInvestDeposit(args: {
   proofId: string;
   adminNote?: string | null;
+  method?: DepositMethod;
 }): Promise<DepositDecisionResult> {
   const proof = await prisma.bankTransferProof.findUnique({
     where: { id: args.proofId },
@@ -418,10 +495,14 @@ export async function approveInvestDeposit(args: {
   if (proof.status !== "PENDING_VERIFICATION") {
     return { ok: false, status: 409, message: `This proof was already ${proof.status.toLowerCase()}.` };
   }
+  if (args.method && proof.method !== proofMethodFor(args.method)) {
+    return { ok: false, status: 400, message: "This proof is not in the queue you opened. Refresh and review it from the correct deposit queue." };
+  }
   if (!proof.transactionId || !proof.transaction) {
     return { ok: false, status: 400, message: "This proof is not linked to a deposit." };
   }
 
+  const methodLabel = proof.method === "ATM_DEPOSIT" ? "ATM deposit" : "bank transfer";
   const txn = proof.transaction;
   if (txn.status === "FAILED" || txn.status === "CANCELLED" || txn.status === "REFUNDED" || txn.status === "REVERSED") {
     return { ok: false, status: 409, message: `This deposit is ${txn.status.toLowerCase()} and cannot be approved.` };
@@ -434,7 +515,7 @@ export async function approveInvestDeposit(args: {
       { account: "platform:liability", amount: txn.amount.negated() },
     ]),
     providerRef: txn.providerRef ?? undefined,
-    description: `Deposit confirmed via Bank Transfer / ATM (${formatMoney(txn.amount)})`,
+    description: `Deposit confirmed via ${methodLabel} (${formatMoney(txn.amount)})`,
   });
   if (settleResult === "not-found") return { ok: false, status: 500, message: "Deposit transaction was not found." };
   const credited = settleResult === "settled";
@@ -451,13 +532,13 @@ export async function approveInvestDeposit(args: {
     action: "PAYMENT_CONFIRMED",
     entityType: "BankTransferProof",
     entityId: proof.id,
-    details: { kind: "DEPOSIT", amount: txn.amount.toFixed(2), method: "bank-transfer", depositRef: txn.providerRef, credited },
+    details: { kind: "DEPOSIT", amount: txn.amount.toFixed(2), method: proof.method, depositRef: txn.providerRef, credited },
   }).catch(() => {});
   await notifyInvestor({
     investorId: txn.investorId,
     type: "PAYMENT_CONFIRMED",
     title: "Deposit confirmed",
-    body: `${formatMoney(txn.amount)} was credited to your investor account (${txn.providerRef ?? "Bank Transfer / ATM"}).`,
+    body: `${formatMoney(txn.amount)} was credited to your investor account (${txn.providerRef ?? methodLabel}).`,
   }).catch(() => {});
 
   // Subscribe the deposit toward the opportunity it was paying for (if any).
@@ -490,6 +571,7 @@ export async function approveInvestDeposit(args: {
 export async function rejectInvestDeposit(args: {
   proofId: string;
   adminNote?: string | null;
+  method?: DepositMethod;
 }): Promise<DepositDecisionResult> {
   const proof = await prisma.bankTransferProof.findUnique({
     where: { id: args.proofId },
@@ -498,6 +580,9 @@ export async function rejectInvestDeposit(args: {
   if (!proof) return { ok: false, status: 404, message: "Deposit proof not found." };
   if (proof.status !== "PENDING_VERIFICATION") {
     return { ok: false, status: 409, message: `This proof was already ${proof.status.toLowerCase()}.` };
+  }
+  if (args.method && proof.method !== proofMethodFor(args.method)) {
+    return { ok: false, status: 400, message: "This proof is not in the queue you opened. Refresh and review it from the correct deposit queue." };
   }
 
   await prisma.bankTransferProof.update({
@@ -514,6 +599,7 @@ export async function rejectInvestDeposit(args: {
       .catch(() => undefined);
   }
 
+  const methodLabel = proof.method === "ATM_DEPOSIT" ? "ATM deposit" : "Bank Transfer deposit";
   if (proof.transaction) {
     await auditLog({
       actorType: "admin",
@@ -521,15 +607,15 @@ export async function rejectInvestDeposit(args: {
       action: "PAYMENT_REJECTED",
       entityType: "BankTransferProof",
       entityId: proof.id,
-      details: { kind: "DEPOSIT", amount: proof.transaction.amount.toFixed(2), method: "bank-transfer", note: args.adminNote ?? null },
+      details: { kind: "DEPOSIT", amount: proof.transaction.amount.toFixed(2), method: proof.method, note: args.adminNote ?? null },
     }).catch(() => {});
     await notifyInvestor({
       investorId: proof.transaction.investorId,
       type: "PAYMENT_REJECTED",
       title: "Deposit not confirmed",
       body: args.adminNote
-        ? `Your Bank Transfer / ATM deposit could not be confirmed: ${args.adminNote}`
-        : "Your Bank Transfer / ATM deposit could not be confirmed. Please contact support.",
+        ? `Your ${methodLabel} could not be confirmed: ${args.adminNote}`
+        : `Your ${methodLabel} could not be confirmed. Please contact support.`,
     }).catch(() => {});
   }
 
