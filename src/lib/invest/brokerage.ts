@@ -264,6 +264,17 @@ async function mirrorFill(
   const priceCents = fill.price !== null ? Math.round(fill.price * 100) : 0;
   const feeCents = Math.round(fill.fees * 100);
 
+  // Idempotency: each provider fill must be mirrored exactly once. The unique
+  // provider order id is stored as-is on the execution brokerRef; legacy rows
+  // used a `-exec` / `-exec-<ts>` suffix — match both forms.
+  const existingExecution = await prisma.marketExecution.findFirst({
+    where: {
+      orderId,
+      OR: [{ brokerRef: fill.brokerRef }, { brokerRef: `${fill.brokerRef}-exec` }, { brokerRef: { startsWith: `${fill.brokerRef}-exec-` } }],
+    },
+  });
+  if (existingExecution) return;
+
   await prisma.marketExecution.create({
     data: {
       orderId,
@@ -272,7 +283,7 @@ async function mirrorFill(
       quantityCents: numberToQuantity(fill.quantity),
       priceCents: BigInt(priceCents),
       feeCents: BigInt(feeCents),
-      brokerRef: `${fill.brokerRef}-exec-${Date.now().toString(36)}`,
+      brokerRef: fill.brokerRef,
       executedAt: fill.executedAt,
     },
   });
@@ -331,7 +342,7 @@ async function mirrorFill(
       status: "FILLED",
       symbol: fill.symbol,
       side: fill.side === "BUY" ? "DEBIT" : "CREDIT",
-      amountCents: -BigInt(Math.round(priceCents * fill.quantity * 100) / 100 || 0),
+      amountCents: -BigInt(Math.round(priceCents * fill.quantity)),
       quantityCents,
       priceCents: BigInt(priceCents),
       feeCents: BigInt(feeCents),
@@ -375,8 +386,9 @@ export async function syncOrders(fanId: string): Promise<void> {
         where: { id: row.id },
         data: { status: mapped, brokerStatus: provider.status, filledAt: provider.filled_at ? new Date(provider.filled_at) : null },
       });
-    } catch {
+    } catch (err) {
       // Leave as-is; the next sync retries.
+      console.error("[syncOrders] failed to sync order", row.id, row.symbol, err instanceof Error ? err.message : err);
     }
   }
 }
