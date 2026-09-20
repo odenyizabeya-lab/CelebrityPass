@@ -4,6 +4,8 @@ import { getCurrentFanId } from "@/lib/auth";
 import { getOrders, getPositions, getTransactions, quantityToNumber, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
 import { getCompany } from "@/lib/invest/companies";
+import { getOrCreateInvestorAccount } from "@/lib/invest/account";
+import { investorBalances } from "@/lib/invest/ledger";
 import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +16,12 @@ export default async function PortfolioPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/invest/portfolio");
 
-  const [account, positions, transactions, orders] = await Promise.all([
+  const [account, balances, positions, transactions, orders] = await Promise.all([
     safeAsync(() => syncBrokerAccount(fanId), null),
+    safeAsync(async () => {
+      const inv = await getOrCreateInvestorAccount(fanId);
+      return investorBalances(inv.id);
+    }, null),
     safeAsync(() => getPositions(fanId), []),
     safeAsync(() => getTransactions(fanId, 30), []),
     safeAsync(() => getOrders(fanId, 30), []),
@@ -75,9 +81,9 @@ export default async function PortfolioPage() {
             </p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Available cash</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Available balance</p>
             <p className="mt-1 text-lg font-black text-white">
-              ${account ? ((account.buyingPowerCents ?? 0) / 100).toFixed(2) : "0.00"}
+              ${balances ? Number(balances.cash).toFixed(2) : "0.00"}
             </p>
           </div>
         </div>

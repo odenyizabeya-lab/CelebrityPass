@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentFanId } from "@/lib/auth";
 import { getBrokerAccount, getPositions, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
+import { getOrCreateInvestorAccount } from "@/lib/invest/account";
+import { investorBalances } from "@/lib/invest/ledger";
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
 import { safeAsync } from "@/lib/safe-data";
 
@@ -11,9 +13,15 @@ export const dynamic = "force-dynamic";
 export default async function InvestHomePage() {
   const fanId = await getCurrentFanId();
 
-  const [account, positions, featuredQuotes] = await Promise.all([
+  const [account, positions, balances, featuredQuotes] = await Promise.all([
     fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
     fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
+    fanId
+      ? safeAsync(async () => {
+          const inv = await getOrCreateInvestorAccount(fanId);
+          return investorBalances(inv.id);
+        }, null)
+      : Promise.resolve(null),
     Promise.all(COMPANY_CATALOG.slice(0, 4).map((c) => getQuote(c.symbol))),
   ]);
 
@@ -46,7 +54,7 @@ export default async function InvestHomePage() {
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
           <span className="rounded-full bg-white/[0.05] px-3 py-1 font-semibold text-zinc-400 ring-1 ring-white/[0.07]">
-            Available cash · {account ? `$${(account.buyingPowerCents / 100).toFixed(2)}` : "—"}
+            Available balance · {balances ? `$${Number(balances.cash).toFixed(2)}` : "—"}
           </span>
           <span className={`rounded-full px-3 py-1 font-semibold ring-1 ${
             account?.status === "CONNECTED"

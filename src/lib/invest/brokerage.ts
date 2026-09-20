@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { postTransaction, cashAccount, positionAccount, buildBalancedEntries } from "@/lib/invest/ledger";
+import { getOrCreateInvestorAccount } from "@/lib/invest/account";
 import {
   alpacaConfigured,
   getAlpacaAccount,
@@ -351,6 +354,88 @@ async function mirrorFill(
       postedAt: new Date(),
     },
   });
+
+  // ── Investor ledger ──────────────────────────────────────────────────────
+  // A confirmed execution moves the customer's REAL confirmed balance (cash
+  // from admin-verified deposits). Buying debits cash into a market position
+  // account; selling credits cash back. The broker/paper account's own buying
+  // power is never used as the customer's balance. Idempotent per execution
+  // via gatewayEventId, so reconciliation never double-posts.
+  await postMarketExecutionLedger(accountId, {
+    symbol: fill.symbol,
+    side: fill.side,
+    quantity: fill.quantity,
+    price: fill.price,
+    fees: fill.fees,
+    brokerRef: fill.brokerRef,
+  });
+}
+
+/** Post the customer-balance ledger movement for a broker execution (BUY/SELL). */
+async function postMarketExecutionLedger(
+  accountId: string,
+  fill: {
+    symbol: string;
+    side: "BUY" | "SELL";
+    quantity: number;
+    price: number | null;
+    fees: number;
+    brokerRef: string;
+  },
+): Promise<void> {
+  try {
+    const price = fill.price;
+    if (price === null || price <= 0) return;
+    const notional = new Prisma.Decimal(price).times(fill.quantity);
+    const amount = fill.side === "BUY" ? notional.plus(fill.fees) : notional.minus(fill.fees);
+    if (amount.lessThanOrEqualTo(0)) return;
+
+    const broker = await prisma.brokerageAccount.findUnique({
+      where: { id: accountId },
+      select: { fanId: true },
+    });
+    if (!broker) return;
+    const investor = await getOrCreateInvestorAccount(broker.fanId);
+
+    const cash = cashAccount(investor.id);
+    const marketPosition = positionAccount(investor.id, `market:${fill.symbol}`);
+    const legs =
+      fill.side === "BUY"
+        ? [
+            { account: cash, amount: amount.negated() },
+            { account: marketPosition, amount },
+          ]
+        : [
+            { account: cash, amount },
+            { account: marketPosition, amount: amount.negated() },
+          ];
+
+    await postTransaction({
+      investorId: investor.id,
+      kind: "INVESTMENT",
+      direction: fill.side === "BUY" ? "DEBIT" : "CREDIT",
+      amount: new Prisma.Decimal(amount.toDecimalPlaces(2)),
+      legs: buildBalancedEntries(legs.map((l) => ({ account: l.account, amount: new Prisma.Decimal(l.amount.toDecimalPlaces(2)) }))),
+      source: "brokerage-execution",
+      provider: "alpaca",
+      gatewayEventId: `market-exec:${fill.brokerRef}`,
+      providerRef: `market-exec:${fill.brokerRef}`,
+      description: `${fill.side === "BUY" ? "Bought" : "Sold"} ${fill.symbol} via brokerage execution`,
+    });
+
+    await prisma.complianceAlert.create({
+      data: {
+        investorId: investor.id,
+        level: amount.gte(10_000) ? "MEDIUM" : "LOW",
+        ruleKey: "BROKER_EXECUTION",
+        message: `${fill.side} ${fill.symbol} execution ${fill.brokerRef} (${fill.quantity} @ $${price.toFixed(2)}).`,
+      },
+    }).catch(() => undefined);
+  } catch (err) {
+    // Never break the execution mirroring on a ledger failure — but surface it
+    // loudly; a silent skip here would disconnect balances from fills.
+    console.error("[postMarketExecutionLedger] failed to post ledger movement", err instanceof Error ? err.message : err);
+  }
 }
 
 /** Reconcile any provider-only order state into our rows (open order follow-up). */

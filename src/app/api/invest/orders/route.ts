@@ -4,6 +4,8 @@ import { createMarketOrder, syncBrokerAccount } from "@/lib/invest/brokerage";
 import { getQuote } from "@/lib/invest/market-data";
 import { getCompany } from "@/lib/invest/companies";
 import { getAlpacaLastQuote } from "@/lib/invest/alpaca";
+import { getOrCreateInvestorAccount } from "@/lib/invest/account";
+import { investorBalances } from "@/lib/invest/ledger";
 import { makeRateLimiter } from "@/lib/secure";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,21 @@ export async function POST(request: Request) {
   const company = getCompany(symbol);
   if (!company) {
     return NextResponse.json({ error: "Unknown symbol." }, { status: 400 });
+  }
+
+  // Available balance is the ledger cash derived from admin-verified deposits
+  // ONLY — never the brokerage/paper account balance. A user with no verified
+  // deposit has $0 and cannot place an order.
+  const investor = await getOrCreateInvestorAccount(fanId);
+  const funds = await investorBalances(investor.id);
+  const availableCents = Math.round(Number(funds.cash) * 100);
+  if (amountCents > availableCents) {
+    return NextResponse.json(
+      {
+        error: `Insufficient available balance. You need $${(amountCents / 100).toFixed(2)} (available: $${(availableCents / 100).toFixed(2)}). Add funds and they become available after verification.`,
+      },
+      { status: 402 },
+    );
   }
 
   // Sync the brokerage account so buying power reflects the real provider.
