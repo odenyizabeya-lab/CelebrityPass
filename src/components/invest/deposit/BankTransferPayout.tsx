@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatUSD, postDepositIntent, type DepositIntent } from "./depositShared";
+import { currencyName, formatUSD, postDepositIntent, type DepositIntent } from "./depositShared";
 
 type CountryOption = { country: string; flag: string | null; currencies: string[] };
+
+function codesLabel(codes: string[]): string {
+  return codes.slice(0, 3).join(" · ") + (codes.length > 3 ? ` +${codes.length - 3}` : "");
+}
 
 /**
  * SELECT COUNTRY → SELECT CURRENCY step of the Bank Transfer flow.
@@ -93,23 +97,36 @@ export default function BankTransferPayout({
     );
   }
 
+  const countryStepDone = country !== null;
+  const currencyStepDone = currency !== null;
+
   return (
     <div className="space-y-4">
       <BackHeader onBack={onBack} label="Bank Transfer" />
 
-      <div className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 text-center ring-1 ring-white/[0.08]">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Amount to pay</p>
-        <p className="mt-1 text-[32px] font-black text-white">{formatUSD(amount)}</p>
-        <p className="mt-1 text-[12px] text-zinc-500">Choose the country and currency you will pay with.</p>
+      <Stepper
+        steps={[
+          { label: "Country", done: countryStepDone, current: !countryStepDone },
+          { label: "Currency", done: currencyStepDone, current: countryStepDone && !currencyStepDone },
+        ]}
+      />
+
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#101427] via-[#0b0f1d] to-[#080a12] p-5 ring-1 ring-white/[0.08]">
+        <div className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full bg-primary-600/20 blur-[70px]" />
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Amount to pay</p>
+        <p className="mt-2 text-[38px] font-black leading-none tracking-tight text-white">{formatUSD(amount)}</p>
+        <p className="mt-2 text-[12px] leading-relaxed text-zinc-500">
+          Choose the country and currency you want to pay with — your bank-transfer details are shown next.
+        </p>
       </div>
 
-      {!country ? (
+      {!countryStepDone ? (
         <section>
-          <StepLabel step={1} label="Select country" />
+          <p className="px-1 text-[15px] font-black tracking-wide text-white">Select country</p>
           {!catalog ? (
             <div className="mt-2 grid grid-cols-2 gap-2.5">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-3xl bg-white/[0.04] ring-1 ring-white/[0.05]" />
+                <div key={i} className="h-[74px] animate-pulse rounded-3xl bg-white/[0.04] ring-1 ring-white/[0.05]" />
               ))}
             </div>
           ) : (
@@ -122,12 +139,12 @@ export default function BankTransferPayout({
                     setCountry(c.country);
                     setCurrency(null);
                   }}
-                  className="rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition active:bg-white/[0.07]"
+                  className="rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition active:scale-[0.98] active:bg-white/[0.07]"
                 >
-                  <span className="text-2xl">{c.flag ?? "🌍"}</span>
-                  <span className="mt-1.5 block truncate text-[14px] font-black text-white">{c.country}</span>
-                  <span className="mt-0.5 block text-[11px] font-semibold text-zinc-500">
-                    {c.currencies.length} {c.currencies.length === 1 ? "currency" : "currencies"} available
+                  <span className="text-[26px] leading-none">{c.flag ?? "🌍"}</span>
+                  <span className="mt-2 block truncate text-[14px] font-black text-white">{c.country}</span>
+                  <span className="mt-1 block text-[11px] font-bold tabular-nums tracking-wide text-zinc-500">
+                    {codesLabel(c.currencies)}
                   </span>
                 </button>
               ))}
@@ -136,41 +153,62 @@ export default function BankTransferPayout({
         </section>
       ) : (
         <section>
-          <StepLabel step={2} label="Select currency" />
-          <div className="mt-2 rounded-3xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.07]">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{countryOption?.flag ?? "🌍"}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-black text-white">{country}</span>
-                <span className="block text-[11px] font-semibold text-zinc-500">Choose the currency to pay with</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCountry(null);
-                  setCurrency(null);
-                }}
-                className="shrink-0 rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/10 transition active:scale-95"
-              >
-                Change
-              </button>
-            </div>
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="text-[15px] font-black tracking-wide text-white">Select currency</p>
+            <button
+              type="button"
+              onClick={() => {
+                setCountry(null);
+                setCurrency(null);
+              }}
+              className="rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/10 transition active:scale-95"
+            >
+              Change country
+            </button>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2.5">
-            {(countryOption?.currencies ?? []).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setCurrency(code)}
-                className={`rounded-3xl border px-4 py-4 text-center transition active:scale-[0.98] ${
-                  currency === code
-                    ? "border-sky-400/60 bg-sky-500/15"
-                    : "border-white/10 bg-white/[0.03] active:bg-white/[0.07]"
-                }`}
-              >
-                <span className="block text-[18px] font-black tracking-wide text-white">{code}</span>
-              </button>
-            ))}
+
+          <div className="mt-2 flex items-center gap-3 rounded-3xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07]">
+            <span className="text-[26px] leading-none">{countryOption?.flag ?? "🌍"}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-black text-white">{country}</span>
+              <span className="block text-[11px] font-semibold text-zinc-500">
+                {countryOption?.currencies.length ?? 0}{" "}
+                {countryOption?.currencies.length === 1 ? "currency" : "currencies"} available
+              </span>
+            </span>
+          </div>
+
+          <div className="mt-2 space-y-2.5">
+            {(countryOption?.currencies ?? []).map((code) => {
+              const active = currency === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setCurrency(code)}
+                  className={`flex w-full items-center gap-3 rounded-3xl border px-4 py-3.5 text-left transition active:scale-[0.99] ${
+                    active
+                      ? "border-sky-400/60 bg-sky-500/15"
+                      : "border-white/10 bg-white/[0.03] active:bg-white/[0.07]"
+                  }`}
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.05] text-[13px] font-black text-white ring-1 ring-white/10">
+                    {code}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-black text-white">{currencyName(code)}</span>
+                    <span className="block text-[11px] font-semibold text-zinc-500">{code}</span>
+                  </span>
+                  <span
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-black transition ${
+                      active ? "bg-sky-500 text-white" : "border-2 border-white/20 text-transparent"
+                    }`}
+                  >
+                    ✓
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
@@ -194,20 +232,41 @@ export default function BankTransferPayout({
         onClick={() => void continueToDetails()}
         className="btn-grad w-full rounded-2xl py-4 text-[16px] font-black tracking-wide text-white shadow-xl shadow-primary-600/25 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {busy ? "Setting up your deposit…" : "Continue"}
+        {busy ? "Setting up your deposit…" : "Continue to bank details"}
       </button>
     </div>
   );
 }
 
-function StepLabel({ step, label }: { step: number; label: string }) {
+function Stepper({ steps }: { steps: { label: string; done: boolean; current: boolean }[] }) {
   return (
-    <p className="flex items-center gap-2 px-1 text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">
-      <span className="grid h-5 w-5 place-items-center rounded-full bg-primary-500/15 text-[11px] font-black text-primary-300 ring-1 ring-primary-400/30">
-        {step}
-      </span>
-      {label}
-    </p>
+    <div className="flex items-center gap-2 px-1">
+      {steps.map((s, i) => (
+        <div key={s.label} className="flex flex-1 items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black transition ${
+                s.done
+                  ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40"
+                  : s.current
+                    ? "bg-primary-500/20 text-primary-200 ring-1 ring-primary-400/40"
+                    : "bg-white/[0.04] text-zinc-600 ring-1 ring-white/10"
+              }`}
+            >
+              {s.done ? "✓" : i + 1}
+            </span>
+            <span
+              className={`text-[11px] font-black uppercase tracking-[0.15em] ${
+                s.done ? "text-emerald-300" : s.current ? "text-white" : "text-zinc-600"
+              }`}
+            >
+              {s.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && <span className={`h-px flex-1 ${s.done ? "bg-emerald-400/40" : "bg-white/10"}`} />}
+        </div>
+      ))}
+    </div>
   );
 }
 

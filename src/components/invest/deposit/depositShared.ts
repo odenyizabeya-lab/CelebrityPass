@@ -5,6 +5,45 @@ export const HARD_MAX = 15_000_000;
 
 export const QUICK_AMOUNTS = [100, 500, 1_000, 5_000, 10_000, 25_000];
 
+/** Standard ISO 4217 currency labels shown to the customer (facts, not config). */
+const CURRENCY_NAMES: Record<string, string> = {
+  USD: "US Dollar",
+  EUR: "Euro",
+  GBP: "British Pound",
+  CAD: "Canadian Dollar",
+  AUD: "Australian Dollar",
+  NZD: "New Zealand Dollar",
+  JPY: "Japanese Yen",
+  SGD: "Singapore Dollar",
+  HKD: "Hong Kong Dollar",
+  CHF: "Swiss Franc",
+  IDR: "Indonesian Rupiah",
+  MXN: "Mexican Peso",
+  KES: "Kenyan Shilling",
+  NGN: "Nigerian Naira",
+  GHS: "Ghanaian Cedi",
+  UGX: "Ugandan Shilling",
+  TZS: "Tanzanian Shilling",
+  RWF: "Rwandan Franc",
+  ZAR: "South African Rand",
+  EGP: "Egyptian Pound",
+  INR: "Indian Rupee",
+  CNY: "Chinese Yuan",
+  AED: "UAE Dirham",
+  SAR: "Saudi Riyal",
+  SEK: "Swedish Krona",
+  NOK: "Norwegian Krone",
+  DKK: "Danish Krone",
+  PLN: "Polish Zloty",
+  BRL: "Brazilian Real",
+};
+
+/** Human-friendly currency label, falling back to the raw code when unknown. */
+export function currencyName(code: string): string {
+  const c = code?.trim().toUpperCase() ?? "";
+  return CURRENCY_NAMES[c] ?? c;
+}
+
 /** "$1,234.56" — fixed 2 decimals, thousands grouping. */
 export function formatUSD(n: number): string {
   return `$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

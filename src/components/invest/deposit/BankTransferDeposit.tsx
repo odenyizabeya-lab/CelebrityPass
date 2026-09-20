@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatUSD, readFileAsDataUrl, postDepositProof, copyText, type DepositIntent, type BankAccount } from "./depositShared";
 
-/** Big "HOW TO MAKE YOUR BANK TRANSFER" advice shown before the account details. */
+/** Big "HOW TO MAKE YOUR BANK TRANSFER" advice shown below the payout actions. */
 function BankTransferAdvice() {
   return (
     <section className="rounded-3xl bg-gradient-to-b from-sky-500/10 to-sky-500/[0.02] p-5 ring-1 ring-sky-400/25">
@@ -16,7 +16,7 @@ function BankTransferAdvice() {
           <div>
             <p className="text-[14px] font-black text-white">Visit your bank</p>
             <p className="mt-0.5 text-[13px] leading-6 text-zinc-400">
-              Go to your bank branch and make the transfer using the bank details provided below. After completing the
+              Go to your bank branch and make the transfer using the bank details provided above. After completing the
               payment, keep your receipt and upload a clear photo/PDF of the transaction receipt.
             </p>
           </div>
@@ -51,7 +51,7 @@ function BankTransferAdvice() {
 function accountRows(account: BankAccount): { label: string; value: string; mono?: boolean }[] {
   const rows: { label: string; value: string; mono?: boolean }[] = [];
   rows.push({ label: "Country", value: account.countryName });
-  rows.push({ label: "Currency", value: account.currency });
+  rows.push({ label: "Currency", value: account.currency, mono: true });
   if (account.beneficiary) rows.push({ label: "Account name", value: account.beneficiary });
   if (account.bankName) rows.push({ label: "Bank name", value: account.bankName });
   if (account.accountType) rows.push({ label: "Account type", value: account.accountType });
@@ -95,6 +95,7 @@ export default function BankTransferDeposit({
   const [transferDate, setTransferDate] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const amount = Number(intent.amount);
   const account = intent.bankAccount;
@@ -111,6 +112,13 @@ export default function BankTransferDeposit({
     if (await copyText(detailsText)) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
+    }
+  }
+
+  async function copyOne(label: string, value: string) {
+    if (await copyText(value)) {
+      setCopiedKey(label);
+      window.setTimeout(() => setCopiedKey((k) => (k === label ? null : k)), 1500);
     }
   }
 
@@ -270,45 +278,84 @@ export default function BankTransferDeposit({
     <div className="space-y-4">
       <BackHeader onBack={onBack} label="Bank Transfer" />
 
-      <div className="rounded-3xl bg-white/[0.03] p-5 text-center ring-1 ring-white/[0.08]">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Amount</p>
-        <p className="mt-1 text-[32px] font-black text-white">{formatUSD(amount)}</p>
-        {account && (
-          <p className="mt-1 text-[12px] text-zinc-500">
-            Pay into {account.bankName} · {account.currency} ({account.countryName})
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#101427] via-[#0b0f1d] to-[#080a12] p-5 ring-1 ring-white/[0.08]">
+        <div className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-primary-600/25 blur-[70px]" />
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">You are paying</p>
+          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black tracking-widest text-primary-200 ring-1 ring-white/10">
+            {account?.currency ?? intent.currency ?? "USD"}
+          </span>
+        </div>
+        <p className="mt-2 text-[38px] font-black leading-none tracking-tight text-white">{formatUSD(amount)}</p>
+        {account ? (
+          <p className="mt-2.5 flex items-center gap-2 text-[12px] font-semibold text-zinc-300">
+            <span className="text-lg leading-none">{account.countryFlag ?? "🌍"}</span>
+            <span className="min-w-0 truncate">
+              Pay into <b className="font-black text-white">{account.bankName}</b> · {account.currency} (
+              {account.countryName})
+            </span>
+          </p>
+        ) : (
+          <p className="mt-2.5 text-[12px] font-bold text-rose-300">
+            Bank account unavailable for this country/currency.
           </p>
         )}
       </div>
 
       {account && onChangeDestination && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-sky-500/[0.08] px-4 py-3 ring-1 ring-sky-500/20">
-          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-zinc-300">
-            {account.countryName} · {account.currency}
-          </p>
-          <button
-            type="button"
-            onClick={onChangeDestination}
-            className="shrink-0 rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/10 transition active:scale-95"
-          >
+        <button
+          type="button"
+          onClick={onChangeDestination}
+          className="flex w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-left ring-1 ring-white/[0.04] transition active:scale-[0.99] active:bg-white/[0.06]"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[0.05] text-lg ring-1 ring-white/10">
+            {account.countryFlag ?? "🌍"}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-black text-white">
+              {account.currency} · {account.bankName}
+            </span>
+            <span className="block truncate text-[11px] font-semibold text-zinc-500">{account.countryName}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/10">
             Change
-          </button>
-        </div>
+          </span>
+        </button>
       )}
 
-      <BankTransferAdvice />
-
       <section className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 ring-1 ring-white/[0.08]">
-        <p className="text-[13px] font-black uppercase tracking-[0.18em] text-primary-300">Bank transfer details</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13px] font-black uppercase tracking-[0.18em] text-primary-300">Bank transfer details</p>
+          {account && (
+            <span className="shrink-0 text-[11px] font-bold tabular-nums text-zinc-500">
+              {rows.length + 1} fields
+            </span>
+          )}
+        </div>
 
         {account ? (
-          <dl className="mt-3 space-y-3">
+          <div className="mt-4 space-y-2.5">
             {rows.map((r) => (
-              <DetailRow key={r.label} label={r.label} value={r.value} mono={r.mono} />
+              <DetailField
+                key={r.label}
+                label={r.label}
+                value={r.value}
+                mono={r.mono}
+                copied={copiedKey === r.label}
+                onCopy={() => void copyOne(r.label, r.value)}
+              />
             ))}
-            <DetailRow label="Deposit reference" value={intent.depositRef} mono />
-          </dl>
+            <DetailField
+              highlight
+              label="Deposit reference"
+              value={intent.depositRef}
+              mono
+              copied={copiedKey === "Deposit reference"}
+              onCopy={() => void copyOne("Deposit reference", intent.depositRef)}
+            />
+          </div>
         ) : (
-          <p className="mt-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] font-semibold text-rose-300 ring-1 ring-rose-500/30">
+          <p className="mt-4 rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] font-semibold text-rose-300 ring-1 ring-rose-500/30">
             Bank account unavailable for this country/currency.
           </p>
         )}
@@ -332,6 +379,8 @@ export default function BankTransferDeposit({
       >
         I&apos;ve paid — Upload receipt
       </button>
+
+      <BankTransferAdvice />
     </div>
   );
 }
@@ -353,11 +402,62 @@ function BackHeader({ onBack, label }: { onBack: () => void; label: string }) {
   );
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function DetailField({
+  label,
+  value,
+  mono,
+  highlight,
+  copied,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  highlight?: boolean;
+  copied?: boolean;
+  onCopy: () => void;
+}) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.08]">
-      <span className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">{label}</span>
-      <span className={`break-all text-right text-[14px] font-bold ${mono ? "font-mono" : ""} text-white`}>{value}</span>
+    <div
+      className={`rounded-2xl px-4 py-3.5 ring-1 ${
+        highlight ? "bg-sky-500/[0.1] ring-sky-400/40" : "bg-white/[0.03] ring-white/[0.08]"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <p
+          className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+            highlight ? "text-sky-300" : "text-zinc-500"
+          }`}
+        >
+          {label}
+        </p>
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={`Copy ${label}`}
+          className={`ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] transition active:scale-90 ${
+            copied
+              ? "bg-emerald-500/20 text-emerald-300"
+              : "bg-white/[0.06] text-zinc-400 ring-1 ring-white/10 hover:text-white"
+          }`}
+        >
+          {copied ? (
+            "✓"
+          ) : (
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <rect x="9" y="9" width="11" height="11" rx="2" />
+              <path d="M5 15V5a2 2 0 012-2h10" />
+            </svg>
+          )}
+        </button>
+      </div>
+      <p
+        className={`mt-1.5 break-all text-[15px] font-bold leading-snug ${
+          mono ? "font-mono tracking-tight tabular-nums" : ""
+        } ${highlight ? "text-sky-100" : "text-white"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
