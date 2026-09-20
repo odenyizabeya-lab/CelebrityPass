@@ -19,6 +19,18 @@
 
 html {
   scroll-behavior: smooth;
+  /* Prevents iOS Safari from auto-scaling the layout / text when content is
+     wider than the viewport (the cause of "page zooms itself" on mobile). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Global guard against sideways scrolling: no element may push the page wider
+   than the phone. `clip` (unlike `hidden`) does not create a scroll container,
+   so sticky/fixed headers keep working. */
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
@@ -401,7 +413,8 @@ input[type="color"] {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: var(--color-ink-900);
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  /* 16px so iOS Safari does not auto-zoom the page when the field is focused. */
+  font-size: 1rem;
   color: #fff;
   outline: none;
   transition: border-color 0.15s ease;

@@ -371,7 +371,7 @@ export default function UniversalCheckout(props: Props) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-lg font-black text-white">{a.currency} Account</span>
-                      <span className="block truncate text-sm text-zinc-400">{a.countryName} · {a.bankName}</span>
+                      <span className="block text-sm leading-snug text-zinc-400">{a.countryName} · {a.bankName}</span>
                     </span>
                     <span
                       className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${

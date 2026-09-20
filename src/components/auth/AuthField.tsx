@@ -26,7 +26,7 @@ export default function AuthField({ id, label, icon, after, hint, className = ""
         <input
           id={id}
           {...props}
-          className={`h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.06] text-[15px] text-white outline-none transition placeholder:text-zinc-500 focus:border-primary-500/70 focus:bg-white/[0.09] focus:ring-4 focus:ring-primary-500/15 ${
+          className={`h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.06] text-base text-white outline-none transition placeholder:text-zinc-500 focus:border-primary-500/70 focus:bg-white/[0.09] focus:ring-4 focus:ring-primary-500/15 ${
             icon ? "pl-11" : "pl-4"
           } ${after ? "pr-12" : "pr-4"} ${className}`}
         />

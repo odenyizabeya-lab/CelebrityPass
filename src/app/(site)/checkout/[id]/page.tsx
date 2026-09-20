@@ -68,7 +68,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   );
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-14">
       <div className="mb-8 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: celebrity.accentColor }}>
           <T k="checkout.secure" />
@@ -96,11 +96,11 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             </h2>
             <p className="text-sm text-white/70">{plan.title}</p>
           </div>
-          <div className="text-right">
+          <div className="min-w-0 text-right">
             <p className="text-sm text-white/60">
               <T k="checkout.totalDue" />
             </p>
-            <p className="text-3xl font-black">{new Intl.NumberFormat("en", { style: "currency", currency: payment.currency || "USD" }).format(payment.amount)}</p>
+            <p className="break-words text-3xl font-black">{new Intl.NumberFormat("en", { style: "currency", currency: payment.currency || "USD" }).format(payment.amount)}</p>
           </div>
         </div>
       </div>

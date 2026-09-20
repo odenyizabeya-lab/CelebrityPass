@@ -154,7 +154,7 @@ export default function JoinForm({
   };
 
   const inputCls =
-    "w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-primary-500";
+    "w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-base text-white placeholder-zinc-500 outline-none transition focus:border-primary-500";
 
   return (
     <form onSubmit={submit} className="glass rounded-3xl p-6 sm:p-8">

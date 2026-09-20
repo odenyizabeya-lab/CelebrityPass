@@ -36,7 +36,7 @@ export default function Logo({ variant = "mark", size = "md", className = "" }: 
     return (
       <span className="inline-flex items-center gap-2.5">
         <Logo size={size} className={className} />
-        <span className="whitespace-nowrap text-lg font-bold tracking-tight">
+        <span className="hidden whitespace-nowrap text-lg font-bold tracking-tight min-[400px]:inline">
           Celebrity<span className="gradient-text">Pass</span>
         </span>
       </span>

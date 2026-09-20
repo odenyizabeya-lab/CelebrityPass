@@ -179,7 +179,7 @@ export default function BankAccountCard({ account }: { account: PublicBankAccoun
               </div>
               <p
                 className={`mt-1.5 text-[17px] font-semibold leading-snug text-white ${
-                  r.mono ? "font-mono tracking-wide" : "break-words"
+                  r.mono ? "break-all font-mono tracking-wide" : "break-words"
                 }`}
               >
                 {r.value}

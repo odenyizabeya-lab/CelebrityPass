@@ -34,7 +34,7 @@ export default function Header() {
           <ChatNavBadge variant="nav" />
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <LanguageSelector />
           <Link
             href="/dashboard"
@@ -44,7 +44,7 @@ export default function Header() {
           </Link>
           <Link
             href="/celebrities"
-            className="btn-grad rounded-full px-4 py-2 text-sm font-semibold text-white"
+            className="btn-grad hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-white sm:inline-flex"
           >
             {t("nav.findFanCard")}
           </Link>
@@ -63,6 +63,13 @@ export default function Header() {
       {open && (
         <nav className="border-t border-white/[0.06] bg-ink-900/95 px-4 py-3 backdrop-blur-xl md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            <Link
+              href="/celebrities"
+              onClick={() => setOpen(false)}
+              className="btn-grad w-full rounded-full px-5 py-2.5 text-center text-sm font-bold text-white"
+            >
+              {t("nav.findFanCard")}
+            </Link>
             <ChatNavBadge variant="menu" onNavigate={() => setOpen(false)} />
             {links.map((l) => (
               <Link
