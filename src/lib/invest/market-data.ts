@@ -49,8 +49,50 @@ export type QuoteHistory = {
 const QUOTE_TTL_MS = 30_000;
 const HISTORY_TTL_MS = 5 * 60_000;
 
+// US-listed securities are shown in the exchange's market-session time so
+// intraday ranges (1D, 1W) line up with actual trading hours.
+const HISTORY_TZ = "America/New_York";
+
 const memory = new Map<string, { t: number; data: { point: MarketQuote } }>();
 const historyMemory = new Map<string, { t: number; data: { history: QuoteHistory } }>();
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch a Twelve Data JSON response with a couple of quick retries for the
+ * free-tier 429 / transient 5xx and network errors. Returns null when the
+ * upstream could not be reached after retries.
+ */
+async function requestLiveJson(url: string, timeoutMs: number): Promise<Record<string, unknown> | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      // 429 = free-plan credits exhausted, 5xx = upstream hiccup. Both are
+      // transient, so retry once; never surface them as real chart data.
+      if ((res.status === 429 || res.status >= 500) && attempt < 1) {
+        await sleep(600 * (attempt + 1));
+        continue;
+      }
+      if (!res.ok) return null;
+      const raw = await res.text();
+      if (!raw) return null;
+      const data = JSON.parse(raw) as Record<string, unknown>;
+      // Twelve Data also reports rate-limit / auth issues as HTTP 200 with
+      // status:"error". Retry those once too.
+      if (data.status === "error" && attempt < 1) {
+        await sleep(600 * (attempt + 1));
+        continue;
+      }
+      return data;
+    } catch {
+      if (attempt < 1) {
+        await sleep(600);
+        continue;
+      }
+    }
+  }
+  return null;
+}
 
 function liveKey(symbol: string): string {
   return process.env.MARKET_DATA_API_KEY ?? "";
@@ -185,12 +227,17 @@ export async function getQuote(symbol: string): Promise<MarketQuote> {
     persistQuoteCache(quote).catch(() => {});
   } else if (liveKey(key)) {
     quote = await fetchLiveQuote(key);
-    persistQuoteCache(quote).catch(() => {});
+    if (quote.source === "live") persistQuoteCache(quote).catch(() => {});
   } else {
     quote = unavailableQuote(key);
   }
 
-  memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+  // Only cache results that actually contain data. Unavailable/empty results
+  // are never cached, so a transient upstream failure cannot poison the cache
+  // and every failed fetch gets immediately retried instead.
+  if (quote.source !== "unavailable") {
+    memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+  }
   return quote;
 }
 
@@ -217,7 +264,9 @@ export async function getHistory(symbol: string, range: HistoryRange): Promise<Q
     history = emptyHistory(key, range);
   }
 
-  historyMemory.set(ck, { t: Date.now(), data: { history } });
+  if (history.points.length > 0) {
+    historyMemory.set(ck, { t: Date.now(), data: { history } });
+  }
   return history;
 }
 
@@ -269,11 +318,10 @@ async function persistQuoteCache(q: MarketQuote): Promise<void> {
 async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
   const apiKey = process.env.MARKET_DATA_API_KEY;
   try {
-    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=UTC`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) return unavailableQuote(symbol);
-    const data = (await res.json()) as Record<string, unknown>;
-    if (data.status === "error" || data.code === 429) return unavailableQuote(symbol);
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
+    const data = await requestLiveJson(url, 10_000);
+    if (!data) return unavailableQuote(symbol);
+    if (data.status === "error") return unavailableQuote(symbol);
     const price = num(data.close);
     if (price === null) return unavailableQuote(symbol);
     const w52 = (data.fifty_two_week ?? {}) as Record<string, unknown>;
@@ -307,9 +355,11 @@ async function fetchLiveHistory(symbol: string, range: HistoryRange): Promise<Qu
   const cfg: { interval: string; outputsize: number } = (() => {
     switch (range) {
       case "1D":
-        return { interval: "1min", outputsize: 80 };
+        // A full US session is 390 one-minute bars; ask for the whole day so
+        // the intraday chart is not truncated to the last couple of hours.
+        return { interval: "1min", outputsize: 390 };
       case "1W":
-        return { interval: "30min", outputsize: 80 };
+        return { interval: "30min", outputsize: 130 };
       case "1M":
         return { interval: "1day", outputsize: 31 };
       case "3M":
@@ -324,19 +374,25 @@ async function fetchLiveHistory(symbol: string, range: HistoryRange): Promise<Qu
   })();
 
   try {
-    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${cfg.interval}&outputsize=${cfg.outputsize}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=UTC`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return emptyHistory(symbol, range);
-    const data = (await res.json()) as Record<string, unknown>;
+    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${cfg.interval}&outputsize=${cfg.outputsize}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
+    const data = await requestLiveJson(url, 15_000);
+    if (!data) return emptyHistory(symbol, range);
+    if (data.status === "error") return emptyHistory(symbol, range);
     const values = Array.isArray(data.values) ? (data.values as Record<string, unknown>[]) : [];
     if (values.length === 0) return emptyHistory(symbol, range);
     const points = values
       .map((v) => {
         const close = num(v.close);
         if (close === null) return null;
-        return { time: String(v.datetime ?? ""), price: close };
+        const raw = String(v.datetime ?? "");
+        // Intraday timestamps arrive as "2026-09-18 15:59:00"; normalize to
+        // ISO-style "2026-09-18T15:59:00" so chart label/range logic (which
+        // keys on "T") renders consistent market-session times.
+        const time = raw.includes(" ") ? raw.replace(" ", "T") : raw;
+        return time ? { time, price: close } : null;
       })
       .filter((p): p is HistoryPoint => p !== null)
+      .filter((p) => p.time.length > 0 && Number.isFinite(p.price))
       .sort((a, b) => a.time.localeCompare(b.time));
     return {
       symbol,

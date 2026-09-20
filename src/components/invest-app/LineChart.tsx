@@ -81,7 +81,7 @@ export function LineChart({ points, height = 220 }: { points: ChartPoint[]; heig
     });
 
     const xCount = Math.min(4, points.length);
-    const xTicks = Array.from({ length: xCount }, (_, i) => {
+    const xTicks = Array.from({ length: xCount > 1 ? xCount : 0 }, (_, i) => {
       const idx = Math.round((i / (xCount - 1)) * (points.length - 1));
       const p = points[idx];
       const t = p.time.includes("T") ? p.time.slice(11, 16) : p.time.slice(5);

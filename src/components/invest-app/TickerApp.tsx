@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { LineChart, type ChartPoint } from "@/components/invest-app/LineChart";
 import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
@@ -108,6 +108,12 @@ export function TickerApp({
   const [quote, setQuote] = useState<MarketQuote>(initialQuote);
   const [history, setHistory] = useState<QuoteHistory>(initialHistory);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  // Client-side cache so switching ranges reuses fetched data instantly
+  // instead of hitting the market-data API again for every tab/range flip.
+  const historyCache = useRef<Map<string, QuoteHistory>>(
+    new Map([[`${symbol}:1D`, initialHistory]]),
+  );
   const [amount, setAmount] = useState("");
   const [customChip, setCustomChip] = useState(false);
   const [review, setReview] = useState(false);
@@ -117,21 +123,83 @@ export function TickerApp({
     result: null,
   });
 
+  const loadRange = useCallback(
+    async (sym: string, r: HistoryRange, signalAbort?: AbortSignal) => {
+      setLoadingHistory(true);
+      setHistoryError(false);
+      try {
+        const res = await fetch(`/api/invest/market/${sym}?range=${r}`, { signal: signalAbort });
+        const data = (await res.json().catch(() => ({}))) as {
+          quote?: MarketQuote;
+          history?: QuoteHistory;
+        };
+        if (signalAbort?.aborted) return false;
+        if (data.quote && data.quote.price !== null && data.quote.source === "live") setQuote(data.quote);
+        if (data.history && data.history.points && data.history.points.length > 0) {
+          historyCache.current.set(`${sym}:${r}`, data.history);
+          setHistory(data.history);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        setLoadingHistory(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     let active = true;
-    setLoadingHistory(true);
-    fetch(`/api/invest/market/${symbol}?range=${range}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!active) return;
-        if (data.quote) setQuote(data.quote);
-        if (data.history && data.history.points) setHistory(data.history);
-      })
-      .finally(() => active && setLoadingHistory(false));
+    const abort = new AbortController();
+    const cached = historyCache.current.get(`${symbol}:${range}`);
+    if (cached && cached.points.length > 0) {
+      setHistory(cached);
+      setLoadingHistory(false);
+      return () => undefined;
+    }
+    (async () => {
+      const ok = await loadRange(symbol, range, abort.signal);
+      if (!active) return;
+      if (!ok) {
+        setHistoryError(true);
+        // One automatic retry after a short delay — covers transient upstream
+        // "no data"/rate-limit responses without faking chart values.
+        setTimeout(() => {
+          if (!active) return;
+          void loadRange(symbol, range).then((retried) => {
+            if (!active) return;
+            setHistoryError(!retried);
+          });
+        }, 1500);
+      }
+    })();
     return () => {
       active = false;
+      abort.abort();
     };
+  }, [symbol, range, loadRange]);
+
+  // Retry button for the "couldn't load chart" state.
+  const [retryTick, setRetryTick] = useState(0);
+  const retryRange = useCallback(() => {
+    historyCache.current.delete(`${symbol}:${range}`);
+    setRetryTick((t) => t + 1);
   }, [symbol, range]);
+  useEffect(() => {
+    if (retryTick === 0) return;
+    let active = true;
+    const abort = new AbortController();
+    void loadRange(symbol, range, abort.signal).then((ok) => {
+      if (!active) return;
+      if (!ok) setHistoryError(true);
+    });
+    return () => {
+      active = false;
+      abort.abort();
+    };
+  }, [retryTick, symbol, range, loadRange]);
 
   const price = quote?.price ?? null;
   const change = quote?.change ?? null;
@@ -277,12 +345,29 @@ export function TickerApp({
             <p className="mb-1 text-[11px] font-semibold text-zinc-500">
               {rangeLabel || "Range"} {loadingHistory && <span className="text-zinc-600">· loading…</span>}
             </p>
-            {unavailable ? (
+            {history?.points && history.points.length > 0 ? (
+              <LineChart points={history.points} height={224} />
+            ) : loadingHistory ? (
               <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
-                Unable to load live market data
+                Loading chart data…
+              </div>
+            ) : historyError ? (
+              <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
+                <div className="flex flex-col items-center gap-3">
+                  <span>Chart data temporarily unavailable</span>
+                  <button
+                    type="button"
+                    onClick={retryRange}
+                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-4 py-1.5 text-[12px] font-bold text-sky-400 transition hover:bg-sky-500/20"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
             ) : (
-              <LineChart points={history?.points ?? []} height={224} />
+              <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
+                No chart data for this range
+              </div>
             )}
           </div>
 
