@@ -54,7 +54,9 @@ export function BottomNav() {
   function isActive(key: string): boolean {
     switch (key) {
       case "home":
-        return path === "/invest" || path === "/invest/search";
+        // Outside the invest app (e.g. the investible celebrity profile pages
+        // that embed the Home) Home stays the selected tab.
+        return path === "/invest" || path === "/invest/search" || !path.startsWith("/invest");
       case "markets":
         return path === "/invest/markets";
       case "invest":

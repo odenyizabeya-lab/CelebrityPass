@@ -22,7 +22,8 @@ import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
 import { NO_VERIFIED_OFFERING_COPY } from "@/lib/profiles/investor";
-import { MarketsQuoteCard } from "@/components/invest-app/MarketsQuoteCard";
+import { BottomNav } from "@/components/invest-app/BottomNav";
+import InvestHomeEmbed from "@/components/invest-app/InvestHomeEmbed";
 import QRCode from "qrcode";
 
 export const revalidate = 60;
@@ -612,19 +613,18 @@ export default async function CelebrityPage({ params }: Props) {
                 <div className="mt-8">
                   <InvestorSection celebrity={celebrity} />
                 </div>
-                <div className="mt-6 max-w-xl">
-                  <MarketsQuoteCard symbol="TSLA" label="Live markets · example security" />
-                </div>
-                <div className="mt-6">
-                  <Link
-                    href="/invest/markets"
-                    className="group inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/[0.08] px-5 py-2.5 text-sm font-bold text-amber-300 transition hover:bg-amber-400/20"
-                  >
-                    Explore the markets platform
-                    <svg className="h-4 w-4 transition group-hover:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-                      <path d="M13 5l7 7-7 7-1.4-1.4L16.2 13H4v-2h12.2l-4.6-4.6z" />
-                    </svg>
-                  </Link>
+                <div className="mt-10 max-w-xl overflow-hidden rounded-[2rem] bg-[#05060a] shadow-2xl ring-1 ring-white/10">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+                    <span className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500">
+                      CelebrityPass Invest
+                    </span>
+                    <Link href="/invest" className="text-[13px] font-bold text-sky-400">
+                      Open the app
+                    </Link>
+                  </div>
+                  <div className="px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.75rem)] sm:px-5">
+                    <InvestHomeEmbed />
+                  </div>
                 </div>
               </section>
             )}
@@ -650,6 +650,7 @@ export default async function CelebrityPage({ params }: Props) {
           </aside>
         </div>
       </div>
+      {!fanSystem && <BottomNav />}
     </div>
   );
 }
