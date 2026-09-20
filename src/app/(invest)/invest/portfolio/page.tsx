@@ -6,26 +6,36 @@ import { getQuote } from "@/lib/invest/market-data";
 import { getCompany } from "@/lib/invest/companies";
 import { getOrCreateInvestorAccount } from "@/lib/invest/account";
 import { investorBalances } from "@/lib/invest/ledger";
-import { safeAsync } from "@/lib/safe-data";
+import { safeAsync, safeWithDeadline } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
 const day = 86_400_000;
 
+// Total budget for this page's data fetch. If any upstream (broker, market
+// data) is slow or down, the page still renders within this window using safe
+// fallbacks instead of hanging the first paint.
+const PAGE_DATA_BUDGET_MS = 2_500;
+
 export default async function PortfolioPage() {
   const fanId = await getCurrentFanId();
   if (!fanId) redirect("/login?next=/invest/portfolio");
 
-  const [account, balances, positions, transactions, orders] = await Promise.all([
-    safeAsync(() => syncBrokerAccount(fanId), null),
-    safeAsync(async () => {
-      const inv = await getOrCreateInvestorAccount(fanId);
-      return investorBalances(inv.id);
-    }, null),
-    safeAsync(() => getPositions(fanId), []),
-    safeAsync(() => getTransactions(fanId, 30), []),
-    safeAsync(() => getOrders(fanId, 30), []),
-  ]);
+  const [account, balances, positions, transactions, orders] = await safeWithDeadline(
+    async () =>
+      Promise.all([
+        safeAsync(() => syncBrokerAccount(fanId), null),
+        safeAsync(async () => {
+          const inv = await getOrCreateInvestorAccount(fanId);
+          return investorBalances(inv.id);
+        }, null),
+        safeAsync(() => getPositions(fanId), []),
+        safeAsync(() => getTransactions(fanId, 30), []),
+        safeAsync(() => getOrders(fanId, 30), []),
+      ]),
+    [null as never, null, [] as never[], [] as never[], [] as never[]],
+    PAGE_DATA_BUDGET_MS,
+  );
 
   const holdings = positions.length
     ? await Promise.all(

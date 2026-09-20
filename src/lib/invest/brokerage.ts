@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { postTransaction, cashAccount, positionAccount, buildBalancedEntries } from "@/lib/invest/ledger";
 import { getOrCreateInvestorAccount } from "@/lib/invest/account";
+import { safeWithDeadline } from "@/lib/safe-data";
 import {
   alpacaConfigured,
   getAlpacaAccount,
@@ -13,6 +14,7 @@ import {
   mapAlpacaOrderStatus,
   parseFill,
   placeAlpacaMarketOrder,
+  type AlpacaOrder,
 } from "@/lib/invest/alpaca";
 
 /**
@@ -96,11 +98,19 @@ export async function getBrokerAccount(fanId: string): Promise<BrokerAccountView
   return row ? accountView(row) : null;
 }
 
-/** Pull real account/cash data from the provider so buying power is never invented. */
+/**
+ * Pull real account/cash data from the provider so buying power is never invented.
+ * Rate-limited to SYNC_TTL_MS: within that window the stored row is returned
+ * without another upstream call, so page renders never hammer the broker.
+ */
+const SYNC_TTL_MS = 30_000;
 export async function syncBrokerAccount(fanId: string): Promise<BrokerAccountView | null> {
   if (!brokerageActive()) return getBrokerAccount(fanId);
 
   const account = await getOrCreateBrokerAccount(fanId);
+  if (account.lastSyncAt && Date.now() - new Date(account.lastSyncAt).getTime() < SYNC_TTL_MS) {
+    return account;
+  }
   try {
     const acct = await getAlpacaAccount();
     const buyingPowerCents = Math.max(0, Math.round((Number(acct.buying_power) || 0) * 100));
@@ -447,10 +457,22 @@ export async function syncOrders(fanId: string): Promise<void> {
   const open = await prisma.marketOrder.findMany({
     where: { accountId: account.id, status: { in: ["SUBMITTED", "PARTIALLY_FILLED"] } },
   });
-  for (const row of open) {
+  // Bound the work so a page render can never stall on back-to-back provider
+  // calls: poll at most a handful of open orders per sync, each within a short
+  // deadline. Anything left over is picked up on a later sync.
+  const MAX_SYNC_ORDERS = 5;
+  const PER_ORDER_MS = 4_000;
+  for (const row of open.slice(0, MAX_SYNC_ORDERS)) {
     if (!row.brokerRef) continue;
+    const brokerRef = row.brokerRef;
     try {
-      const provider = await getAlpacaOrder(row.brokerRef);
+      const provider = await safeWithDeadline<AlpacaOrder | null>(
+        () => getAlpacaOrder(brokerRef).catch(() => null),
+        null,
+        PER_ORDER_MS,
+      );
+      // The per-order deadline timed out (provider hung) — skip and try next sync.
+      if (!provider) continue;
       const mapped = mapAlpacaOrderStatus(provider);
       if (mapped === "FILLED" || mapped === "PARTIALLY_FILLED") {
         const fill = parseFill(provider);

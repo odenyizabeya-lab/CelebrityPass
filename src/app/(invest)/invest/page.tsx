@@ -6,24 +6,34 @@ import { getQuote } from "@/lib/invest/market-data";
 import { getOrCreateInvestorAccount } from "@/lib/invest/account";
 import { investorBalances } from "@/lib/invest/ledger";
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
-import { safeAsync } from "@/lib/safe-data";
+import { safeAsync, safeWithDeadline } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
+
+// Total budget for this page's data fetch. If any upstream (broker, market
+// data) is slow or down, the page still renders within this window using safe
+// fallbacks instead of hanging the first paint.
+const PAGE_DATA_BUDGET_MS = 2_500;
 
 export default async function InvestHomePage() {
   const fanId = await getCurrentFanId();
 
-  const [account, positions, balances, featuredQuotes] = await Promise.all([
-    fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
-    fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
-    fanId
-      ? safeAsync(async () => {
-          const inv = await getOrCreateInvestorAccount(fanId);
-          return investorBalances(inv.id);
-        }, null)
-      : Promise.resolve(null),
-    Promise.all(COMPANY_CATALOG.slice(0, 4).map((c) => getQuote(c.symbol))),
-  ]);
+  const [account, positions, balances, featuredQuotes] = await safeWithDeadline(
+    async () =>
+      Promise.all([
+        fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
+        fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
+        fanId
+          ? safeAsync(async () => {
+              const inv = await getOrCreateInvestorAccount(fanId);
+              return investorBalances(inv.id);
+            }, null)
+          : Promise.resolve(null),
+        Promise.all(COMPANY_CATALOG.slice(0, 4).map((c) => getQuote(c.symbol))),
+      ]),
+    [null as never, [] as never[], null, COMPANY_CATALOG.slice(0, 4).map(() => null as never)],
+    PAGE_DATA_BUDGET_MS,
+  );
 
   let portfolioValue = 0;
   let accountPositions: { symbol: string; qty: number; value: number; isDemo: boolean }[] = [];

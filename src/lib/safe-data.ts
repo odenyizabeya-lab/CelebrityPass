@@ -27,6 +27,24 @@ export async function safeAsync<T>(loader: () => Promise<T>, fallback: T): Promi
   }
 }
 
+/**
+ * Run an async loader but never let it block beyond `ms`. If the promise
+ * rejects, resolves to null/undefined, or is still pending after the deadline,
+ * the caller-supplied `fallback` is returned. This is the page-level guard that
+ * stops a slow / hung upstream (broker, market-data, DB) from keeping a page
+ * from rendering — a page can always finish within its budget.
+ */
+export async function safeWithDeadline<T>(loader: () => Promise<T>, fallback: T, ms: number): Promise<T> {
+  try {
+    const value = await Promise.race([loader(), new Promise<never>((_, reject) => setTimeout(() => reject(TIMED_OUT), ms))]);
+    return value ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const TIMED_OUT: unique symbol = Symbol("safe-deadline-timed-out");
+
 /** True when a value is a non-null object (defensive instanceof guard). */
 export function isNonNull(value: unknown): boolean {
   return value !== null && value !== undefined;

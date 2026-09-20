@@ -1,11 +1,18 @@
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
-import { getQuote } from "@/lib/invest/market-data";
+import { getQuote, unavailableQuote } from "@/lib/invest/market-data";
+import { safeWithDeadline } from "@/lib/safe-data";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_DATA_BUDGET_MS = 2_500;
+
 export default async function MarketsPage() {
-  const quotes = await Promise.all(COMPANY_CATALOG.map((c) => getQuote(c.symbol)));
+  const quotes = await safeWithDeadline(
+    () => Promise.all(COMPANY_CATALOG.map((c) => getQuote(c.symbol))),
+    COMPANY_CATALOG.map((c) => unavailableQuote(c.symbol)),
+    PAGE_DATA_BUDGET_MS,
+  );
   const rows = COMPANY_CATALOG.map((c, i) => ({ company: c, quote: quotes[i] }));
 
   return (

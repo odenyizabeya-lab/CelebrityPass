@@ -70,7 +70,7 @@ async function requestLiveJson(url: string, timeoutMs: number): Promise<Record<s
       // 429 = free-plan credits exhausted, 5xx = upstream hiccup. Both are
       // transient, so retry once; never surface them as real chart data.
       if ((res.status === 429 || res.status >= 500) && attempt < 1) {
-        await sleep(600 * (attempt + 1));
+        await sleep(300 * (attempt + 1));
         continue;
       }
       if (!res.ok) return null;
@@ -80,13 +80,13 @@ async function requestLiveJson(url: string, timeoutMs: number): Promise<Record<s
       // Twelve Data also reports rate-limit / auth issues as HTTP 200 with
       // status:"error". Retry those once too.
       if (data.status === "error" && attempt < 1) {
-        await sleep(600 * (attempt + 1));
+        await sleep(300 * (attempt + 1));
         continue;
       }
       return data;
     } catch {
       if (attempt < 1) {
-        await sleep(600);
+        await sleep(300);
         continue;
       }
     }
@@ -112,7 +112,7 @@ function symbolSentinel(): string {
   return "TSLA";
 }
 
-function unavailableQuote(symbol: string): MarketQuote {
+export function unavailableQuote(symbol: string): MarketQuote {
   return {
     symbol,
     name: null,
@@ -134,7 +134,7 @@ function unavailableQuote(symbol: string): MarketQuote {
   };
 }
 
-function emptyHistory(symbol: string, range: HistoryRange): QuoteHistory {
+export function emptyHistory(symbol: string, range: HistoryRange): QuoteHistory {
   return {
     symbol,
     range,
@@ -319,7 +319,7 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
   const apiKey = process.env.MARKET_DATA_API_KEY;
   try {
     const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
-    const data = await requestLiveJson(url, 10_000);
+    const data = await requestLiveJson(url, 6_000);
     if (!data) return unavailableQuote(symbol);
     if (data.status === "error") return unavailableQuote(symbol);
     const price = num(data.close);
@@ -375,7 +375,7 @@ async function fetchLiveHistory(symbol: string, range: HistoryRange): Promise<Qu
 
   try {
     const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${cfg.interval}&outputsize=${cfg.outputsize}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
-    const data = await requestLiveJson(url, 15_000);
+    const data = await requestLiveJson(url, 8_000);
     if (!data) return emptyHistory(symbol, range);
     if (data.status === "error") return emptyHistory(symbol, range);
     const values = Array.isArray(data.values) ? (data.values as Record<string, unknown>[]) : [];

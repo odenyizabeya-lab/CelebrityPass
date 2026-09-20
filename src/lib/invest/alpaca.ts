@@ -44,7 +44,7 @@ async function alpacaFetch<T>(path: string, init?: RequestInit): Promise<T> {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(6_000),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
