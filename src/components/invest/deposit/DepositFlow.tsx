@@ -14,6 +14,7 @@ import {
   type DepositIntent,
 } from "./depositShared";
 import BankTransferDeposit from "./BankTransferDeposit";
+import BankTransferPayout from "./BankTransferPayout";
 import AtmDeposit from "./AtmDeposit";
 
 export type MethodKey = "bank-transfer" | "atm-deposit";
@@ -43,6 +44,7 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [intent, setIntent] = useState<DepositIntent | null>(null);
+  const [selectingBank, setSelectingBank] = useState(false);
 
   const amount = parseAmount(raw);
   const valid = amount >= HARD_MIN && amount <= HARD_MAX;
@@ -58,6 +60,13 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
   async function continueToFlow(e: React.FormEvent) {
     e.preventDefault();
     if (!method || !valid || busy) return;
+    // Bank Transfer first asks for COUNTRY → CURRENCY (only configured combos)
+    // before opening the intent; ATM deposits open their intent directly.
+    if (method === "bank-transfer") {
+      setError(null);
+      setSelectingBank(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -72,6 +81,7 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
 
   function backToSelector() {
     setIntent(null);
+    setSelectingBank(false);
     setMethod(null);
     setError(null);
   }
@@ -90,8 +100,32 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
         {intent.method === "atm-deposit" ? (
           <AtmDeposit intent={intent} onBack={backToSelector} onDone={completed} />
         ) : (
-          <BankTransferDeposit intent={intent} onBack={backToSelector} onDone={completed} />
+          <BankTransferDeposit
+            intent={intent}
+            onBack={backToSelector}
+            onDone={completed}
+            onChangeDestination={() => {
+              setIntent(null);
+              setSelectingBank(true);
+            }}
+          />
         )}
+      </div>
+    );
+  }
+
+  // Bank Transfer's COUNTRY → CURRENCY selection, before the intent opens.
+  if (selectingBank) {
+    return (
+      <div className="fade-up">
+        <BankTransferPayout
+          amount={amount}
+          onBack={() => setSelectingBank(false)}
+          onIntent={(data) => {
+            setIntent(data);
+            setSelectingBank(false);
+          }}
+        />
       </div>
     );
   }

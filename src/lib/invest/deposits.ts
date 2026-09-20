@@ -78,6 +78,10 @@ export async function createDepositIntent(input: {
   fanId: string;
   amount: Prisma.Decimal;
   method?: DepositMethod;
+  /** Currency of the destination bank account ("KES", "GBP", "USD"…). Bank Transfer only. */
+  currency?: string | null;
+  /** Country name the chosen destination account must belong to (from the admin dashboard). */
+  country?: string | null;
   opportunityId?: string | null;
   ipAddress?: string | null;
 }): Promise<DepositIntent> {
@@ -99,9 +103,37 @@ export async function createDepositIntent(input: {
 
   const account = await getOrCreateInvestorAccount(input.fanId, input.ipAddress);
 
-  const bankAccount = await getActiveBankAccountForCurrency("USD");
-  if (!bankAccount) {
-    throw new InvestDepositError("BANK_NOT_CONFIGURED", `${METHOD_LABEL[method]} isn't set up on this site yet. Please contact the team.`);
+  // Destination account resolution. bank-transfer deposits let the customer
+  // pick the COUNTRY then CURRENCY they want to pay with; the account shown is
+  // ALWAYS the exact active account the admin configured for that currency in
+  // the admin dashboard — nothing is invented or substituted here. ATM deposits
+  // keep using the active USD account (shared with the ATM instructions).
+  let bankAccount: PublicBankAccount | null;
+  let currency = "USD";
+  if (method === "bank-transfer") {
+    currency = (input.currency ?? "USD").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      throw new InvestDepositError("BANK_NOT_CONFIGURED", "Bank account unavailable for this country/currency.");
+    }
+    bankAccount = await getActiveBankAccountForCurrency(currency);
+    // The currency alone identifies the admin's account; when the customer also
+    // picked a country, it must match that exact account's country — otherwise
+    // treat it as unconfigured rather than showing another country's account.
+    if (
+      bankAccount &&
+      input.country &&
+      bankAccount.countryName.trim().toLowerCase() !== String(input.country).trim().toLowerCase()
+    ) {
+      bankAccount = null;
+    }
+    if (!bankAccount) {
+      throw new InvestDepositError("BANK_NOT_CONFIGURED", "Bank account unavailable for this country/currency.");
+    }
+  } else {
+    bankAccount = await getActiveBankAccountForCurrency("USD");
+    if (!bankAccount) {
+      throw new InvestDepositError("BANK_NOT_CONFIGURED", `${METHOD_LABEL[method]} isn't set up on this site yet. Please contact the team.`);
+    }
   }
 
   // PENDING deposit transaction FIRST — the ledger is only ever touched when an
@@ -143,7 +175,7 @@ export async function createDepositIntent(input: {
     pendingTxnId: pending.id,
     depositRef,
     amount: input.amount.toFixed(2),
-    currency: "USD",
+    currency,
     bankAccount,
     atmInstructions,
     opportunityId: input.opportunityId ?? null,

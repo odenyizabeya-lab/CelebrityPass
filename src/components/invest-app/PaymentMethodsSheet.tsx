@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatUSD, postDepositIntent, type DepositIntent } from "@/components/invest/deposit/depositShared";
 import BankTransferDeposit from "@/components/invest/deposit/BankTransferDeposit";
+import BankTransferPayout from "@/components/invest/deposit/BankTransferPayout";
 import AtmDeposit from "@/components/invest/deposit/AtmDeposit";
 import { Eye } from "@/components/invest-app/native";
 
@@ -54,10 +55,18 @@ export function PaymentMethodsSheet({
   const [intent, setIntent] = useState<DepositIntent | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectingBank, setSelectingBank] = useState(false);
 
   const amount = amountCents / 100;
 
   async function openMethod(key: MethodKey) {
+    // Bank Transfer first shows COUNTRY → CURRENCY (only admin-configured
+    // combos); the intent + exact account open only after both are chosen.
+    if (key === "bank-transfer") {
+      setError(null);
+      setSelectingBank(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -72,6 +81,7 @@ export function PaymentMethodsSheet({
 
   function backToMethods() {
     setIntent(null);
+    setSelectingBank(false);
     setError(null);
   }
 
@@ -90,8 +100,36 @@ export function PaymentMethodsSheet({
             {intent.method === "atm-deposit" ? (
               <AtmDeposit intent={intent} onBack={backToMethods} onDone={done} />
             ) : (
-              <BankTransferDeposit intent={intent} onBack={backToMethods} onDone={done} />
+              <BankTransferDeposit
+                intent={intent}
+                onBack={backToMethods}
+                onDone={done}
+                onChangeDestination={() => {
+                  setIntent(null);
+                  setSelectingBank(true);
+                }}
+              />
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Bank Transfer's COUNTRY → CURRENCY selection, before the intent opens.
+  if (selectingBank) {
+    return (
+      <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#05060a]">
+        <div className="mx-auto w-full max-w-xl px-4 pb-14 pt-4">
+          <div className="fade-up">
+            <BankTransferPayout
+              amount={amount}
+              onBack={() => setSelectingBank(false)}
+              onIntent={(data) => {
+                setIntent(data);
+                setSelectingBank(false);
+              }}
+            />
           </div>
         </div>
       </div>

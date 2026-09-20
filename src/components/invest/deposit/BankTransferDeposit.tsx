@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { formatUSD, readFileAsDataUrl, postDepositProof, copyText, type DepositIntent } from "./depositShared";
+import { useMemo, useState } from "react";
+import { formatUSD, readFileAsDataUrl, postDepositProof, copyText, type DepositIntent, type BankAccount } from "./depositShared";
 
 /** Big "HOW TO MAKE YOUR BANK TRANSFER" advice shown before the account details. */
 function BankTransferAdvice() {
@@ -47,19 +47,45 @@ function BankTransferAdvice() {
   );
 }
 
+/** Fields of the exact admin-configured account (only the ones actually stored). */
+function accountRows(account: BankAccount): { label: string; value: string; mono?: boolean }[] {
+  const rows: { label: string; value: string; mono?: boolean }[] = [];
+  rows.push({ label: "Country", value: account.countryName });
+  rows.push({ label: "Currency", value: account.currency });
+  if (account.beneficiary) rows.push({ label: "Account name", value: account.beneficiary });
+  if (account.bankName) rows.push({ label: "Bank name", value: account.bankName });
+  if (account.accountType) rows.push({ label: "Account type", value: account.accountType });
+  if (account.accountNumber) rows.push({ label: "Account number", value: account.accountNumber, mono: true });
+  if (account.iban) rows.push({ label: "IBAN", value: account.iban, mono: true });
+  if (account.bic) rows.push({ label: "BIC", value: account.bic, mono: true });
+  if (account.swift) rows.push({ label: "SWIFT", value: account.swift, mono: true });
+  if (account.routing) rows.push({ label: "Routing number", value: account.routing, mono: true });
+  if (account.sortCode) rows.push({ label: "Sort code", value: account.sortCode, mono: true });
+  if (account.institutionNumber) rows.push({ label: "Institution number", value: account.institutionNumber, mono: true });
+  if (account.transitNumber) rows.push({ label: "Transit number", value: account.transitNumber, mono: true });
+  if (account.branchCode) rows.push({ label: "Branch code", value: account.branchCode, mono: true });
+  if (account.bankCode) rows.push({ label: "Bank code", value: account.bankCode, mono: true });
+  if (account.transferType) rows.push({ label: "Transfer type", value: account.transferType });
+  if (account.bankAddress) rows.push({ label: "Bank address", value: account.bankAddress });
+  return rows;
+}
+
 /**
- * Dedicated Manual Bank Transfer flow. Receives an already-created intent
- * (amount, deposit reference, destination account) and walks the investor
- * through payment details → receipt upload → PENDING confirmation.
+ * Dedicated Manual Bank Transfer flow. Receives an already-created intent for
+ * the customer's chosen country + currency (exact admin-configured account,
+ * amount, deposit reference) and walks the investor through payment details →
+ * receipt upload → PENDING confirmation.
  */
 export default function BankTransferDeposit({
   intent,
   onBack,
   onDone,
+  onChangeDestination,
 }: {
   intent: DepositIntent;
   onBack: () => void;
   onDone?: () => void;
+  onChangeDestination?: () => void;
 }) {
   const [step, setStep] = useState<"details" | "upload" | "done">("details");
   const [busy, setBusy] = useState(false);
@@ -73,9 +99,13 @@ export default function BankTransferDeposit({
   const amount = Number(intent.amount);
   const account = intent.bankAccount;
 
-  const detailsText =
-    (account ? `${account.beneficiary}\n${account.bankName}\n${account.accountNumber ?? ""}\n${account.iban ?? ""}` : "") +
-    `\nTransfer reference: ${intent.depositRef}`;
+  // COPY copies EXACTLY what is currently displayed on screen (all visible
+  // account rows + the deposit reference the customer must quote).
+  const rows = useMemo(() => (account ? accountRows(account) : []), [account]);
+  const detailsText = useMemo(
+    () => [...rows.map((r) => `${r.label}: ${r.value}`), `Deposit reference: ${intent.depositRef}`].join("\n"),
+    [rows, intent.depositRef],
+  );
 
   async function copyDetails() {
     if (await copyText(detailsText)) {
@@ -99,6 +129,8 @@ export default function BankTransferDeposit({
         txnId: intent.pendingTxnId,
         method: "bank-transfer",
         amountCents: Math.round(amount * 100),
+        currency: intent.currency || "USD",
+        bankAccountId: account?.id ?? undefined,
         senderName,
         reference: transferRef,
         transferDate: transferDate || undefined,
@@ -127,6 +159,11 @@ export default function BankTransferDeposit({
           <p className="mt-4 text-[20px] font-black text-white">Deposit submitted</p>
           <p className="mt-1 text-[15px] font-bold text-zinc-300">{formatUSD(amount)}</p>
           <p className="mt-1 font-mono text-[12px] text-zinc-500">{intent.depositRef}</p>
+          {account && (
+            <p className="mt-1 text-[12px] text-zinc-500">
+              {account.bankName} · {account.currency} ({account.countryName})
+            </p>
+          )}
 
           <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-400/15 px-4 py-2 text-[12px] font-black uppercase tracking-[0.15em] text-amber-300 ring-1 ring-amber-400/30">
             <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
@@ -158,6 +195,12 @@ export default function BankTransferDeposit({
         <div className="rounded-3xl bg-white/[0.03] p-5 text-center ring-1 ring-white/[0.08]">
           <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Transfer amount</p>
           <p className="mt-1 text-[32px] font-black text-white">{formatUSD(amount)}</p>
+          {account && (
+            <p className="mt-1 text-[12px] text-zinc-500">
+              Paying into {account.bankName} · {account.currency} ({account.countryName})
+            </p>
+          )}
+          <p className="mt-0.5 font-mono text-[11px] text-zinc-600">{intent.depositRef}</p>
         </div>
 
         <form onSubmit={submitReceipt} className="space-y-4">
@@ -230,36 +273,56 @@ export default function BankTransferDeposit({
       <div className="rounded-3xl bg-white/[0.03] p-5 text-center ring-1 ring-white/[0.08]">
         <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Amount</p>
         <p className="mt-1 text-[32px] font-black text-white">{formatUSD(amount)}</p>
+        {account && (
+          <p className="mt-1 text-[12px] text-zinc-500">
+            Pay into {account.bankName} · {account.currency} ({account.countryName})
+          </p>
+        )}
       </div>
+
+      {account && onChangeDestination && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-sky-500/[0.08] px-4 py-3 ring-1 ring-sky-500/20">
+          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-zinc-300">
+            {account.countryName} · {account.currency}
+          </p>
+          <button
+            type="button"
+            onClick={onChangeDestination}
+            className="shrink-0 rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/10 transition active:scale-95"
+          >
+            Change
+          </button>
+        </div>
+      )}
 
       <BankTransferAdvice />
 
       <section className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 ring-1 ring-white/[0.08]">
         <p className="text-[13px] font-black uppercase tracking-[0.18em] text-primary-300">Bank transfer details</p>
 
-        <dl className="mt-3 space-y-3">
-          <DetailRow label="Account name" value={account?.beneficiary ?? "—"} />
-          <DetailRow label="Bank name" value={account?.bankName ?? "—"} />
-          <DetailRow label="Account number" value={account?.accountNumber ?? account?.iban ?? "—"} />
-          <DetailRow label="Transfer reference" value={intent.depositRef} mono />
-        </dl>
-
-        {!account && (
+        {account ? (
+          <dl className="mt-3 space-y-3">
+            {rows.map((r) => (
+              <DetailRow key={r.label} label={r.label} value={r.value} mono={r.mono} />
+            ))}
+            <DetailRow label="Deposit reference" value={intent.depositRef} mono />
+          </dl>
+        ) : (
           <p className="mt-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] font-semibold text-rose-300 ring-1 ring-rose-500/30">
-            Bank details are not configured yet. Please contact support.
+            Bank account unavailable for this country/currency.
           </p>
         )}
 
-        <button
-          onClick={copyDetails}
-          className={`mt-4 w-full rounded-2xl py-3.5 text-[15px] font-black transition active:scale-[0.99] ${
-            copied
-              ? "bg-emerald-500 text-emerald-950"
-              : "border-2 border-white/20 text-white hover:bg-white/[0.06]"
-          }`}
-        >
-          {copied ? "✓ COPIED" : "COPY BANK DETAILS"}
-        </button>
+        {account && (
+          <button
+            onClick={copyDetails}
+            className={`mt-4 w-full rounded-2xl py-3.5 text-[15px] font-black transition active:scale-[0.99] ${
+              copied ? "bg-emerald-500 text-emerald-950" : "border-2 border-white/20 text-white hover:bg-white/[0.06]"
+            }`}
+          >
+            {copied ? "✓ COPIED" : "COPY BANK DETAILS"}
+          </button>
+        )}
       </section>
 
       <button

@@ -41,22 +41,29 @@ export type BankAccount = {
   id: string;
   currency: string;
   countryName: string;
+  countryFlag: string | null;
   beneficiary: string;
   bankName: string;
   accountType: string | null;
   accountNumber: string | null;
   iban: string | null;
+  bic: string | null;
   swift: string | null;
   routing: string | null;
   sortCode: string | null;
+  institutionNumber: string | null;
+  transitNumber: string | null;
+  branchCode: string | null;
   bankCode: string | null;
-  transferType: string | null;
+  transferType: string;
+  bankAddress: string | null;
 };
 
 export type DepositIntent = {
   pendingTxnId: string;
   depositRef: string;
   amount: string;
+  currency: string;
   bankAccount: BankAccount | null;
   atmInstructions: string | null;
   method: "bank-transfer" | "atm-deposit";
@@ -84,11 +91,15 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export async function postDepositIntent(amount: string, method: "bank-transfer" | "atm-deposit") {
+export async function postDepositIntent(
+  amount: string,
+  method: "bank-transfer" | "atm-deposit",
+  opts?: { currency?: string; country?: string },
+) {
   const res = await fetch("/api/invest/deposits", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount, method }),
+    body: JSON.stringify({ amount, method, currency: opts?.currency ?? undefined, country: opts?.country ?? undefined }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Could not start your deposit. Please try again.");
@@ -101,6 +112,7 @@ export async function postDepositProof(input: {
   method: "bank-transfer" | "atm-deposit";
   amountCents: number;
   currency?: string;
+  bankAccountId?: string;
   senderName?: string;
   reference?: string;
   transferDate?: string;
@@ -114,6 +126,7 @@ export async function postDepositProof(input: {
     body: JSON.stringify({
       amountCents: input.amountCents,
       currency: input.currency ?? "USD",
+      bankAccountId: input.bankAccountId ?? null,
       method: input.method,
       senderName: input.senderName ?? "",
       reference: input.reference ?? "",
