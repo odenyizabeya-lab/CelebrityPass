@@ -35,20 +35,22 @@ export const metadata: Metadata = {
 export default async function CelebritiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; category?: string; country?: string; profession?: string }>;
+  searchParams: Promise<{ search?: string; category?: string; country?: string; profession?: string; page?: string }>;
 }) {
   const sp = await searchParams;
+  const PAGE_SIZE = 24;
+  const pageNum = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const filters = {
+    search: sp.search,
+    category: sp.category,
+    country: sp.country,
+    profession: sp.profession,
+  };
   // Failures degrade to an empty directory (plus empty filter options), keeping
   // the page shell alive and letting the empty-state explain itself.
   const [celebrities, options] = await Promise.all([
     safeAsync(
-      () =>
-        getCelebritySummaries({
-          search: sp.search,
-          category: sp.category,
-          country: sp.country,
-          profession: sp.profession,
-        }),
+      () => getCelebritySummaries(filters),
       [],
     ),
     safeAsync(
@@ -58,12 +60,28 @@ export default async function CelebritiesPage({
     ),
   ]);
 
+  const total = celebrities.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageNum, totalPages);
+  const pageItems = celebrities.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const filterCount =
     (sp.search ? 1 : 0) + (sp.category ? 1 : 0) + (sp.country ? 1 : 0) + (sp.profession ? 1 : 0);
 
+  const pageLinks = (target: number) => {
+    const params = new URLSearchParams();
+    for (const k of ["search", "category", "country", "profession"] as const) {
+      const v = sp[k];
+      if (v) params.set(k, v);
+    }
+    if (target > 1) params.set("page", String(target));
+    const qs = params.toString();
+    return qs ? `/celebrities?${qs}` : "/celebrities";
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-      {celebrities.length > 0 && (
+      {pageItems.length > 0 && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -71,9 +89,9 @@ export default async function CelebritiesPage({
               "@context": "https://schema.org",
               "@type": "ItemList",
               name: "Celebrity Directory",
-              itemListElement: celebrities.map((c, i) => ({
+              itemListElement: pageItems.map((c, i) => ({
                 "@type": "ListItem",
-                position: i + 1,
+                position: (page - 1) * PAGE_SIZE + i + 1,
                 name: c.name,
                 url: `${APP_URL}/celebrity/${c.slug}`,
                 ...(c.profileImageUrl ? { image: `${APP_URL}${c.profileImageUrl}` } : {}),
@@ -105,7 +123,7 @@ export default async function CelebritiesPage({
       )}
 
       <div className="mt-8">
-        {celebrities.length === 0 ? (
+        {pageItems.length === 0 ? (
           <div className="mx-auto max-w-2xl">
             <EmptyState
               title="No communities found"
@@ -125,11 +143,37 @@ export default async function CelebritiesPage({
             </div>
           </div>
         ) : (
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {celebrities.map((c) => (
-              <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {pageItems.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-3">
+                {page > 1 && (
+                  <Link
+                    href={pageLinks(page - 1)}
+                    className="rounded-full px-5 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:bg-white/5"
+                  >
+                    ← Previous
+                  </Link>
+                )}
+                <span className="rounded-full bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-400 ring-1 ring-white/10">
+                  Page {page} of {totalPages}
+                </span>
+                {page < totalPages && (
+                  <Link
+                    href={pageLinks(page + 1)}
+                    className="rounded-full px-5 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:bg-white/5"
+                  >
+                    Next →
+                  </Link>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -104,8 +104,14 @@ export default async function HomePage() {
     .sort((a, b) => b.fanCount - a.fanCount)
     .slice(0, 4);
   const popularIds = new Set(popular.map((c) => c.id));
-  const browseAll = celebrities.filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id));
-  const worldLeaders = celebrities.filter((c) => c.isWorldLeader);
+  // Homepage shows a curated slice and links to the full browsable directory —
+  // rendering all 700+ communities on the landing page makes it megabytes of
+  // HTML and unusably slow on mobile.
+  const browseAll = celebrities
+    .filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id))
+    .slice(0, 8);
+  const worldLeaders = celebrities.filter((c) => c.isWorldLeader).slice(0, 8);
+  const totalActive = celebrities.length;
 
   return (
     <div>
@@ -245,11 +251,21 @@ export default async function HomePage() {
           {browseAll.length === 0 ? (
             <EmptyState message={<T k="common.noResults" />} />
           ) : (
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {browseAll.map((c) => (
-                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
-              ))}
-            </div>
+            <>
+              <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {browseAll.map((c) => (
+                  <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+                ))}
+              </div>
+              <div className="mt-8 text-center">
+                <Link
+                  href="/celebrities"
+                  className="btn-grad inline-block rounded-full px-7 py-3 text-sm font-bold text-white"
+                >
+                  <T k="home.browseAll" vars={{ n: totalActive }} />
+                </Link>
+              </div>
+            </>
           )}
         </div>
       </section>
