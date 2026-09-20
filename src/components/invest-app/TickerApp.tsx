@@ -696,7 +696,7 @@ export function TickerApp({
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-sky-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-sky-400 ring-1 ring-sky-500/30">
-                {unavailable ? "Broker integration required" : "Market data ready"}
+                {unavailable ? "Market data unavailable" : "Market info only"}
               </span>
             </div>
 
@@ -769,7 +769,7 @@ export function TickerApp({
             </div>
 
             {review ? (
-              <div className="mt-4 space-y-3 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+              <div className="mt-4 space-y-3 rounded-2xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-4 ring-1 ring-white/[0.08]">
                 <p className="text-[16px] font-black text-white">Review your order</p>
                 <div className="grid gap-2 text-[14px]">
                   {[
@@ -856,7 +856,7 @@ export function TickerApp({
 
           {/* ===== TRUST CARDS ===== */}
           <div className="grid gap-2.5 sm:grid-cols-3">
-            <div className="rounded-2xl bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06]">
+            <div className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 ring-1 ring-white/[0.08]">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-sky-500/15 text-sky-400">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" d="M4 20V10m5 10V4m5 16v-8m5 8V7" />
@@ -867,7 +867,7 @@ export function TickerApp({
                 Ownership is not created until an authorized brokerage transaction is completed.
               </p>
             </div>
-            <div className="rounded-2xl bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06]">
+            <div className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 ring-1 ring-white/[0.08]">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-sky-500/15 text-sky-400">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z" />
@@ -879,7 +879,7 @@ export function TickerApp({
                 Orders and custody are handled by our authorized provider once connected.
               </p>
             </div>
-            <div className="rounded-2xl bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06]">
+            <div className="rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 ring-1 ring-white/[0.08]">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-sky-500/15 text-sky-400">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h13a2 2 0 012 2v12a2 2 0 01-2 2H4V5z" />

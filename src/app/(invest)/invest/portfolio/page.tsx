@@ -146,13 +146,13 @@ export default async function PortfolioPage() {
                 className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
               >
                 <CompanyTile symbol={h.mono} accent={h.accent} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-bold text-white">{h.companyName}</span>
-                  <span className="block text-[12px] text-zinc-500">
+                <span className="min-w-0 flex-1 py-0.5">
+                  <span className="block text-[15px] leading-snug font-bold text-white">{h.companyName}</span>
+                  <span className="mt-1 block text-[12px] leading-snug text-zinc-500">
                     {h.symbol} · {h.exchange}{" "}
                     <span className="text-zinc-600">· {h.qty.toFixed(6)} sh</span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-zinc-600">Avg ${h.avgCost.toFixed(2)}</span>
+                  <span className="mt-1 block text-[11px] leading-snug text-zinc-600">Avg ${h.avgCost.toFixed(2)}</span>
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-[16px] font-extrabold tracking-tight text-white">
@@ -228,8 +228,8 @@ export default async function PortfolioPage() {
                     {deposit ? "↓" : "↗"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-bold text-white">{t.kind.replace(/_/g, " ")}</p>
-                    <p className="truncate text-[11px] text-zinc-500">
+                    <p className="block text-[14px] leading-snug font-bold text-white">{t.kind.replace(/_/g, " ")}</p>
+                    <p className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
                       {t.ref} {t.symbol ? `· ${t.symbol}` : ""} ·{" "}
                       {t.postedAt
                         ? new Date(t.postedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })

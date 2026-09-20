@@ -29,9 +29,9 @@ export default async function NewsPage() {
               className="flex items-center gap-3 rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-4 py-4 ring-1 ring-white/[0.08] transition active:bg-white/[0.04]"
             >
               <CompanyTile symbol={c.mono} accent={c.accent} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-white">{c.name}</span>
-                <span className="block text-[12px] text-zinc-500">{c.symbol} · {c.exchange}</span>
+              <span className="min-w-0 flex-1 py-0.5">
+                <span className="block text-[15px] leading-snug font-bold text-white">{c.name}</span>
+                <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{c.symbol} · {c.exchange}</span>
               </span>
               <span className="shrink-0 rounded-full bg-white/[0.05] px-3 py-1.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/[0.08]">
                 Official news

@@ -153,11 +153,11 @@ export default async function InvestHomePage() {
                 className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
               >
                 <CompanyTile symbol={c.mono} accent={c.accent} />
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 flex-1 py-0.5">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-[15px] font-bold text-white">{c.name}</span>
+                    <span className="block text-[15px] leading-snug font-bold text-white">{c.name}</span>
                   </span>
-                  <span className="block text-[12px] text-zinc-500">{c.symbol} · {c.exchange}</span>
+                  <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{c.symbol} · {c.exchange}</span>
                 </span>
                 <span className="shrink-0 text-right">
                   {unavailable ? (
@@ -232,8 +232,8 @@ export default async function InvestHomePage() {
                     {deposit ? "↓" : "↗"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-bold text-white">{t.kind.replace(/_/g, " ")}</p>
-                    <p className="truncate text-[11px] text-zinc-500">
+                    <p className="block text-[14px] leading-snug font-bold text-white">{t.kind.replace(/_/g, " ")}</p>
+                    <p className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
                       {t.ref} · {new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
                     </p>
                   </div>

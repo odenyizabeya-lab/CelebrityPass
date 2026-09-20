@@ -23,9 +23,9 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
         className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
       >
         <CompanyTile symbol={company.mono} accent={company.accent} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-bold text-white">{company.name}</span>
-          <span className="block text-[12px] text-zinc-500">{company.symbol} · {company.exchange}</span>
+        <span className="min-w-0 flex-1 py-0.5">
+          <span className="block text-[15px] leading-snug font-bold text-white">{company.name}</span>
+          <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{company.symbol} · {company.exchange}</span>
         </span>
         {unavailable ? (
           <span className="shrink-0 text-[12px] text-zinc-600">unavailable</span>

@@ -26,9 +26,15 @@ export function WatchlistSection({
       const next: Record<string, LiveQuote> = {};
       for (const sym of shown) {
         try {
-          const res = await fetch(`/api/invest/market/${sym}/live`, { signal: controller.signal });
-          const data = (await res.json().catch(() => null)) as { quote?: LiveQuote } | null;
-          if (active && data?.quote) next[sym] = data.quote;
+          const live = await fetch(`/api/invest/market/${sym}/live`, { signal: controller.signal });
+          const liveData = (await live.json().catch(() => null)) as { quote?: LiveQuote } | null;
+          let quote = liveData?.quote ?? null;
+          if (!quote || quote.price === null || quote.source === "unavailable" || quote.source !== "live") {
+            const full = await fetch(`/api/invest/market/${sym}`, { signal: controller.signal });
+            const fullData = (await full.json().catch(() => null)) as { quote?: LiveQuote } | null;
+            quote = fullData?.quote ?? null;
+          }
+          if (active && quote?.price !== null && quote?.price !== undefined) next[sym] = quote;
         } catch {
           /* keep whatever we have */
         }
@@ -66,9 +72,9 @@ export function WatchlistSection({
               className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
             >
               <CompanyTile symbol={company?.mono ?? sym} accent={company?.accent ?? "#334155"} />
-              <span className="min-w-0 flex-1">
-                <span className="truncate text-[15px] font-bold text-white">{company?.name ?? sym}</span>
-                <span className="block text-[12px] text-zinc-500">{sym} · {company?.exchange ?? "—"}</span>
+              <span className="min-w-0 flex-1 py-0.5">
+                <span className="block text-[15px] leading-snug font-bold text-white">{company?.name ?? sym}</span>
+                <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{sym} · {company?.exchange ?? "—"}</span>
               </span>
               <span className="shrink-0 text-right">
                 <span className="block text-[15px] font-extrabold text-white">
