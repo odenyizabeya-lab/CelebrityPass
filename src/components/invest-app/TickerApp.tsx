@@ -2,11 +2,55 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { LineChart, type ChartPoint } from "@/components/invest-app/LineChart";
 import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
 
 const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
 const CHIP_AMOUNTS = [100, 500, 1000, 5000, 10000];
+
+// Real-time polling cadence — stays well inside the market-data plan limits.
+const LIVE_OPEN_MS = 15_000; // market open: poll the live endpoint
+const LIVE_CLOSED_MS = 5 * 60_000; // market closed: slow down, price is static
+const LIVE_RETRY_MS = 30_000; // transient failure: retry quickly but never spam
+const ANIMATION_MS = 900;
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+/**
+ * Smoothly counts the displayed number from the previous confirmed value to
+ * the new confirmed value. Only runs when the target actually changes; when
+ * the API reports the same price nothing moves.
+ */
+function useAnimatedPrice(target: number | null): number | null {
+  const [value, setValue] = useState<number | null>(target);
+  const fromRef = useRef<number | null>(target);
+  const raf = useRef(0);
+
+  useEffect(() => {
+    cancelAnimationFrame(raf.current);
+    if (target === null) {
+      fromRef.current = null;
+      return;
+    }
+    const from = fromRef.current ?? target;
+    fromRef.current = target;
+    if (from === target) return;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ANIMATION_MS);
+      setValue(from + (target - from) * easeOutCubic(t));
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+      else setValue(target);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [target]);
+
+  return value;
+}
 
 type Money = { amount: number; label: string };
 
@@ -36,15 +80,6 @@ function fmtVolume(n: number | null | undefined): string {
 
 function verifyColor(v: number | null | undefined): boolean {
   return v === null || v === undefined || v >= 0;
-}
-
-function VerifiedBadge() {
-  return (
-    <svg className="ml-1 inline-block h-4 w-4 shrink-0 text-sky-400" viewBox="0 0 24 24" fill="currentColor" aria-label="Verified company">
-      <path d="M12 2l2.4 2.4 3.3-.7.7 3.3L21 9.6l-1.9 3 1.9 2.6L16.9 21l-.9-3.3-2.8.8L12 22l-1.2-3.5-2.8-.8-.9 3.3-3.5-3.1 1.9-2.6L4 9.6l2.6-2.6.7-3.3 3.3.7z" />
-      <path d="M8.5 12l2.3 2.3 4.7-4.7" fill="none" stroke="#05060a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
 }
 
 function Logo({ accent, mono }: { accent: string; mono: string }) {
@@ -78,6 +113,49 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function fmtLastUpdated(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Subtle, honest connection pill next to the price:
+ *  - market open + live feed  -> pulsing ● Live
+ *  - market closed            -> "Market closed · Last updated HH:MM"
+ *  - transient failure        -> "Updating…" (last confirmed price stays)
+ *  - no provider              -> "Market data unavailable"
+ *  - dev/mock builds          -> "Demo data" (never claims to be real-time)
+ */
+function LiveStatus({ status, lastUpdated }: { status: string; lastUpdated: string | null }) {
+  if (status === "live") {
+    return (
+      <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        </span>
+        Live
+      </p>
+    );
+  }
+  if (status === "closed") {
+    return (
+      <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">
+        Market closed · Last updated {fmtLastUpdated(lastUpdated)}
+      </p>
+    );
+  }
+  if (status === "updating") {
+    return <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">Updating…</p>;
+  }
+  if (status === "demo") {
+    return <p className="mt-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">Demo data</p>;
+  }
+  return <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">Market data unavailable</p>;
+}
+
 type TickerAppProps = {
   symbol: string;
   name: string;
@@ -107,6 +185,11 @@ export function TickerApp({
   const [range, setRange] = useState<HistoryRange>("1D");
   const [quote, setQuote] = useState<MarketQuote>(initialQuote);
   const [history, setHistory] = useState<QuoteHistory>(initialHistory);
+  // Mirrors `range` for use inside stable callbacks (live chart appends).
+  const rangeRef = useRef<HistoryRange>("1D");
+  useEffect(() => {
+    rangeRef.current = range;
+  }, [range]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   // Client-side cache so switching ranges reuses fetched data instantly
@@ -122,6 +205,19 @@ export function TickerApp({
     error: null,
     result: null,
   });
+
+  // Real-time state: the displayed price is animated toward the latest
+  // confirmed value; the pipe state tells us what to show next to it.
+  const [liveStatus, setLiveStatus] = useState<
+    "live" | "closed" | "updating" | "unavailable" | "demo"
+  >(() =>
+    initialQuote.source === "live"
+      ? (initialQuote.isMarketOpen === false ? "closed" : "live")
+      : initialQuote.source === "dev-mock"
+        ? "demo"
+        : "unavailable",
+  );
+  const animatePrice = useAnimatedPrice(quote?.price ?? null);
 
   const loadRange = useCallback(
     async (sym: string, r: HistoryRange, signalAbort?: AbortSignal) => {
@@ -149,6 +245,87 @@ export function TickerApp({
     },
     [],
   );
+
+  // When a fresh confirmed price arrives for the intraday range, add (or
+  // replace) the latest history point so the chart follows the real tape.
+  // Non-intraday ranges ignore intraday ticks — only 1D/1W are redrawn live.
+  const appendLivePoint = useCallback(
+    (q: MarketQuote) => {
+      if (rangeRef.current !== "1D" && rangeRef.current !== "1W") return;
+      if (q.price === null) return;
+      const livePrice: number = q.price;
+      setHistory((prev) => {
+        if (!prev || prev.points.length === 0) return prev;
+        const last = prev.points[prev.points.length - 1];
+        if (last.price === livePrice && prev.fetchedAt) return prev; // genuinely unchanged
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+        const lastStamp = last.time.includes("T") ? last.time.slice(0, 16) : last.time;
+        const sameMinute = stamp.slice(0, 16) === lastStamp.slice(0, 16);
+        const points = sameMinute
+          ? [...prev.points.slice(0, -1), { ...last, price: livePrice }]
+          : [...prev.points.slice(-1000), { time: stamp, price: livePrice }];
+        return { ...prev, points };
+      });
+    },
+    [],
+  );
+
+  // Keep the freshest confirmed quote and intraday chart fed from the API.
+  // Polls the live endpoint on a cadence that stays inside the market-data
+  // plan limits and reacts to market open/closed + transient failures.
+  useEffect(() => {
+    let active = true;
+    let controller: AbortController | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNext = (delayMs: number) => {
+      if (!active) return;
+      pollTimer = setTimeout(() => void poll(), delayMs);
+    };
+
+    const poll = async () => {
+      controller = new AbortController();
+      try {
+        const res = await fetch(`/api/invest/market/${symbol}/live`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        const data = (await res.json().catch(() => ({}))) as { quote?: MarketQuote };
+        if (!active || !data.quote) throw new Error("no-quote");
+
+        const q = data.quote;
+        if (q.price === null || q.source === "unavailable") {
+          // Upstream had nothing new: keep the last confirmed price, never fake.
+          setLiveStatus((prev) => (prev === "live" || prev === "closed" ? "updating" : "unavailable"));
+          scheduleNext(LIVE_RETRY_MS);
+          return;
+        }
+        if (q.source === "live") {
+          setQuote(q);
+          setLiveStatus(q.isMarketOpen === false ? "closed" : "live");
+          appendLivePoint(q);
+          scheduleNext(q.isMarketOpen === false ? LIVE_CLOSED_MS : LIVE_OPEN_MS);
+          return;
+        }
+        // dev-mock (explicit demo builds only) — still show the demo banner.
+        setQuote(q);
+        setLiveStatus("demo");
+        scheduleNext(LIVE_OPEN_MS);
+      } catch {
+        if (!active) return;
+        setLiveStatus((prev) => (prev === "live" || prev === "closed" ? "updating" : "unavailable"));
+        scheduleNext(LIVE_RETRY_MS);
+      }
+    };
+
+    pollTimer = setTimeout(() => void poll(), 2_000); // start shortly after mount
+    return () => {
+      active = false;
+      controller?.abort();
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
 
   useEffect(() => {
     let active = true;
@@ -191,10 +368,11 @@ export function TickerApp({
     if (retryTick === 0) return;
     let active = true;
     const abort = new AbortController();
-    void loadRange(symbol, range, abort.signal).then((ok) => {
+    (async () => {
+      const ok = await loadRange(symbol, range, abort.signal);
       if (!active) return;
       if (!ok) setHistoryError(true);
-    });
+    })();
     return () => {
       active = false;
       abort.abort();
@@ -266,9 +444,9 @@ export function TickerApp({
         <div className="flex min-w-0 items-start gap-3">
           <Logo accent={accent} mono={symbol} />
           <div className="min-w-0 pt-0.5">
-            <h1 className="flex items-center text-[17px] font-extrabold tracking-tight text-white">
-              {name}
-              <VerifiedBadge />
+            <h1 className="flex items-center gap-1.5 text-[17px] font-extrabold tracking-tight text-white">
+              <span className="min-w-0 break-words">{name}</span>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
             </h1>
             <p className="mt-0.5 text-[13px] font-semibold text-zinc-400">
               {symbol} <span className="text-zinc-600">·</span> {exchange}
@@ -282,8 +460,8 @@ export function TickerApp({
             <p className="text-[13px] font-semibold text-zinc-500">Market data unavailable</p>
           ) : (
             <>
-              <p className={`text-xl font-extrabold tracking-tight ${demo ? "text-zinc-300" : "text-white"}`}>
-                ${price !== null ? price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
+              <p className={`text-xl font-extrabold tracking-tight tabular-nums ${demo ? "text-zinc-300" : "text-white"}`}>
+                {price !== null ? `${fmtMoney(animatePrice !== null ? animatePrice : price)}` : "—"}
               </p>
               {change !== null && changePct !== null ? (
                 <p className={`mt-0.5 flex items-center justify-end gap-1 text-[13px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
@@ -293,7 +471,7 @@ export function TickerApp({
                   {changePct.toFixed(2)}%)
                 </p>
               ) : null}
-              <p className="mt-0.5 text-[10px] font-medium text-zinc-600">Real-time price · USD</p>
+              <LiveStatus status={liveStatus} lastUpdated={quote?.marketTime ?? quote?.fetchedAt} />
             </>
           )}
         </div>

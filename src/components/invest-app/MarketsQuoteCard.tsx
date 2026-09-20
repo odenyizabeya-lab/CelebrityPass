@@ -1,4 +1,5 @@
 import Link from "next/link";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { getCompany } from "@/lib/invest/companies";
 import { getQuote } from "@/lib/invest/market-data";
 
@@ -28,7 +29,10 @@ export async function MarketsQuoteCard({ symbol, label }: { symbol: string; labe
             {company.symbol}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">{company.name}</p>
+            <p className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-bold text-white">{company.name}</span>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
+            </p>
             <p className="text-[11px] font-medium text-zinc-500">
               {company.symbol} · {company.exchange}
             </p>

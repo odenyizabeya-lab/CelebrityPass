@@ -31,6 +31,10 @@ export type MarketQuote = {
   provider: string;
   source: QuoteSource;
   fetchedAt: string | null;
+  /** True when the exchange session is currently open (from the API). */
+  isMarketOpen: boolean | null;
+  /** The exchange-session timestamp reported by the API (or null). */
+  marketTime: string | null;
 };
 
 export type HistoryRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y" | "ALL";
@@ -131,6 +135,8 @@ export function unavailableQuote(symbol: string): MarketQuote {
     provider: "none",
     source: "unavailable",
     fetchedAt: null,
+    isMarketOpen: null,
+    marketTime: null,
   };
 }
 
@@ -176,6 +182,8 @@ function demoQuote(symbol: string): MarketQuote {
     provider: "mock",
     source: "dev-mock",
     fetchedAt: new Date().toISOString(),
+    isMarketOpen: true,
+    marketTime: new Date().toISOString(),
   };
 }
 
@@ -237,6 +245,29 @@ export async function getQuote(symbol: string): Promise<MarketQuote> {
   // and every failed fetch gets immediately retried instead.
   if (quote.source !== "unavailable") {
     memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+  }
+  return quote;
+}
+
+/**
+ * Fetch the freshest possible quote for real-time polling. Deliberately skips
+ * the 30s quote cache so repeated polls reach the live provider — and honours
+ * the same honesty rules as getQuote: only "live" results are ever surfaced,
+ * never invented numbers.
+ */
+export async function getLiveTick(symbol: string): Promise<MarketQuote> {
+  const key = symbol.toUpperCase();
+  if (mockEnabled()) {
+    const quote = demoQuote(key);
+    persistQuoteCache(quote).catch(() => {});
+    return quote;
+  }
+  if (!liveKey(key)) return unavailableQuote(key);
+  const quote = await fetchLiveQuote(key);
+  if (quote.source === "live") {
+    // Refresh the short cache only; persist a snapshot for the admin status.
+    memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+    persistQuoteCache(quote).catch(() => {});
   }
   return quote;
 }
@@ -343,6 +374,8 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
       provider: "twelve-data",
       source: "live",
       fetchedAt: new Date().toISOString(),
+      isMarketOpen: typeof data.is_market_open === "boolean" ? data.is_market_open : null,
+      marketTime: typeof data.datetime === "string" && data.datetime ? data.datetime : null,
     };
   } catch {
     return unavailableQuote(symbol);

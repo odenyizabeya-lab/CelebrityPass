@@ -2,6 +2,7 @@ import { COMPANY_CATALOG } from "@/lib/invest/companies";
 import { getQuote, unavailableQuote } from "@/lib/invest/market-data";
 import { safeWithDeadline } from "@/lib/safe-data";
 import Link from "next/link";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,10 @@ export default async function MarketsPage() {
                 {company.symbol}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[14px] font-bold text-white">{company.name}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-[14px] font-bold text-white">{company.name}</span>
+                  <VerifiedBadge className="h-4 w-4 shrink-0" />
+                </span>
                 <span className="block text-[11px] font-medium text-zinc-500">
                   {company.symbol} · {company.exchange}
                 </span>
