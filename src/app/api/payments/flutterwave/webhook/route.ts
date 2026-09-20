@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/utils";
 import { settlePayment } from "@/lib/payments";
 import { settleTicketOrderByPaymentRef } from "@/lib/ticketing/service";
+import { settleInvestCardDeposit } from "@/lib/invest/deposits";
 import { verifyFlutterwaveWebhook, verifyFlutterwaveTransaction } from "@/lib/payments/flutterwave";
 
 export const dynamic = "force-dynamic";
@@ -50,19 +51,70 @@ export async function POST(request: NextRequest) {
 
   if (!reference) return NextResponse.json({ ok: true, ignored: true });
 
-  // Resolve the purchase: fan-card Payment (by gatewayRef, provider flutterwave)
-  // or ticket order (by the paymentRef we saved when creating its checkout).
+  // Resolve the purchase: fan-card Payment (by gatewayRef, provider flutterwave),
+  // ticket order (by the paymentRef we saved when creating its checkout), or
+  // investor "ATM Card" deposit (by providerRef which IS the Flutterwave tx_ref).
   const payment = await prisma.payment.findUnique({ where: { gatewayRef: reference } });
   const ticketOrder =
     !payment || payment.provider !== "flutterwave"
       ? await prisma.ticketOrder.findFirst({ where: { paymentRef: reference }, include: { event: { select: { name: true } } } })
       : null;
+  const investDeposit = !payment || payment.provider !== "flutterwave"
+    ? ticketOrder
+      ? null
+      : await prisma.transaction.findFirst({ where: { providerRef: reference, kind: "DEPOSIT", provider: "flutterwave" } })
+    : null;
 
-  if (!payment && !ticketOrder) {
-    // Investor deposits are manual Bank Transfer / ATM only — they are never
-    // opened or settled through a card gateway, so there is no deposit path
-    // here. Anything else is ignored.
+  if (!payment && !ticketOrder && !investDeposit) {
+    // Unknown reference — ignore (no deposit/card path exists for this ref).
     return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  // ----------------------------------------------------------- INVEST DEPOSIT
+  if (investDeposit) {
+    if (investDeposit.status === "SUCCESSFUL") return NextResponse.json({ ok: true, settled: true });
+    if (investDeposit.status === "CANCELLED" || investDeposit.status === "REFUNDED" || investDeposit.status === "REVERSED") {
+      return NextResponse.json({ ok: true, ignored: true });
+    }
+
+    // Explicit failure reported by the webhook — the charge never succeeded.
+    if (FAILURE_STATUSES.has(chargeStatus)) {
+      if (investDeposit.status === "PENDING") {
+        await prisma.transaction.update({ where: { id: investDeposit.id }, data: { status: "FAILED" } });
+      }
+      return NextResponse.json({ ok: true, settled: false, failed: true });
+    }
+
+    // Not a success event/status yet — acknowledge and wait for the real one.
+    if (!SUCCESS_EVENTS.has(event) || !SUCCESS_STATUSES.has(chargeStatus)) {
+      return NextResponse.json({ ok: true, settled: false });
+    }
+
+    // The webhook payload alone is never trusted — re-verify server-side.
+    if (!transactionId) return NextResponse.json({ ok: true, settled: false });
+
+    const verified = await verifyFlutterwaveTransaction(transactionId);
+    if (!verified.ok) return NextResponse.json({ ok: true, settled: false });
+
+    const tx = verified.tx;
+    const refOk = tx.txRef === reference;
+    const amountOk = Number(Number(tx.amount).toFixed(2)) === Number(Number(investDeposit.amount).toFixed(2));
+    const currencyOk = tx.currency.toUpperCase() === (investDeposit.currency || "USD").toUpperCase();
+    if (!refOk || !amountOk || !currencyOk || !SUCCESS_STATUSES.has(tx.status)) {
+      return NextResponse.json({ ok: true, settled: false });
+    }
+
+    try {
+      const result = await settleInvestCardDeposit({
+        txnId: investDeposit.id,
+        flutterwaveTransactionId: transactionId,
+        ipAddress: "flutterwave-webhook",
+      });
+      if (result.status !== "confirmed") return NextResponse.json({ ok: true, settled: false });
+    } catch {
+      return NextResponse.json({ ok: true, settled: false });
+    }
+    return NextResponse.json({ ok: true, settled: true });
   }
 
   // ------------------------------------------------------------------ TICKET

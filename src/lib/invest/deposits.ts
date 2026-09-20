@@ -6,6 +6,13 @@ import { validateInvestAmount, formatMoney } from "./mode";
 import { auditLog, notifyInvestor } from "./audit";
 import { createSubscription } from "./orders";
 import { getActiveBankAccountForCurrency, type PublicBankAccount } from "@/lib/ticketing/banking";
+import { appUrl } from "@/lib/utils";
+import {
+  createFlutterwaveHostedCheckout,
+  getFlutterwaveConfig,
+  isFlutterwaveReady,
+  verifyFlutterwaveTransaction,
+} from "@/lib/payments/flutterwave";
 
 /**
  * Investor deposits — paid by MANUAL Bank Transfer or ATM Deposit ONLY.
@@ -38,12 +45,14 @@ export class InvestDepositError extends Error {
   }
 }
 
-export const DEPOSIT_METHODS = ["bank-transfer", "atm-deposit"] as const;
+export const DEPOSIT_METHODS = ["bank-transfer", "atm-deposit", "card"] as const;
 export type DepositMethod = (typeof DEPOSIT_METHODS)[number];
 
 /** Map a flow method to the stored proof.method discriminator. */
 export function proofMethodFor(method: DepositMethod): string {
-  return method === "atm-deposit" ? "ATM_DEPOSIT" : "BANK_TRANSFER";
+  if (method === "atm-deposit") return "ATM_DEPOSIT";
+  if (method === "card") return "CARD";
+  return "BANK_TRANSFER";
 }
 
 export type DepositIntent = {
@@ -64,6 +73,7 @@ export type DepositIntent = {
 const METHOD_LABEL: Record<DepositMethod, string> = {
   "bank-transfer": "Bank Transfer",
   "atm-deposit": "ATM Deposit",
+  card: "ATM Card",
 };
 
 /**
@@ -107,8 +117,10 @@ export async function createDepositIntent(input: {
   // pick the COUNTRY then CURRENCY they want to pay with; the account shown is
   // ALWAYS the exact active account the admin configured for that currency in
   // the admin dashboard — nothing is invented or substituted here. ATM deposits
-  // keep using the active USD account (shared with the ATM instructions).
-  let bankAccount: PublicBankAccount | null;
+  // keep using the active USD account (shared with the ATM instructions). Card
+  // deposits ("ATM Card", powered by Flutterwave) need NO bank account: the
+  // card is collected on Flutterwave's own secure page and verified server-side.
+  let bankAccount: PublicBankAccount | null = null;
   let currency = "USD";
   if (method === "bank-transfer") {
     currency = (input.currency ?? "USD").toUpperCase();
@@ -129,15 +141,16 @@ export async function createDepositIntent(input: {
     if (!bankAccount) {
       throw new InvestDepositError("BANK_NOT_CONFIGURED", "Bank account unavailable for this country/currency.");
     }
-  } else {
+  } else if (method === "atm-deposit") {
     bankAccount = await getActiveBankAccountForCurrency("USD");
     if (!bankAccount) {
       throw new InvestDepositError("BANK_NOT_CONFIGURED", `${METHOD_LABEL[method]} isn't set up on this site yet. Please contact the team.`);
     }
   }
 
-  // PENDING deposit transaction FIRST — the ledger is only ever touched when an
-  // admin approves the receipt (settlePendingTransaction below).
+  // PENDING deposit transaction FIRST — the ledger is only ever touched when
+  // a card charge is server-side verified OR an admin approves the receipt
+  // (settlePendingTransaction below).
   const pending = await postTransaction({
     investorId: account.id,
     kind: "DEPOSIT",
@@ -145,14 +158,16 @@ export async function createDepositIntent(input: {
     amount: input.amount,
     legs: [],
     pendingOnly: true,
-    source: method,
-    provider: method,
+    source: method === "card" ? "flutterwave" : method,
+    provider: method === "card" ? "flutterwave" : method,
     description: `Deposit ${formatMoney(input.amount)} via ${METHOD_LABEL[method]}`,
   });
 
-  // The method-specific reference the customer quotes. Stored as providerRef so
-  // an approval can always map back to exactly this pending deposit.
-  const depositRef = `${method === "atm-deposit" ? "INVATM" : "INVBT"}-${pending.txnRef}`;
+  // The method-specific reference the customer quotes (or the Flutterwave
+  // tx_ref for card deposits). Stored as providerRef so an approval or a
+  // verified card charge can always map back to exactly this pending deposit.
+  const refPrefix = method === "card" ? "INVFC" : method === "atm-deposit" ? "INVATM" : "INVBT";
+  const depositRef = `${refPrefix}-${pending.txnRef}`;
   await prisma.transaction
     .update({ where: { id: pending.id }, data: { providerRef: depositRef } })
     .catch(() => undefined);
@@ -253,6 +268,12 @@ export async function submitInvestDepositProof(input: {
   const txn = await prisma.transaction.findUnique({ where: { id: input.txnId } });
   if (!txn) throw new InvestDepositError("NOT_FOUND", "Deposit not found.");
   if (txn.kind !== "DEPOSIT") throw new InvestDepositError("INVALID", "This reference is not a deposit.");
+  if (txn.provider === "flutterwave") {
+    throw new InvestDepositError(
+      "INVALID",
+      "This deposit was paid by ATM Card (Flutterwave) and is confirmed automatically by the card processor — no receipt needed.",
+    );
+  }
   if (!["INITIATED", "PENDING"].includes(txn.status)) {
     if (txn.status === "SUCCESSFUL") {
       throw new InvestDepositError("ALREADY_PAID", "This deposit is already confirmed. Nothing more to upload.");
@@ -652,4 +673,180 @@ export async function rejectInvestDeposit(args: {
   }
 
   return { ok: true, status: "REJECTED", credited: false, subscribed: false };
+}
+
+// ===== ATM Card (Flutterwave) — instant, server-verified deposits =====
+
+/** Flutterwave statuses that mean the money really moved. */
+const CARD_SUCCESS_STATUSES = new Set(["successful", "success", "successfully completed", "completed"]);
+
+export type CardCheckoutResult = {
+  ok: true;
+  link: string;
+  depositRef: string;
+  pendingTxnId: string;
+  amount: string;
+  currency: string;
+};
+
+/**
+ * Open a card ("ATM Card") deposit intent and create a REAL Flutterwave hosted
+ * checkout for it. The pending ledger transaction is opened first (nothing is
+ * credited); the customer pays on Flutterwave's own secure page; and the deposit
+ * is only confirmed afterwards by server-side verification of the charge
+ * (never on the browser's say-so). The Flutterwave tx_ref is the deposit's own
+ * unique providerRef, so the webhook and the return page map back to it.
+ */
+export async function createInvestCardCheckout(input: {
+  fanId: string;
+  amount: Prisma.Decimal;
+  opportunityId?: string | null;
+  ipAddress?: string | null;
+}): Promise<CardCheckoutResult> {
+  const intent = await createDepositIntent({
+    fanId: input.fanId,
+    amount: input.amount,
+    method: "card",
+    opportunityId: input.opportunityId,
+    ipAddress: input.ipAddress,
+  });
+
+  const config = await getFlutterwaveConfig();
+  if (!config.enabled) {
+    throw new InvestDepositError("CARD_NOT_AVAILABLE", "Card payments aren't enabled on this site yet. Please use Bank Transfer.");
+  }
+  if (!isFlutterwaveReady(config)) {
+    throw new InvestDepositError("CARD_NOT_AVAILABLE", "Card payments aren't configured yet. Please use Bank Transfer.");
+  }
+
+  const fan = await prisma.fan.findUnique({ where: { id: input.fanId }, select: { name: true, email: true } });
+  const checkout = await createFlutterwaveHostedCheckout({
+    txRef: intent.depositRef,
+    amount: Number(input.amount),
+    currency: "USD",
+    redirectUrl: `${appUrl()}/invest/deposit/flutterwave?ref=${encodeURIComponent(intent.pendingTxnId)}`,
+    customer: {
+      name: fan?.name ?? "Investor",
+      email: fan?.email ?? "investor@celebritypass.io",
+    },
+    title: "Investor Deposit",
+    description: `${formatMoney(input.amount)} card deposit`,
+  });
+  if (!checkout.ok) {
+    throw new InvestDepositError("CARD_NOT_AVAILABLE", checkout.error);
+  }
+
+  return {
+    ok: true,
+    link: checkout.link,
+    depositRef: intent.depositRef,
+    pendingTxnId: intent.pendingTxnId,
+    amount: intent.amount,
+    currency: intent.currency,
+  };
+}
+
+export type CardSettleResult = {
+  status: "confirmed" | string;
+  already: boolean;
+  amount: string;
+  currency: string;
+};
+
+/**
+ * The ONLY place a card deposit gets confirmed: re-query Flutterwave
+ * server-side, verify reference + amount + currency + status, then settle the
+ * pending ledger credit in one atomic step. Idempotent — a deposit that is
+ * already SUCCESSFUL (or a gateway event already seen) is never double-credits.
+ * A deposit that FAILED / CANCELLED is never settled.
+ */
+export async function settleInvestCardDeposit(input: {
+  txnId: string;
+  flutterwaveTransactionId: string;
+  fanId?: string | null;
+  ipAddress?: string | null;
+}): Promise<CardSettleResult> {
+  const txn = await prisma.transaction.findUnique({
+    where: { id: input.txnId },
+    include: { investor: { select: { fanId: true } } },
+  });
+  if (!txn || txn.kind !== "DEPOSIT") throw new InvestDepositError("NOT_FOUND", "Deposit not found.");
+  if (txn.provider !== "flutterwave") {
+    throw new InvestDepositError("INVALID", "This deposit is not a card deposit.");
+  }
+  if (input.fanId && txn.investor.fanId !== input.fanId) {
+    throw new InvestDepositError("NOT_FOUND", "Deposit not found.");
+  }
+
+  const amount = txn.amount.toFixed(2);
+  const currency = txn.currency || "USD";
+
+  if (txn.status === "SUCCESSFUL") {
+    return { status: "confirmed", already: true, amount, currency };
+  }
+  if (txn.status === "FAILED" || txn.status === "CANCELLED") {
+    return { status: txn.status.toLowerCase(), already: false, amount, currency };
+  }
+  if (txn.status !== "PENDING" && txn.status !== "INITIATED") {
+    return { status: txn.status.toLowerCase(), already: false, amount, currency };
+  }
+
+  // Server-side verification — the webhook/browser payload is never trusted.
+  const verified = await verifyFlutterwaveTransaction(input.flutterwaveTransactionId);
+  if (!verified.ok) {
+    throw new InvestDepositError(
+      "CARD_VERIFY_FAILED",
+      "We couldn't verify your payment with the card processor yet. Nothing has been credited. Please try again in a moment or contact support.",
+    );
+  }
+  const tx = verified.tx;
+  const refOk = Boolean(tx.txRef) && tx.txRef === txn.providerRef;
+  const amountOk = Number(Number(tx.amount).toFixed(2)) === Number(Number(txn.amount).toFixed(2));
+  const currencyOk = tx.currency.toUpperCase() === (txn.currency || "USD").toUpperCase();
+  if (!refOk || !amountOk || !currencyOk || !CARD_SUCCESS_STATUSES.has(tx.status)) {
+    throw new InvestDepositError(
+      "CARD_VERIFY_FAILED",
+      "Your payment could not be verified (reference, amount or status did not match). No funds were credited. Please contact support.",
+    );
+  }
+
+  const settleResult = await settlePendingTransaction({
+    txnId: txn.id,
+    legs: buildBalancedEntries([
+      { account: cashAccount(txn.investorId), amount: txn.amount },
+      { account: "platform:liability", amount: txn.amount.negated() },
+    ]),
+    gatewayEventId: String(tx.id || input.flutterwaveTransactionId),
+    providerRef: txn.providerRef ?? undefined,
+    description: `Deposit confirmed via Flutterwave (${formatMoney(txn.amount)})`,
+  });
+  if (settleResult === "not-found") throw new InvestDepositError("NOT_FOUND", "Deposit transaction was not found.");
+  if (settleResult === "not-pending") {
+    return { status: "failed", already: false, amount, currency };
+  }
+
+  await auditLog({
+    actorType: "investor",
+    actorId: input.fanId ?? txn.investor.fanId,
+    action: "PAYMENT_CONFIRMED",
+    entityType: "Transaction",
+    entityId: txn.id,
+    details: {
+      kind: "DEPOSIT",
+      amount,
+      method: "card",
+      depositRef: txn.providerRef,
+      flutterwaveTxnId: String(tx.id ?? input.flutterwaveTransactionId),
+      credited: settleResult === "settled",
+    },
+    ipAddress: input.ipAddress,
+  }).catch(() => {});
+  await notifyInvestor({
+    investorId: txn.investorId,
+    type: "PAYMENT_CONFIRMED",
+    title: "Deposit confirmed",
+    body: `${formatMoney(txn.amount)} was credited to your investor account (${txn.providerRef ?? "ATM Card"}).`,
+  }).catch(() => {});
+
+  return { status: "confirmed", already: settleResult === "already", amount, currency };
 }

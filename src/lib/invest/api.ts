@@ -38,6 +38,10 @@ export function investErrorResponse(err: unknown): NextResponse {
         return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });
       case "BANK_NOT_CONFIGURED":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 503 });
+      case "CARD_NOT_AVAILABLE":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 503 });
+      case "CARD_VERIFY_FAILED":
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });
       case "NOT_FOUND":
         return NextResponse.json({ error: err.message, code: err.code }, { status: 404 });
       case "NO_FAN":

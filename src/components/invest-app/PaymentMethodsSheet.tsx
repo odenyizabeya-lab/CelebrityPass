@@ -1,13 +1,13 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { formatUSD, postDepositIntent, type DepositIntent } from "@/components/invest/deposit/depositShared";
+import { formatUSD, type DepositIntent } from "@/components/invest/deposit/depositShared";
 import BankTransferDeposit from "@/components/invest/deposit/BankTransferDeposit";
 import BankTransferPayout from "@/components/invest/deposit/BankTransferPayout";
 import AtmDeposit from "@/components/invest/deposit/AtmDeposit";
 import { Eye } from "@/components/invest-app/native";
 
-type MethodKey = "bank-transfer" | "atm-deposit";
+type MethodKey = "bank-transfer" | "card";
 
 const METHODS: { key: MethodKey; name: string; title: string; tagline: string; icon: string; accent: string; desc: string }[] = [
   {
@@ -20,24 +20,24 @@ const METHODS: { key: MethodKey; name: string; title: string; tagline: string; i
     desc: "Full bank details, the exact amount to pay, and a clear “I have made the transfer” step to submit your payment for verification.",
   },
   {
-    key: "atm-deposit",
-    name: "ATM PAYMENT",
-    title: "ATM Payment",
-    tagline: "Deposit cash at an ATM",
-    icon: "🏧",
+    key: "card",
+    name: "ATM CARD",
+    title: "ATM Card · Flutterwave",
+    tagline: "Instant card payment",
+    icon: "💳",
     accent: "from-emerald-500/20 to-emerald-500/5 ring-emerald-400/40",
-    desc: "Step-by-step ATM instructions with your deposit reference, plus a receipt/reference submission for verification.",
+    desc: "Pay instantly with your debit or credit card through Flutterwave’s secured checkout. Your balance updates the moment Flutterwave confirms the payment.",
   },
 ];
 
 /**
  * Native full-screen Payment Methods sheet for funding an order.
  *
- * Both channels are REAL payments: they reuse the exact same deposit intent +
- * receipt-verification system as /invest/deposit. A pending ledger transaction
- * is opened, the user pays, submits proof, and the balance is only credited
- * after an admin verifies the actual receipt — the backend is the source of
- * truth. Nothing here invents a payment.
+ * Two REAL payment channels: Bank Transfer uses the pending intent + receipt-
+ * verification system (balance credits after an admin verifies the transfer);
+ * ATM Card opens a real Flutterwave hosted checkout and the balance credits the
+ * moment Flutterwave confirms the charge server-side. The backend is always the
+ * source of truth — nothing here invents a payment.
  */
 export function PaymentMethodsSheet({
   symbol,
@@ -53,35 +53,29 @@ export function PaymentMethodsSheet({
   onPaymentSubmitted: () => void;
 }) {
   const [intent, setIntent] = useState<DepositIntent | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectingBank, setSelectingBank] = useState(false);
+  const [selectingCard, setSelectingCard] = useState(false);
 
   const amount = amountCents / 100;
 
   async function openMethod(key: MethodKey) {
     // Bank Transfer first shows COUNTRY → CURRENCY (only admin-configured
     // combos); the intent + exact account open only after both are chosen.
+    // ATM Card opens the Flutterwave checkout screen directly (the intent is
+    // created server-side when the customer taps "Pay with Flutterwave").
+    setError(null);
     if (key === "bank-transfer") {
-      setError(null);
       setSelectingBank(true);
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await postDepositIntent(String(amount), key);
-      setIntent(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start your payment. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    setSelectingCard(true);
   }
 
   function backToMethods() {
     setIntent(null);
     setSelectingBank(false);
+    setSelectingCard(false);
     setError(null);
   }
 
@@ -90,50 +84,47 @@ export function PaymentMethodsSheet({
     onClose();
   }
 
-  // A payment method is open — render ONLY that method's dedicated flow. The
-  // flow itself ends on a "Pending verification" screen before returning here.
-  if (intent) {
-    return (
-      <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#05060a]">
-        <div className="mx-auto w-full max-w-xl px-4 pb-14 pt-4">
-          <div className="fade-up">
-            {intent.method === "atm-deposit" ? (
-              <AtmDeposit intent={intent} onBack={backToMethods} onDone={done} />
-            ) : (
-              <BankTransferDeposit
-                intent={intent}
-                onBack={backToMethods}
-                onDone={done}
-                onChangeDestination={() => {
-                  setIntent(null);
-                  setSelectingBank(true);
-                }}
-              />
-            )}
-          </div>
-        </div>
+  // A payment method is open — render ONLY that method's dedicated flow.
+  const flow = (children: React.ReactNode) => (
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#05060a]">
+      <div className="mx-auto w-full max-w-xl px-4 pb-14 pt-4">
+        <div className="fade-up">{children}</div>
       </div>
+    </div>
+  );
+
+  // Bank Transfer — intent flow (country/currency already chosen).
+  if (intent) {
+    return flow(
+      <BankTransferDeposit
+        intent={intent}
+        onBack={backToMethods}
+        onDone={done}
+        onChangeDestination={() => {
+          setIntent(null);
+          setSelectingBank(true);
+        }}
+      />,
     );
   }
 
   // Bank Transfer's COUNTRY → CURRENCY selection, before the intent opens.
   if (selectingBank) {
-    return (
-      <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#05060a]">
-        <div className="mx-auto w-full max-w-xl px-4 pb-14 pt-4">
-          <div className="fade-up">
-            <BankTransferPayout
-              amount={amount}
-              onBack={() => setSelectingBank(false)}
-              onIntent={(data) => {
-                setIntent(data);
-                setSelectingBank(false);
-              }}
-            />
-          </div>
-        </div>
-      </div>
+    return flow(
+      <BankTransferPayout
+        amount={amount}
+        onBack={() => setSelectingBank(false)}
+        onIntent={(data) => {
+          setIntent(data);
+          setSelectingBank(false);
+        }}
+      />,
     );
+  }
+
+  // ATM Card (Flutterwave) payment screen.
+  if (selectingCard) {
+    return flow(<AtmDeposit amount={amount} onBack={() => setSelectingCard(false)} />);
   }
 
   return (
@@ -162,8 +153,8 @@ export function PaymentMethodsSheet({
           <Eye>Amount to pay</Eye>
           <p className="mt-2 text-[40px] font-black leading-none tracking-tight text-white">{formatUSD(amount)}</p>
           <p className="mt-2 text-[12px] leading-relaxed text-zinc-400">
-            for {companyName} ({symbol}). Your balance is credited only after an admin verifies your payment — nothing
-            is credited instantly or on your word alone.
+            for {companyName} ({symbol}). ATM Card payments credit automatically once Flutterwave confirms them; Bank
+            Transfer payments credit after our team verifies the transfer.
           </p>
         </section>
 
@@ -175,9 +166,8 @@ export function PaymentMethodsSheet({
               <button
                 key={m.key}
                 type="button"
-                disabled={busy}
-                onClick={() => void openMethod(m.key)}
-                className={`w-full rounded-3xl bg-gradient-to-br p-4 text-left ring-1 transition active:scale-[0.99] disabled:opacity-50 ${m.accent}`}
+                onClick={() => openMethod(m.key)}
+                className={`w-full rounded-3xl bg-gradient-to-br p-4 text-left ring-1 transition active:scale-[0.99] ${m.accent}`}
               >
                 <span className="flex items-center gap-3">
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-2xl ring-1 ring-white/10">
@@ -199,9 +189,10 @@ export function PaymentMethodsSheet({
 
         <section className="rounded-2xl bg-white/[0.02] px-4 py-3.5 ring-1 ring-white/[0.06]">
           <p className="text-[12px] leading-6 text-zinc-500">
-            After you submit your payment you will see a{" "}
+            ATM Card payments are verified automatically by Flutterwave and credit your balance instantly. Bank
+            Transfer payments show a{" "}
             <span className="font-bold text-amber-300">Pending verification</span> status until our team confirms the
-            transfer, then your available balance is updated and you can complete your order.
+            transfer.
           </p>
         </section>
 

@@ -10,14 +10,13 @@ import {
   formatUSDInput,
   parseAmount,
   clamp,
-  postDepositIntent,
   type DepositIntent,
 } from "./depositShared";
 import BankTransferDeposit from "./BankTransferDeposit";
 import BankTransferPayout from "./BankTransferPayout";
 import AtmDeposit from "./AtmDeposit";
 
-export type MethodKey = "bank-transfer" | "atm-deposit";
+export type MethodKey = "bank-transfer" | "card";
 
 const METHODS: { key: MethodKey; name: string; tagline: string; icon: string; accent: string }[] = [
   {
@@ -28,10 +27,10 @@ const METHODS: { key: MethodKey; name: string; tagline: string; icon: string; ac
     accent: "from-sky-500/20 to-sky-500/5 ring-sky-400/40",
   },
   {
-    key: "atm-deposit",
-    name: "ATM DEPOSIT",
-    tagline: "Deposit through ATM",
-    icon: "🏧",
+    key: "card",
+    name: "ATM CARD",
+    tagline: "Instant card payment · Flutterwave",
+    icon: "💳",
     accent: "from-emerald-500/20 to-emerald-500/5 ring-emerald-400/40",
   },
 ];
@@ -42,9 +41,9 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
   const [raw, setRaw] = useState("1000");
   const [method, setMethod] = useState<MethodKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [intent, setIntent] = useState<DepositIntent | null>(null);
   const [selectingBank, setSelectingBank] = useState(false);
+  const [selectingCard, setSelectingCard] = useState(false);
 
   const amount = parseAmount(raw);
   const valid = amount >= HARD_MIN && amount <= HARD_MAX;
@@ -59,29 +58,22 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
 
   async function continueToFlow(e: React.FormEvent) {
     e.preventDefault();
-    if (!method || !valid || busy) return;
+    if (!method || !valid) return;
+    setError(null);
     // Bank Transfer first asks for COUNTRY → CURRENCY (only configured combos)
-    // before opening the intent; ATM deposits open their intent directly.
+    // before opening the intent; ATM Card opens the Flutterwave checkout screen
+    // directly (the intent is created server-side when the customer taps pay).
     if (method === "bank-transfer") {
-      setError(null);
       setSelectingBank(true);
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await postDepositIntent(String(amount), method);
-      setIntent(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start your deposit. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    setSelectingCard(true);
   }
 
   function backToSelector() {
     setIntent(null);
     setSelectingBank(false);
+    setSelectingCard(false);
     setMethod(null);
     setError(null);
   }
@@ -97,19 +89,15 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
   if (intent) {
     return (
       <div className="fade-up">
-        {intent.method === "atm-deposit" ? (
-          <AtmDeposit intent={intent} onBack={backToSelector} onDone={completed} />
-        ) : (
-          <BankTransferDeposit
-            intent={intent}
-            onBack={backToSelector}
-            onDone={completed}
-            onChangeDestination={() => {
-              setIntent(null);
-              setSelectingBank(true);
-            }}
-          />
-        )}
+        <BankTransferDeposit
+          intent={intent}
+          onBack={backToSelector}
+          onDone={completed}
+          onChangeDestination={() => {
+            setIntent(null);
+            setSelectingBank(true);
+          }}
+        />
       </div>
     );
   }
@@ -126,6 +114,16 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
             setSelectingBank(false);
           }}
         />
+      </div>
+    );
+  }
+
+  // ATM Card (Flutterwave) payment screen — the checkout is created server-side
+  // when the customer taps "Pay with Flutterwave".
+  if (selectingCard) {
+    return (
+      <div className="fade-up">
+        <AtmDeposit amount={amount} onBack={() => setSelectingCard(false)} />
       </div>
     );
   }
@@ -221,10 +219,10 @@ export default function DepositFlow({ onCompleted }: { onCompleted?: () => void 
 
       <button
         type="submit"
-        disabled={!method || !valid || busy}
+        disabled={!method || !valid}
         className="btn-grad mt-4 w-full rounded-2xl py-4 text-[16px] font-black tracking-wide text-white shadow-xl shadow-primary-600/25 transition disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {busy ? "Setting up your deposit…" : "Continue"}
+        Continue
       </button>
     </form>
   );
