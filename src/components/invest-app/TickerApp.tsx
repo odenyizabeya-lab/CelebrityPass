@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import VerifiedBadge from "@/components/VerifiedBadge";
-import { LineChart, type ChartPoint } from "@/components/invest-app/LineChart";
+import { LineChart } from "@/components/invest-app/LineChart";
 import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
+import { useWatchlist, WatchStar } from "@/components/invest-app/Watchlist";
+import { Eye, NativeCard } from "@/components/invest-app/native";
 
 const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
 const CHIP_AMOUNTS = [100, 500, 1000, 5000, 10000];
@@ -52,8 +54,6 @@ function useAnimatedPrice(target: number | null): number | null {
   return value;
 }
 
-type Money = { amount: number; label: string };
-
 function fmtMoney(n: number | null | undefined, symbol = "$"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return `${symbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -85,7 +85,7 @@ function verifyColor(v: number | null | undefined): boolean {
 function Logo({ accent, mono }: { accent: string; mono: string }) {
   return (
     <span
-      className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-[11px] font-black text-white shadow-lg"
+      className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-[13px] font-black text-white shadow-lg"
       style={{ background: accent }}
     >
       {mono}
@@ -129,31 +129,48 @@ function fmtLastUpdated(value: string | null): string {
  *  - dev/mock builds          -> "Demo data" (never claims to be real-time)
  */
 function LiveStatus({ status, lastUpdated }: { status: string; lastUpdated: string | null }) {
+  const base = "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider ring-1";
   if (status === "live") {
     return (
-      <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
-        <span className="relative flex h-1.5 w-1.5">
+      <span className={`${base} bg-emerald-500/10 text-emerald-400 ring-emerald-500/30`}>
+        <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
         </span>
         Live
-      </p>
+      </span>
     );
   }
   if (status === "closed") {
     return (
-      <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">
-        Market closed · Last updated {fmtLastUpdated(lastUpdated)}
-      </p>
+      <span className={`${base} bg-white/[0.04] text-zinc-400 ring-white/[0.08]`}>
+        <span className="h-2 w-2 rounded-full bg-zinc-500" />
+        Market closed · {fmtLastUpdated(lastUpdated)} UTC
+      </span>
     );
   }
   if (status === "updating") {
-    return <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">Updating…</p>;
+    return (
+      <span className={`${base} bg-white/[0.04] text-amber-300 ring-amber-400/25`}>
+        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+        Updating…
+      </span>
+    );
   }
   if (status === "demo") {
-    return <p className="mt-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">Demo data</p>;
+    return (
+      <span className={`${base} bg-amber-500/10 text-amber-400 ring-amber-500/30`}>
+        <span className="h-2 w-2 rounded-full bg-amber-400" />
+        Demo data
+      </span>
+    );
   }
-  return <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">Market data unavailable</p>;
+  return (
+    <span className={`${base} bg-white/[0.04] text-zinc-500 ring-white/[0.08]`}>
+      <span className="h-2 w-2 rounded-full bg-zinc-500" />
+      Market data unavailable
+    </span>
+  );
 }
 
 type TickerAppProps = {
@@ -184,6 +201,7 @@ export function TickerApp({
   const [tab, setTab] = useState<string>("Overview");
   const [range, setRange] = useState<HistoryRange>("1D");
   const [quote, setQuote] = useState<MarketQuote>(initialQuote);
+  const { symbols: watchSymbols, toggle: toggleWatch } = useWatchlist();
   const [history, setHistory] = useState<QuoteHistory>(initialHistory);
   // Mirrors `range` for use inside stable callbacks (live chart appends).
   const rangeRef = useRef<HistoryRange>("1D");
@@ -432,70 +450,88 @@ export function TickerApp({
     } catch {
       setOrderState({ busy: false, error: "Could not reach the server.", result: null });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amountValid, price, amountNum, symbol]);
 
   const TABS = ["Overview", "Chart", "Financials", "News", "About"];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ===== COMPANY HEADER ===== */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
+      <section className="fade-up flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Logo accent={accent} mono={symbol} />
-          <div className="min-w-0 pt-0.5">
-            <h1 className="flex items-center gap-1.5 text-[17px] font-extrabold tracking-tight text-white">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-1.5 text-[20px] font-black tracking-tight text-white">
               <span className="min-w-0 break-words">{name}</span>
               <VerifiedBadge className="h-4 w-4 shrink-0" />
             </h1>
             <p className="mt-0.5 text-[13px] font-semibold text-zinc-400">
-              {symbol} <span className="text-zinc-600">·</span> {exchange}
+              {symbol} <span className="text-zinc-600">·</span> {exchange} · {sectorTags[0]}
             </p>
-            <p className="mt-1 text-[11px] font-medium text-zinc-500">{sectorTags.join(" · ")}</p>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">{description}</p>
           </div>
         </div>
-        <div className="shrink-0 text-right">
-          {unavailable ? (
-            <p className="text-[13px] font-semibold text-zinc-500">Market data unavailable</p>
-          ) : (
-            <>
-              <p className={`text-xl font-extrabold tracking-tight tabular-nums ${demo ? "text-zinc-300" : "text-white"}`}>
-                {price !== null ? `${fmtMoney(animatePrice !== null ? animatePrice : price)}` : "—"}
-              </p>
-              {change !== null && changePct !== null ? (
-                <p className={`mt-0.5 flex items-center justify-end gap-1 text-[13px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-                  <span>{up ? "▲" : "▼"}</span>
-                  {change > 0 ? "+" : ""}
-                  {change.toFixed(2)} ({changePct > 0 ? "+" : ""}
-                  {changePct.toFixed(2)}%)
-                </p>
-              ) : null}
-              <LiveStatus status={liveStatus} lastUpdated={quote?.marketTime ?? quote?.fetchedAt} />
-            </>
-          )}
+        <button
+          type="button"
+          aria-label={watchSymbols.includes(symbol) ? "Remove from watchlist" : "Add to watchlist"}
+          onClick={() => toggleWatch(symbol)}
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.07] transition active:scale-90 active:bg-white/[0.1]"
+        >
+          <WatchStar symbol={symbol} on={watchSymbols.includes(symbol)} />
+        </button>
+      </section>
+
+      {/* ===== PRICE HERO ===== */}
+      <section className="fade-up">
+        <Eye>Market price · USD</Eye>
+        <div className="mt-1.5 flex flex-wrap items-end justify-between gap-3">
+          <p
+            className={`text-[46px] font-black leading-none tracking-tight tabular-nums ${
+              demo ? "text-zinc-300" : "text-white"
+            }`}
+          >
+            {price !== null ? `${fmtMoney(animatePrice !== null ? animatePrice : price)}` : "—"}
+          </p>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {change !== null && changePct !== null ? (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-[16px] font-black ring-1 ${
+                  up ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/25" : "bg-rose-500/10 text-rose-400 ring-rose-500/25"
+                }`}
+              >
+                <span>{up ? "▲" : "▼"}</span>
+                {change > 0 ? "+" : ""}
+                {change.toFixed(2)} ({changePct > 0 ? "+" : ""}
+                {changePct.toFixed(2)}%)
+              </span>
+            ) : null}
+            <LiveStatus status={liveStatus} lastUpdated={quote?.marketTime ?? quote?.fetchedAt} />
+          </div>
         </div>
-      </div>
+        {description && (
+          <p className="mt-3 text-[13px] leading-relaxed text-zinc-400">{description}</p>
+        )}
+      </section>
 
       {demo && (
-        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/20">
+        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-center text-[12px] font-black uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/20">
           DEV DATA · NOT LIVE — no live provider key configured
         </p>
       )}
 
       {/* ===== TABS ===== */}
-      <div className="-mx-4 border-b border-white/[0.06] px-4">
-        <div className="flex gap-1 overflow-x-auto">
+      <div className="sticky top-[64px] z-30 -mx-4 border-b border-white/[0.06] bg-[#05060a]/95 px-4 py-2 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-xl gap-1.5 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`relative shrink-0 px-3 py-2.5 text-[13px] font-semibold transition ${
-                tab === t ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+              className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-extrabold transition active:scale-95 ${
+                tab === t
+                  ? "bg-white text-ink-950"
+                  : "bg-white/[0.04] text-zinc-400 ring-1 ring-white/[0.07] active:bg-white/[0.08]"
               }`}
             >
               {t}
-              {tab === t && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-sky-500" />}
             </button>
           ))}
         </div>
@@ -503,54 +539,54 @@ export function TickerApp({
 
       {/* ===== CHART + STATS ===== */}
       {tab === "Overview" || tab === "Chart" ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-            <div className="mb-3 flex flex-wrap gap-1.5">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <NativeCard className="p-4">
+            <div className="mb-3 grid grid-cols-7 gap-1.5">
               {RANGES.map((r) => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+                  className={`rounded-xl px-0 py-2.5 text-[13px] font-black transition active:scale-95 ${
                     range === r
-                      ? "bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40"
-                      : "text-zinc-500 hover:text-zinc-300"
+                      ? "bg-sky-500/25 text-sky-300 ring-1 ring-sky-500/50"
+                      : "bg-white/[0.04] text-zinc-400 ring-1 ring-white/[0.06] active:bg-white/[0.08]"
                   }`}
                 >
                   {r}
                 </button>
               ))}
             </div>
-            <p className="mb-1 text-[11px] font-semibold text-zinc-500">
-              {rangeLabel || "Range"} {loadingHistory && <span className="text-zinc-600">· loading…</span>}
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+              {rangeLabel || "Range"} {loadingHistory && <span className="ml-1 text-zinc-600">loading…</span>}
             </p>
             {history?.points && history.points.length > 0 ? (
-              <LineChart points={history.points} height={224} />
+              <LineChart points={history.points} height={300} />
             ) : loadingHistory ? (
-              <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
+              <div className="grid h-72 w-full place-items-center rounded-2xl bg-white/[0.02] text-sm text-zinc-500">
                 Loading chart data…
               </div>
             ) : historyError ? (
-              <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
+              <div className="grid h-72 w-full place-items-center rounded-2xl bg-white/[0.02] text-sm text-zinc-500">
                 <div className="flex flex-col items-center gap-3">
                   <span>Chart data temporarily unavailable</span>
                   <button
                     type="button"
                     onClick={retryRange}
-                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-4 py-1.5 text-[12px] font-bold text-sky-400 transition hover:bg-sky-500/20"
+                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-5 py-2 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/20"
                   >
                     Retry
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="grid h-56 w-full place-items-center rounded-xl bg-white/[0.02] text-sm text-zinc-500">
+              <div className="grid h-72 w-full place-items-center rounded-2xl bg-white/[0.02] text-sm text-zinc-500">
                 No chart data for this range
               </div>
             )}
-          </div>
+          </NativeCard>
 
-          <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Key Statistics</p>
+          <NativeCard className="p-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.15em] text-zinc-500">Key statistics</p>
             <div className="mt-3 grid gap-2">
               <Stat label="Market Cap" value={fmtCompact(quote?.marketCap)} />
               <Stat
@@ -572,21 +608,21 @@ export function TickerApp({
               href={profileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-bold text-sky-400 ring-1 ring-white/[0.07] transition hover:bg-white/[0.07]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.04] px-3 py-3 text-[13px] font-bold text-sky-400 ring-1 ring-white/[0.07] transition hover:bg-white/[0.07]"
             >
               View on {exchange}
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6v6M10 14L20 4" />
               </svg>
             </a>
-          </div>
+          </NativeCard>
         </div>
       ) : null}
 
       {/* ===== FINANCIALS / NEWS / ABOUT ===== */}
       {tab === "Financials" ? (
-        <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-          <p className="text-sm font-bold text-white">Financials</p>
+        <NativeCard className="p-5">
+          <p className="text-[16px] font-extrabold text-white">Financials</p>
           <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
             Detailed financial statements require a premium market-data plan and are not yet enabled on this account.
           </p>
@@ -594,16 +630,16 @@ export function TickerApp({
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-sky-400"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-sky-400"
           >
             View official financial data on {exchange} ›
           </a>
-        </div>
+        </NativeCard>
       ) : null}
 
       {tab === "News" ? (
-        <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-          <p className="text-sm font-bold text-white">News</p>
+        <NativeCard className="p-5">
+          <p className="text-[16px] font-extrabold text-white">News</p>
           <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
             Company news is sourced from official market listings and is not generated or rewritten by CelebrityPass.
           </p>
@@ -611,62 +647,62 @@ export function TickerApp({
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-sky-400"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-sky-400"
           >
             Read latest headlines on {exchange} ›
           </a>
-        </div>
+        </NativeCard>
       ) : null}
 
       {tab === "About" ? (
-        <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">About</p>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-300">{description}</p>
-          <p className="mt-3 text-[12px] font-semibold text-zinc-500">{sectorTags.join(" · ")}</p>
+        <NativeCard className="p-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">About</p>
+          <p className="mt-2 text-[14px] leading-relaxed text-zinc-300">{description}</p>
+          <p className="mt-3 text-[13px] font-semibold text-zinc-500">{sectorTags.join(" · ")}</p>
           <p className="mt-4 text-[11px] leading-relaxed text-zinc-600">
             {name} ({symbol}) is a publicly traded company listed on {exchange}. CelebrityPass shows company information
             as a service to investors and does not imply any endorsement by the company.
           </p>
-        </div>
+        </NativeCard>
       ) : null}
 
       {/* ===== HOW IT WORKS ===== */}
       {tab === "Overview" ? (
         <>
-          <div className="flex items-start gap-3 rounded-2xl border border-sky-500/25 bg-sky-500/[0.08] p-4">
+          <NativeCard className="flex items-start gap-3 border border-sky-500/25 bg-sky-500/[0.08] p-4 ring-sky-500/20">
             <InfoIcon />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white">How it works?</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-zinc-400">
+              <p className="text-[15px] font-extrabold text-white">How it works?</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-zinc-300">
                 CelebrityPass provides market information and, where available, connects users to an authorized
                 brokerage/custody provider for the purchase of eligible securities.
               </p>
             </div>
-            <Link href="/invest/more" className="shrink-0 text-[12px] font-bold text-sky-400">
+            <Link href="/invest/more" className="shrink-0 text-[13px] font-bold text-sky-400">
               Learn more ›
             </Link>
-          </div>
+          </NativeCard>
 
           {/* ===== INVEST CARD ===== */}
-          <div className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
+          <NativeCard className="p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="text-[16px] font-extrabold tracking-tight text-white">
+                <h2 className="text-[19px] font-black tracking-tight text-white">
                   Invest in {name.split(",")[0]} ({symbol})
                 </h2>
-                <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
+                <p className="mt-1 text-[13px] leading-relaxed text-zinc-400">
                   Choose an amount to explore {symbol} shares. Your estimated quantity is calculated using the current
                   market price.
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-sky-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-sky-400 ring-1 ring-sky-500/30">
+              <span className="shrink-0 rounded-full bg-sky-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-sky-400 ring-1 ring-sky-500/30">
                 {unavailable ? "Broker integration required" : "Market data ready"}
               </span>
             </div>
 
             <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
               <div>
-                <label className="block text-[12px] font-semibold text-zinc-400">
+                <label className="block text-[13px] font-semibold text-zinc-300">
                   Investment amount (USD)
                   <input
                     type="number"
@@ -680,19 +716,19 @@ export function TickerApp({
                       setCustomChip(true);
                       setReview(false);
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-lg font-extrabold text-white outline-none transition focus:border-sky-500/60"
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-[24px] font-black tracking-tight text-white outline-none transition focus:border-sky-500/60"
                   />
                 </label>
-                <div className="mt-2.5 flex flex-wrap gap-2">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   {CHIP_AMOUNTS.map((v) => (
                     <button
                       key={v}
                       type="button"
                       onClick={() => setChip(v)}
-                      className={`rounded-lg px-3 py-1.5 text-[12px] font-bold transition ${
+                      className={`rounded-2xl px-2 py-3 text-[14px] font-black transition active:scale-95 ${
                         !customChip && amount === String(v)
-                          ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/50"
-                          : "bg-white/[0.04] text-zinc-400 ring-1 ring-white/[0.07] hover:text-white"
+                          ? "bg-sky-500/25 text-sky-300 ring-1 ring-sky-500/50"
+                          : "bg-white/[0.04] text-zinc-300 ring-1 ring-white/[0.07] active:bg-white/[0.08]"
                       }`}
                     >
                       {v === 1000 ? "$1K" : `$${v.toLocaleString()}`}
@@ -705,8 +741,8 @@ export function TickerApp({
                       setCustomChip(true);
                       setReview(false);
                     }}
-                    className={`rounded-lg px-3 py-1.5 text-[12px] font-bold transition ${
-                      customChip ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/50" : "bg-white/[0.04] text-zinc-400 ring-1 ring-white/[0.07] hover:text-white"
+                    className={`rounded-2xl px-2 py-3 text-[14px] font-black transition active:scale-95 ${
+                      customChip ? "bg-sky-500/25 text-sky-300 ring-1 ring-sky-500/50" : "bg-white/[0.04] text-zinc-300 ring-1 ring-white/[0.07] active:bg-white/[0.08]"
                     }`}
                   >
                     Custom
@@ -714,19 +750,19 @@ export function TickerApp({
                 </div>
               </div>
 
-              <div className="rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/[0.07] lg:min-w-[180px]">
-                <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <div className="rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07] lg:min-w-[190px]">
+                <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-500">
                   Estimated shares
                   <svg className="h-3 w-3 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 11v5M12 8v.5" />
                   </svg>
                 </p>
-                <p className="mt-1 text-xl font-extrabold text-white">
+                <p className="mt-1.5 text-[26px] font-black tracking-tight text-white">
                   {estimatedShares !== null && price !== null && amountValid
                     ? `${estimatedShares.toFixed(4)}`
                     : "—"}
                 </p>
-                <p className="mt-0.5 text-[11px] font-medium text-zinc-500">
+                <p className="mt-0.5 text-[12px] font-medium text-zinc-500">
                   {price !== null ? `Based on $${price.toFixed(2)} per share` : "Price unavailable"} · minimum ${minAmountUsd}
                 </p>
               </div>
@@ -734,8 +770,8 @@ export function TickerApp({
 
             {review ? (
               <div className="mt-4 space-y-3 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
-                <p className="text-sm font-bold text-white">Review your order</p>
-                <div className="grid gap-1.5 text-[13px]">
+                <p className="text-[16px] font-black text-white">Review your order</p>
+                <div className="grid gap-2 text-[14px]">
                   {[
                     ["Asset", name],
                     ["Ticker", symbol],
@@ -747,17 +783,17 @@ export function TickerApp({
                     ["Estimated fees", "$0.00"],
                     ["Total", `$${(amountNum || 0).toFixed(2)}`],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between gap-3">
+                    <div key={k} className="flex items-center justify-between gap-3 border-b border-white/[0.05] pb-2 last:border-0 last:pb-0">
                       <span className="text-zinc-500">{k}</span>
-                      <span className="font-semibold text-white">{v}</span>
+                      <span className="font-bold text-white">{v}</span>
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] leading-relaxed text-zinc-600">
+                <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">
                   Market prices can change before execution. No order is placed without your confirmation.
                 </p>
                 {orderState.result ? (
-                  <div className="rounded-xl bg-rose-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-rose-300">
+                  <div className="rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] leading-relaxed text-rose-300">
                     {orderState.result === "Please sign in to place an order." ? (
                       <>
                         {orderState.result}{" "}
@@ -776,33 +812,33 @@ export function TickerApp({
                   </div>
                 ) : null}
                 {orderState.error ? (
-                  <p className="rounded-xl bg-rose-500/10 px-3 py-2.5 text-[12px] text-rose-300">{orderState.error}</p>
+                  <p className="rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] text-rose-300">{orderState.error}</p>
                 ) : null}
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-4 grid gap-2.5">
                   <button
                     type="button"
                     disabled={orderState.busy || price === null}
                     onClick={buyNow}
-                    className="btn-grad rounded-full px-6 py-3 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
+                    className="btn-grad flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[16px] font-black tracking-wide text-white shadow-xl shadow-primary-600/25 transition active:scale-[0.98] disabled:opacity-50"
                   >
                     {orderState.busy ? "Submitting…" : "Confirm Order"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setReview(false)}
-                    className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/5"
+                    className="w-full rounded-2xl border border-white/15 bg-white/[0.04] py-4 text-[15px] font-bold text-zinc-200 transition active:scale-[0.98]"
                   >
                     Back
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4">
                 <button
                   type="button"
                   disabled={!amountValid || price === null}
                   onClick={() => setReview(true)}
-                  className="btn-grad w-full rounded-full px-6 py-3.5 text-[15px] font-bold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn-grad w-full rounded-2xl py-4 text-[16px] font-black tracking-wide text-white shadow-xl shadow-primary-600/25 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Review and Buy
                 </button>
@@ -816,7 +852,7 @@ export function TickerApp({
               Your payment details are encrypted and processed securely. Purchases are only executed through an authorized
               brokerage connection.
             </p>
-          </div>
+          </NativeCard>
 
           {/* ===== TRUST CARDS ===== */}
           <div className="grid gap-2.5 sm:grid-cols-3">

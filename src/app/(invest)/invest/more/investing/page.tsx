@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NativeCard, SectionTitle } from "@/components/invest-app/native";
 
 export const dynamic = "force-dynamic";
 
@@ -31,34 +32,36 @@ const sections = [
 
 export default async function InvestingInfoPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <Link href="/invest/more" className="text-[13px] font-bold text-sky-400">← More</Link>
-        <h1 className="mt-2 text-xl font-extrabold tracking-tight text-white">Investing &amp; brokerage</h1>
-        <p className="mt-1 text-[13px] leading-relaxed text-zinc-400">
+        <Link href="/invest/more" className="text-[14px] font-bold text-sky-400">
+          ← More
+        </Link>
+        <h1 className="mt-2 text-[26px] font-black tracking-tight text-white">Investing &amp; brokerage</h1>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-400">
           How securities work on CelebrityPass — plainly, without overclaiming.
         </p>
       </div>
 
-      <div className="space-y-2.5">
-        {sections.map((s) => (
-          <div key={s.title} className="rounded-2xl bg-[#0a0d13] p-4 ring-1 ring-white/[0.07]">
-            <p className="text-[14px] font-bold text-white">{s.title}</p>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-400">{s.body}</p>
-          </div>
-        ))}
-      </div>
+      {sections.map((s, i) => (
+        <section key={s.title} className="fade-up">
+          <SectionTitle>{i + 1}. {s.title}</SectionTitle>
+          <NativeCard className="mt-3 p-5">
+            <p className="text-[14px] leading-relaxed text-zinc-300">{s.body}</p>
+          </NativeCard>
+        </section>
+      ))}
 
-      <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.08] p-4">
-        <p className="text-[13px] font-bold text-white">Risk disclosure</p>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">
+      <NativeCard className="border border-sky-500/25 bg-sky-500/[0.08] p-5 ring-sky-500/20">
+        <p className="text-[16px] font-extrabold text-white">Risk disclosure</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-300">
           Investing involves risk. The value of an investment can go down as well as up. Past performance does not
           guarantee future results. Securities are not insured against market loss. Review the full{" "}
           <Link href="/legal/terms" className="font-bold text-sky-400 underline underline-offset-2">Terms</Link> and{" "}
           <Link href="/security" className="font-bold text-sky-400 underline underline-offset-2">Security</Link> pages
           before investing.
         </p>
-      </div>
+      </NativeCard>
     </div>
   );
 }

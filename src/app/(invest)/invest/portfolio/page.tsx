@@ -7,10 +7,9 @@ import { getCompany } from "@/lib/invest/companies";
 import { getOrCreateInvestorAccount } from "@/lib/invest/account";
 import { investorBalances } from "@/lib/invest/ledger";
 import { safeAsync, safeWithDeadline } from "@/lib/safe-data";
+import { CompanyTile, Eye, NativeCard, SectionTitle, PrimaryAction, SecondaryAction } from "@/components/invest-app/native";
 
 export const dynamic = "force-dynamic";
-
-const day = 86_400_000;
 
 // Total budget for this page's data fetch. If any upstream (broker, market
 // data) is slow or down, the page still renders within this window using safe
@@ -41,19 +40,22 @@ export default async function PortfolioPage() {
     ? await Promise.all(
         positions.map(async (p) => {
           const q = await getQuote(p.symbol);
+          const company = getCompany(p.symbol);
           const qty = quantityToNumber(p.quantityCents);
           const price = q.price ?? null;
           const avgCost = Number(p.avgCostCents) / 100;
           return {
             symbol: p.symbol,
-            companyName: getCompany(p.symbol)?.name ?? p.symbol,
+            mono: company?.mono ?? p.symbol,
+            companyName: company?.name ?? p.symbol,
             qty,
             price,
             value: price !== null ? qty * price : null,
             avgCost,
             pnl: price !== null ? qty * (price - avgCost) : null,
             isDemo: p.isDemo,
-            accent: getCompany(p.symbol)?.accent ?? "#334155",
+            accent: company?.accent ?? "#334155",
+            exchange: company?.exchange ?? "—",
           };
         }),
       )
@@ -63,42 +65,42 @@ export default async function PortfolioPage() {
   const totalCost = holdings.reduce((s, h) => s + h.qty * h.avgCost, 0);
   const totalPnl = holdings.reduce((s, h) => s + (h.pnl ?? 0), 0);
   const hasDemo = holdings.some((h) => h.isDemo);
+  const cash = balances ? Number(balances.cash) : 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-extrabold tracking-tight text-white">Portfolio</h1>
-        <p className="mt-1 text-[13px] text-zinc-500">Holdings, orders and history from your brokerage connection.</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500">Portfolio</p>
+        <h1 className="mt-1 text-[26px] font-black tracking-tight text-white">Your holdings</h1>
       </div>
 
       {hasDemo && (
-        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/20">
+        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/25">
           DEMO / PAPER TRADING — these holdings are not real assets
         </p>
       )}
 
       {/* Summary */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#0b0f1a] to-[#0a0d13] p-5 ring-1 ring-white/[0.07]">
-        <div className="grid grid-cols-3 gap-3">
+      <NativeCard className="relative overflow-hidden p-5">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-primary-600/15 blur-[70px]" />
+        <div className="grid grid-cols-3 gap-5">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Portfolio value</p>
-            <p className="mt-1 text-lg font-black text-white">${totalValue.toFixed(2)}</p>
+            <Eye>Portfolio value</Eye>
+            <p className="mt-1 text-[28px] font-black leading-none tracking-tight text-white">${totalValue.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Total return</p>
-            <p className={`mt-1 text-lg font-black ${totalPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <Eye>Total return</Eye>
+            <p className={`mt-1 text-[28px] font-black leading-none tracking-tight ${totalPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
             </p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Available balance</p>
-            <p className="mt-1 text-lg font-black text-white">
-              ${balances ? Number(balances.cash).toFixed(2) : "0.00"}
-            </p>
+            <Eye>Cash</Eye>
+            <p className="mt-1 text-[28px] font-black leading-none tracking-tight text-white">${cash.toFixed(2)}</p>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
-          <span className={`rounded-full px-3 py-1 font-semibold ring-1 ${
+        <div className="mt-5 flex flex-wrap gap-2 text-[12px]">
+          <span className={`rounded-full px-3 py-1 font-bold ring-1 ${
             account?.status === "CONNECTED"
               ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/30"
               : "bg-amber-500/10 text-amber-400 ring-amber-500/25"
@@ -106,96 +108,88 @@ export default async function PortfolioPage() {
             {account?.status === "CONNECTED" ? "Brokerage connected" : "Broker integration required"}
           </span>
           {totalCost > 0 && (
-            <span className="rounded-full bg-white/[0.05] px-3 py-1 font-semibold text-zinc-400 ring-1 ring-white/[0.07]">
+            <span className="rounded-full bg-white/[0.05] px-3 py-1 font-bold text-zinc-400 ring-1 ring-white/[0.07]">
               Cost basis ${totalCost.toFixed(2)}
             </span>
           )}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/invest/deposit"
-            className="btn-grad rounded-full px-5 py-2.5 text-[13px] font-bold text-white"
-          >
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <PrimaryAction href="/invest/deposit" className="rounded-2xl py-3.5 text-[14px]">
             Deposit
-          </Link>
-          <Link
-            href="/invest/markets"
-            className="rounded-full border border-white/15 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-white/5"
-          >
+          </PrimaryAction>
+          <SecondaryAction href="/invest/markets" className="rounded-2xl py-3.5 text-[14px]">
             Explore markets
-          </Link>
+          </SecondaryAction>
         </div>
-      </div>
+      </NativeCard>
 
       {/* Holdings */}
-      <div>
-        <h2 className="text-[15px] font-extrabold text-white">Holdings</h2>
+      <section className="fade-up">
+        <SectionTitle>Holdings</SectionTitle>
         {holdings.length === 0 ? (
-          <div className="mt-3 rounded-2xl bg-[#0a0d13] px-4 py-8 text-center ring-1 ring-white/[0.07]">
-            <p className="text-sm font-bold text-white">No holdings yet</p>
-            <p className="mx-auto mt-1 max-w-xs text-[12px] leading-relaxed text-zinc-500">
+          <NativeCard className="mt-3 px-5 py-10 text-center">
+            <p className="text-[17px] font-bold text-white">No holdings yet</p>
+            <p className="mx-auto mt-1 max-w-xs text-[13px] leading-relaxed text-zinc-500">
               Holdings are created only when an authorized brokerage execution is completed. Explore the markets to see
               eligible securities.
             </p>
-            <Link href="/invest/markets" className="btn-grad mt-4 inline-block rounded-full px-6 py-2.5 text-[13px] font-bold text-white">
+            <Link href="/invest/markets" className="btn-grad mt-5 inline-block rounded-2xl px-7 py-3 text-[14px] font-black text-white">
               Explore markets
             </Link>
-          </div>
+          </NativeCard>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-2xl bg-[#0a0d13] ring-1 ring-white/[0.07]">
+          <NativeCard className="mt-3 divide-y divide-white/[0.06]">
             {holdings.map((h) => (
               <Link
                 key={h.symbol}
                 href={`/invest/markets/${h.symbol}`}
-                className="block border-b border-white/[0.05] px-4 py-3.5 transition last:border-0 hover:bg-white/[0.03]"
+                className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
               >
-                <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[10px] font-black text-white" style={{ background: h.accent }}>
-                    {h.symbol}
+                <CompanyTile symbol={h.mono} accent={h.accent} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-bold text-white">{h.companyName}</span>
+                  <span className="block text-[12px] text-zinc-500">
+                    {h.symbol} · {h.exchange}{" "}
+                    <span className="text-zinc-600">· {h.qty.toFixed(6)} sh</span>
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-bold text-white">{h.companyName}</p>
-                    <p className="text-[11px] text-zinc-500">
-                      {h.qty.toFixed(6)} shares · avg {h.price !== null ? `$${h.avgCost.toFixed(2)}` : "—"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[14px] font-extrabold text-white">
-                      {h.value !== null ? `$${h.value.toFixed(2)}` : "—"}
-                    </p>
-                    {h.pnl !== null && (
-                      <p className={`text-[12px] font-bold ${h.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {h.pnl >= 0 ? "+" : ""}${h.pnl.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                  <span className="mt-0.5 block text-[11px] text-zinc-600">Avg ${h.avgCost.toFixed(2)}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-[16px] font-extrabold tracking-tight text-white">
+                    {h.value !== null ? `$${h.value.toFixed(2)}` : "—"}
+                  </span>
+                  {h.pnl !== null && (
+                    <span className={`block text-[12px] font-bold ${h.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      {h.pnl >= 0 ? "+" : ""}${h.pnl.toFixed(2)}
+                    </span>
+                  )}
+                </span>
               </Link>
             ))}
-          </div>
+          </NativeCard>
         )}
-      </div>
+      </section>
 
       {/* Orders */}
-      <div>
-        <h2 className="text-[15px] font-extrabold text-white">Order history</h2>
+      <section className="fade-up">
+        <SectionTitle>Order history</SectionTitle>
         {orders.length === 0 ? (
-          <p className="mt-3 rounded-2xl bg-[#0a0d13] px-4 py-5 text-center text-[12px] text-zinc-500 ring-1 ring-white/[0.07]">
-            No orders yet.
-          </p>
+          <NativeCard className="mt-3 px-5 py-8 text-center">
+            <p className="text-[14px] font-bold text-white">No orders yet</p>
+          </NativeCard>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-2xl bg-[#0a0d13] ring-1 ring-white/[0.07]">
+          <NativeCard className="mt-3 divide-y divide-white/[0.06]">
             {orders.map((o) => {
               const statusCls =
                 o.status === "FILLED"
-                  ? "text-emerald-400"
+                  ? "text-emerald-400 ring-emerald-500/30 bg-emerald-500/10"
                   : o.status === "REJECTED" || o.status === "FAILED" || o.status === "CANCELLED"
-                    ? "text-rose-400"
-                    : "text-amber-400";
+                    ? "text-rose-400 ring-rose-500/30 bg-rose-500/10"
+                    : "text-amber-400 ring-amber-500/30 bg-amber-500/10";
               return (
-                <div key={o.id} className="flex items-center gap-3 border-b border-white/[0.05] px-4 py-3 last:border-0">
+                <div key={o.id} className="flex items-center gap-3 px-4 py-3.5">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold text-white">
+                    <p className="text-[14px] font-bold text-white">
                       {o.side} {quantityToNumber(o.quantityCents).toFixed(4)} {o.symbol}
                     </p>
                     <p className="text-[11px] text-zinc-500">
@@ -203,46 +197,56 @@ export default async function PortfolioPage() {
                     </p>
                     {o.rejectReason && <p className="mt-0.5 text-[11px] text-zinc-600">{o.rejectReason}</p>}
                   </div>
-                  <span className={`shrink-0 rounded-full bg-white/[0.05] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ring-1 ring-white/[0.08] ${statusCls}`}>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider ring-1 ${statusCls}`}>
                     {o.status.replace("_", " ")}
                   </span>
                 </div>
               );
             })}
-          </div>
+          </NativeCard>
         )}
-      </div>
+      </section>
 
       {/* Transactions */}
-      <div>
-        <h2 className="text-[15px] font-extrabold text-white">Transaction history</h2>
+      <section className="fade-up">
+        <SectionTitle>Transaction history</SectionTitle>
         {transactions.length === 0 ? (
-          <p className="mt-3 rounded-2xl bg-[#0a0d13] px-4 py-5 text-center text-[12px] text-zinc-500 ring-1 ring-white/[0.07]">
-            No transactions yet.
-          </p>
+          <NativeCard className="mt-3 px-5 py-8 text-center">
+            <p className="text-[14px] font-bold text-white">No transactions yet</p>
+          </NativeCard>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-2xl bg-[#0a0d13] ring-1 ring-white/[0.07]">
-            {transactions.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 border-b border-white/[0.05] px-4 py-3 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold text-white">{t.kind}</p>
-                  <p className="text-[11px] text-zinc-500">
-                    {t.ref} · {t.symbol ?? "—"} ·{" "}
-                    {t.postedAt
-                      ? new Date(t.postedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-                      : new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-                  </p>
+          <NativeCard className="mt-3 divide-y divide-white/[0.06]">
+            {transactions.map((t) => {
+              const deposit = t.kind === "DEPOSIT";
+              return (
+                <div key={t.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <span
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-[14px] font-black ${
+                      deposit ? "bg-emerald-500/15 text-emerald-400" : "bg-sky-500/15 text-sky-400"
+                    }`}
+                  >
+                    {deposit ? "↓" : "↗"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-bold text-white">{t.kind.replace(/_/g, " ")}</p>
+                    <p className="truncate text-[11px] text-zinc-500">
+                      {t.ref} {t.symbol ? `· ${t.symbol}` : ""} ·{" "}
+                      {t.postedAt
+                        ? new Date(t.postedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                        : new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 text-[15px] font-extrabold ${deposit ? "text-emerald-400" : "text-white"}`}>
+                    ${(Number(t.amountCents) / 100).toFixed(2)}
+                  </span>
                 </div>
-                <span className="shrink-0 text-[13px] font-extrabold text-white">
-                  ${(Number(t.amountCents) / 100).toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
+              );
+            })}
+          </NativeCard>
         )}
-      </div>
+      </section>
 
-      <p className="rounded-lg bg-white/[0.02] px-3 py-2 text-center text-[11px] leading-relaxed text-zinc-600 ring-1 ring-white/[0.05]">
+      <p className="rounded-2xl bg-white/[0.02] px-4 py-3 text-center text-[11px] leading-relaxed text-zinc-600 ring-1 ring-white/[0.05]">
         Market value uses the latest provider quote. Positions shown here exist only when a brokerage execution created
         them — database records alone are never presented as ownership.
       </p>
