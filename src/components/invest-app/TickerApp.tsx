@@ -7,6 +7,7 @@ import { LineChart } from "@/components/invest-app/LineChart";
 import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
 import { useWatchlist, WatchStar } from "@/components/invest-app/Watchlist";
 import { Eye, NativeCard } from "@/components/invest-app/native";
+import { PaymentMethodsSheet } from "@/components/invest-app/PaymentMethodsSheet";
 
 const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
 const CHIP_AMOUNTS = [100, 500, 1000, 5000, 10000];
@@ -223,6 +224,50 @@ export function TickerApp({
     error: null,
     result: null,
   });
+  // Account funding state: the real admin-verified cash balance (null while
+  // unknown/signed-out) + whether a payment was just submitted for review.
+  const [availableBalance, setAvailableBalance] = useState<number | null>(null);
+  const [paySheet, setPaySheet] = useState(false);
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+
+  const refreshBalance = useCallback(async () => {
+    try {
+      const res = await fetch("/api/invest/account", { cache: "no-store" });
+      if (res.status === 401) {
+        setAvailableBalance(null);
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json().catch(() => ({}))) as { balances?: { cash?: string | number } };
+      const cash = Number(data?.balances?.cash);
+      setAvailableBalance(Number.isFinite(cash) ? cash : null);
+    } catch {
+      /* keep whatever we had */
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/invest/account", { cache: "no-store" });
+        if (!active) return;
+        if (res.status === 401) {
+          setAvailableBalance(null);
+          return;
+        }
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as { balances?: { cash?: string | number } };
+        const cash = Number(data?.balances?.cash);
+        if (active) setAvailableBalance(Number.isFinite(cash) ? cash : null);
+      } catch {
+        /* signed-out or network — leave balance unset */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Real-time state: the displayed price is animated toward the latest
   // confirmed value; the pipe state tells us what to show next to it.
@@ -412,6 +457,7 @@ export function TickerApp({
     setAmount(String(v));
     setCustomChip(false);
     setReview(false);
+    setPaymentSubmitted(false);
   };
 
   const rangeLabel = useMemo(
@@ -423,6 +469,11 @@ export function TickerApp({
         : "",
     [history],
   );
+
+  // Funding: with a known (admin-verified) balance we proactively route an
+  // under-funded order to the Payment Methods sheet instead of a dead-end
+  // "Insufficient available balance" error screen.
+  const insufficient = availableBalance !== null && amountValid && amountNum > availableBalance + 0.005;
 
   const buyNow = useCallback(async () => {
     if (!amountValid || price === null) return;
@@ -442,6 +493,15 @@ export function TickerApp({
         setOrderState({ busy: false, error: null, result: "Please sign in to place an order." });
         return;
       }
+      // The balance fell short server-side (or the cached balance went stale):
+      // never make the user stare at a funds error — take them straight to the
+      // dedicated Payment Methods screen to fund the order.
+      if (res.status === 402) {
+        setOrderState({ busy: false, error: null, result: null });
+        void refreshBalance();
+        setPaySheet(true);
+        return;
+      }
       if (!res.ok) {
         setOrderState({ busy: false, error: data.error ?? "Order could not be placed.", result: null });
         return;
@@ -450,7 +510,7 @@ export function TickerApp({
     } catch {
       setOrderState({ busy: false, error: "Could not reach the server.", result: null });
     }
-  }, [amountValid, price, amountNum, symbol]);
+  }, [amountValid, price, amountNum, symbol, refreshBalance]);
 
   const TABS = ["Overview", "Chart", "Financials", "News", "About"];
 
@@ -715,6 +775,7 @@ export function TickerApp({
                       setAmount(e.target.value);
                       setCustomChip(true);
                       setReview(false);
+                      setPaymentSubmitted(false);
                     }}
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-[24px] font-black tracking-tight text-white outline-none transition focus:border-sky-500/60"
                   />
@@ -740,6 +801,7 @@ export function TickerApp({
                       setAmount("");
                       setCustomChip(true);
                       setReview(false);
+                      setPaymentSubmitted(false);
                     }}
                     className={`rounded-2xl px-2 py-3 text-[14px] font-black transition active:scale-95 ${
                       customChip ? "bg-sky-500/25 text-sky-300 ring-1 ring-sky-500/50" : "bg-white/[0.04] text-zinc-300 ring-1 ring-white/[0.07] active:bg-white/[0.08]"
@@ -778,6 +840,7 @@ export function TickerApp({
                     ["Exchange", exchange],
                     ["Order type", "Market Order"],
                     ["Investment amount", `$${(amountNum || 0).toFixed(2)}`],
+                    ["Available balance", availableBalance !== null ? fmtMoney(availableBalance) : "—"],
                     ["Estimated price", price !== null ? `$${price.toFixed(2)}` : "—"],
                     ["Estimated shares", estimatedShares !== null ? estimatedShares.toFixed(4) : "—"],
                     ["Estimated fees", "$0.00"],
@@ -792,12 +855,35 @@ export function TickerApp({
                 <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">
                   Market prices can change before execution. No order is placed without your confirmation.
                 </p>
+                {paymentSubmitted ? (
+                  <div className="rounded-2xl bg-amber-400/10 px-4 py-3 ring-1 ring-amber-400/30">
+                    <p className="flex items-center gap-2 text-[13px] font-bold text-amber-300">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                      Payment submitted — awaiting verification
+                    </p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
+                      Your available balance is credited once an admin confirms your transfer. You can finish this order
+                      right here once the funds are available.
+                    </p>
+                  </div>
+                ) : insufficient ? (
+                  <div className="rounded-2xl bg-amber-400/10 px-4 py-3 ring-1 ring-amber-400/30">
+                    <p className="flex items-center gap-2 text-[13px] font-bold text-amber-300">
+                      <span className="h-2 w-2 rounded-full bg-amber-400" />
+                      Add funds to complete this order
+                    </p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
+                      Your available balance is {fmtMoney(availableBalance)}. Top up with a bank transfer or ATM payment
+                      — your balance updates after verification.
+                    </p>
+                  </div>
+                ) : null}
                 {orderState.result ? (
                   <div className="rounded-2xl bg-rose-500/10 px-4 py-3 text-[13px] leading-relaxed text-rose-300">
                     {orderState.result === "Please sign in to place an order." ? (
                       <>
                         {orderState.result}{" "}
-                        <Link href="/login?next=/invest/markets/TSLA" className="font-bold text-sky-400 underline underline-offset-2">
+                        <Link href={`/login?next=/invest/markets/${symbol}`} className="font-bold text-sky-400 underline underline-offset-2">
                           Sign in
                         </Link>
                       </>
@@ -818,10 +904,14 @@ export function TickerApp({
                   <button
                     type="button"
                     disabled={orderState.busy || price === null}
-                    onClick={buyNow}
+                    onClick={insufficient ? () => setPaySheet(true) : buyNow}
                     className="btn-grad flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[16px] font-black tracking-wide text-white shadow-xl shadow-primary-600/25 transition active:scale-[0.98] disabled:opacity-50"
                   >
-                    {orderState.busy ? "Submitting…" : "Confirm Order"}
+                    {orderState.busy
+                      ? "Submitting…"
+                      : insufficient
+                        ? "Add Funds / Make Payment"
+                        : "Confirm Order"}
                   </button>
                   <button
                     type="button"
@@ -842,6 +932,11 @@ export function TickerApp({
                 >
                   Review and Buy
                 </button>
+                {availableBalance !== null && amountValid && insufficient && (
+                  <p className="mt-2.5 rounded-2xl bg-amber-400/10 px-4 py-2.5 text-center text-[12px] font-semibold text-amber-300 ring-1 ring-amber-400/30">
+                    Available balance {fmtMoney(availableBalance)} — you&apos;ll be able to add funds when you review this order.
+                  </p>
+                )}
               </div>
             )}
 
@@ -909,6 +1004,19 @@ export function TickerApp({
             </Link>
           </div>
         </>
+      ) : null}
+
+      {paySheet ? (
+        <PaymentMethodsSheet
+          symbol={symbol}
+          companyName={name}
+          amountCents={Math.round(amountNum * 100)}
+          onClose={() => setPaySheet(false)}
+          onPaymentSubmitted={() => {
+            setPaymentSubmitted(true);
+            void refreshBalance();
+          }}
+        />
       ) : null}
     </div>
   );
