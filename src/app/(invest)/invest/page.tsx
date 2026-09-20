@@ -62,6 +62,14 @@ export default async function InvestHomePage() {
           </p>
         )}
         <div className="mt-4 flex flex-wrap gap-2">
+          {fanId && (
+            <Link
+              href="/invest/deposit"
+              className="btn-grad rounded-full px-5 py-2.5 text-[13px] font-bold text-white"
+            >
+              Deposit
+            </Link>
+          )}
           <Link
             href="/invest/portfolio"
             className="rounded-full border border-white/15 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-white/5"
@@ -78,7 +86,7 @@ export default async function InvestHomePage() {
           ) : (
             <Link
               href="/invest/markets"
-              className="btn-grad rounded-full px-5 py-2.5 text-[13px] font-bold text-white"
+              className="rounded-full border border-white/15 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-white/5"
             >
               Explore markets
             </Link>

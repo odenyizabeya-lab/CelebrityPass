@@ -95,6 +95,20 @@ export default async function PortfolioPage() {
             </span>
           )}
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/invest/deposit"
+            className="btn-grad rounded-full px-5 py-2.5 text-[13px] font-bold text-white"
+          >
+            Deposit
+          </Link>
+          <Link
+            href="/invest/markets"
+            className="rounded-full border border-white/15 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-white/5"
+          >
+            Explore markets
+          </Link>
+        </div>
       </div>
 
       {/* Holdings */}
