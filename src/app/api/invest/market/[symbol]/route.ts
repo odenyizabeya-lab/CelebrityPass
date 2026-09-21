@@ -13,6 +13,10 @@ const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
 const QUOTE_BUDGET_MS = 6_000;
 const HISTORY_BUDGET_MS = 11_000;
 
+// Never cache anywhere: a stale quote/chart response would make every number
+// and chart look frozen even when providers are updating.
+const NO_STORE = { "Cache-Control": "no-store, no-cache, must-revalidate" };
+
 export async function GET(request: Request, { params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
   const company = getCompany(symbol);
@@ -29,11 +33,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ symb
     safeWithDeadline(() => getHistory(company.symbol, range), emptyHistory(company.symbol, range), HISTORY_BUDGET_MS),
   ]);
 
-  return NextResponse.json({
-    symbol: company.symbol,
-    name: company.name,
-    exchange: company.exchange,
-    quote,
-    history,
-  });
+  return NextResponse.json(
+    {
+      symbol: company.symbol,
+      name: company.name,
+      exchange: company.exchange,
+      quote,
+      history,
+    },
+    { headers: NO_STORE },
+  );
 }

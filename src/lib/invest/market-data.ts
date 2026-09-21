@@ -14,6 +14,9 @@ import { safeAsync } from "@/lib/safe-data";
 
 export type QuoteSource = "live" | "dev-mock" | "unavailable";
 
+/** Which trading phase the quote comes from, mirroring Yahoo's marketState. */
+export type MarketPhase = "PRE" | "REGULAR" | "POST" | "CLOSED";
+
 export type MarketQuote = {
   symbol: string;
   name: string | null;
@@ -36,6 +39,8 @@ export type MarketQuote = {
   isMarketOpen: boolean | null;
   /** The exchange-session timestamp reported by the API (or null). */
   marketTime: string | null;
+  /** Trading phase of this quote: pre-market / regular / after-hours / closed. */
+  marketPhase: MarketPhase | null;
 };
 
 export type HistoryRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "5Y" | "ALL";
@@ -165,6 +170,7 @@ async function fetchLiveCoinGeckoQuote(symbol: string): Promise<MarketQuote> {
     fetchedAt: now,
     isMarketOpen: true,
     marketTime: now,
+    marketPhase: "REGULAR",
   };
 }
 
@@ -338,6 +344,7 @@ export function unavailableQuote(symbol: string): MarketQuote {
     fetchedAt: null,
     isMarketOpen: null,
     marketTime: null,
+    marketPhase: null,
   };
 }
 
@@ -385,6 +392,7 @@ function demoQuote(symbol: string): MarketQuote {
     fetchedAt: new Date().toISOString(),
     isMarketOpen: true,
     marketTime: new Date().toISOString(),
+    marketPhase: null,
   };
 }
 
@@ -636,6 +644,12 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
       fetchedAt: new Date().toISOString(),
       isMarketOpen: typeof data.is_market_open === "boolean" ? data.is_market_open : null,
       marketTime: typeof data.datetime === "string" && data.datetime ? data.datetime : null,
+      marketPhase:
+        typeof data.is_market_open === "boolean"
+          ? data.is_market_open
+            ? ("REGULAR" as const)
+            : ("CLOSED" as const)
+          : null,
     };
   } catch {
     return fetchYahooQuote(symbol);
@@ -646,7 +660,9 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
  * Free, keyless Yahoo Finance quote (v8 chart meta is populated for equities,
  * ETFs, commodities trusts and indices around the clock). Serves as the
  * resilience fallback when the configured provider is down or rate-limited —
- * always real market data, never an invented number.
+ * always real market data, never an invented number. Price reflects the
+ * CURRENT trading phase (pre-market / regular / after-hours) exactly like the
+ * public sites do, so out-of-hours numbers still move.
  */
 async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
   try {
@@ -655,22 +671,35 @@ async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
     const chart = (data?.chart ?? {}) as { result?: Record<string, unknown>[] };
     const result = Array.isArray(chart.result) ? chart.result[0] : undefined;
     const meta = (result?.meta ?? {}) as Record<string, unknown>;
-    const price = num(meta.regularMarketPrice);
-    if (price === null) return unavailableQuote(symbol);
-    const prev = num(meta.previousClose) ?? num(meta.chartPreviousClose);
-    const change = num(meta.regularMarketChange);
-    const changePct = num(meta.regularMarketChangePercent);
-    const marketTimeRaw = num(meta.regularMarketTime);
     const marketState = typeof meta.marketState === "string" ? meta.marketState : "";
+    const phase: MarketPhase | null = yahooPhase(marketState);
+
+    // Like Google: during pre-market/after-hours show THAT session's price,
+    // not the stale regular-session close. Fall back to the regular price if
+    // the out-of-hours session hasn't printed yet.
+    const price =
+      num(meta.preMarketPrice) ??
+      num(meta.postMarketPrice) ??
+      num(meta.regularMarketPrice);
+    if (price === null) return unavailableQuote(symbol);
+
+    const change =
+      num(meta.preMarketChange) ?? num(meta.postMarketChange) ?? num(meta.regularMarketChange);
+    const changePct =
+      num(meta.preMarketChangePercent) ??
+      num(meta.postMarketChangePercent) ??
+      num(meta.regularMarketChangePercent);
+    const prev = num(meta.previousClose) ?? num(meta.chartPreviousClose);
+    const timeEpoch =
+      num(meta.preMarketTime) ?? num(meta.postMarketTime) ?? num(meta.regularMarketTime);
     return {
       symbol: String(meta.symbol ?? symbol).toUpperCase(),
       name: typeof meta.longName === "string" ? meta.longName : typeof meta.shortName === "string" ? meta.shortName : null,
       exchange: typeof meta.fullExchangeName === "string" ? meta.fullExchangeName : typeof meta.exchangeName === "string" ? meta.exchangeName : null,
       currency: (meta.currency as string) ?? "USD",
       price,
-      // Derive change from previous close when Yahoo omits the delta fields.
-      change: change !== null ? change : prev !== null ? price - prev : null,
-      changePct: changePct !== null ? changePct : prev !== null && prev !== 0 ? ((price - prev) / prev) * 100 : null,
+      change: change ?? (prev !== null ? price - prev : null),
+      changePct: changePct ?? (prev !== null && prev !== 0 ? ((price - prev) / prev) * 100 : null),
       dayHigh: num(meta.regularMarketDayHigh),
       dayLow: num(meta.regularMarketDayLow),
       w52High: num(meta.fiftyTwoWeekHigh),
@@ -681,12 +710,21 @@ async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
       provider: "yahoo-finance",
       source: "live",
       fetchedAt: new Date().toISOString(),
-      isMarketOpen: marketState ? marketState === "REGULAR" : null,
-      marketTime: marketTimeRaw !== null ? new Date(marketTimeRaw * 1000).toISOString() : null,
+      isMarketOpen: phase === "REGULAR",
+      marketTime: timeEpoch !== null ? new Date(timeEpoch * 1000).toISOString() : null,
+      marketPhase: phase,
     };
   } catch {
     return unavailableQuote(symbol);
   }
+}
+
+/** Map Yahoo marketState to our phase; default CLOSED (no session data). */
+function yahooPhase(marketState: string): MarketPhase {
+  if (marketState === "REGULAR") return "REGULAR";
+  if (marketState === "PRE" || marketState === "PREPRE") return "PRE";
+  if (marketState === "POST" || marketState === "POSTPOST") return "POST";
+  return "CLOSED";
 }
 
 /** Map the chart ranges to Yahoo chart range/interval parameters (real data). */

@@ -9,6 +9,9 @@ export const dynamic = "force-dynamic";
 // slow upstreams (a 5s provider response cannot masquerade as "unavailable").
 const LIVE_BUDGET_MS = 15_000;
 
+// Never cache anywhere: this is the real-time feed on the detail page.
+const NO_STORE = { "Cache-Control": "no-store, no-cache, must-revalidate" };
+
 export async function GET(_request: Request, { params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
   const company = getCompany(symbol);
@@ -22,9 +25,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sym
     LIVE_BUDGET_MS,
   );
 
-  return NextResponse.json({
-    symbol: company.symbol,
-    name: company.name,
-    quote,
-  });
+  return NextResponse.json(
+    {
+      symbol: company.symbol,
+      name: company.name,
+      quote,
+    },
+    { headers: NO_STORE },
+  );
 }

@@ -9,6 +9,10 @@ export const dynamic = "force-dynamic";
 // inside getQuotes, so one slow 429'd asset can never blank the whole list.
 const LIST_BUDGET_MS = 30_000;
 
+// Never cache anywhere (browser/CDN/proxy): a stale market response would make
+// every number look frozen even when the providers are updating.
+const NO_STORE = { "Cache-Control": "no-store, no-cache, must-revalidate" };
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.searchParams.get("symbols");
@@ -25,9 +29,12 @@ export async function GET(request: Request) {
     LIST_BUDGET_MS,
   );
 
-  return NextResponse.json({
-    symbols,
-    quotes,
-    fetchedAt: new Date().toISOString(),
-  });
+  return NextResponse.json(
+    {
+      symbols,
+      quotes,
+      fetchedAt: new Date().toISOString(),
+    },
+    { headers: NO_STORE },
+  );
 }

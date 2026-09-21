@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { LineChart } from "@/components/invest-app/LineChart";
-import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
+import type { MarketQuote, QuoteHistory, HistoryRange, MarketPhase } from "@/lib/invest/market-data";
 import { useWatchlist, WatchStar } from "@/components/invest-app/Watchlist";
 import { Eye, NativeCard, AssetLogo } from "@/components/invest-app/native";
 import { PaymentMethodsSheet } from "@/components/invest-app/PaymentMethodsSheet";
@@ -12,8 +12,25 @@ import { PaymentMethodsSheet } from "@/components/invest-app/PaymentMethodsSheet
 const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
 const CHIP_AMOUNTS = [100, 500, 1000, 5000, 10000];
 
+type LiveStatusType = "live" | "pre" | "post" | "closed" | "updating" | "unavailable" | "demo";
+
+function phaseToStatus(phase: MarketPhase | null): LiveStatusType {
+  switch (phase) {
+    case "PRE":
+      return "pre";
+    case "POST":
+      return "post";
+    case "REGULAR":
+      return "live";
+    default:
+      return "closed";
+  }
+}
+
 // Real-time polling cadence — stays well inside the market-data plan limits.
 const LIVE_OPEN_MS = 15_000; // market open: poll the live endpoint
+const LIVE_PRE_MS = 30_000; // pre-market: prices move, watch them
+const LIVE_POST_MS = 60_000; // after-hours: prices move more slowly
 const LIVE_CLOSED_MS = 5 * 60_000; // market closed: slow down, price is static
 const LIVE_RETRY_MS = 30_000; // transient failure: retry quickly but never spam
 const ANIMATION_MS = 900;
@@ -113,6 +130,8 @@ function fmtLastUpdated(value: string | null): string {
 /**
  * Subtle, honest connection pill next to the price:
  *  - market open + live feed  -> pulsing ● Live
+ *  - pre-market               -> "Pre-market · HH:MM"
+ *  - after-hours              -> "After hours · HH:MM"
  *  - market closed            -> "Market closed · Last updated HH:MM"
  *  - transient failure        -> "Updating…" (last confirmed price stays)
  *  - no provider              -> "Market data unavailable"
@@ -128,6 +147,14 @@ function LiveStatus({ status, lastUpdated }: { status: string; lastUpdated: stri
           <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
         </span>
         Live
+      </span>
+    );
+  }
+  if (status === "pre" || status === "post") {
+    return (
+      <span className={`${base} bg-sky-500/10 text-sky-300 ring-sky-500/30`}>
+        <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+        {status === "pre" ? "Pre-market" : "After hours"} · {fmtLastUpdated(lastUpdated)}
       </span>
     );
   }
@@ -260,15 +287,11 @@ export function TickerApp({
 
   // Real-time state: the displayed price is animated toward the latest
   // confirmed value; the pipe state tells us what to show next to it.
-  const [liveStatus, setLiveStatus] = useState<
-    "live" | "closed" | "updating" | "unavailable" | "demo"
-  >(() =>
-    initialQuote.source === "live"
-      ? (initialQuote.isMarketOpen === false ? "closed" : "live")
-      : initialQuote.source === "dev-mock"
-        ? "demo"
-        : "unavailable",
-  );
+  const [liveStatus, setLiveStatus] = useState<LiveStatusType>(() => {
+    if (initialQuote.source === "dev-mock") return "demo";
+    if (initialQuote.source !== "live") return "unavailable";
+    return phaseToStatus(initialQuote.marketPhase ?? (initialQuote.isMarketOpen === false ? "CLOSED" : "REGULAR"));
+  });
   const animatePrice = useAnimatedPrice(quote?.price ?? null);
 
   const loadRange = useCallback(
@@ -354,9 +377,13 @@ export function TickerApp({
         }
         if (q.source === "live") {
           setQuote(q);
-          setLiveStatus(q.isMarketOpen === false ? "closed" : "live");
+          const phase = q.marketPhase ?? (q.isMarketOpen === false ? "CLOSED" : "REGULAR");
+          const st = phaseToStatus(phase);
+          setLiveStatus(st);
           appendLivePoint(q);
-          scheduleNext(q.isMarketOpen === false ? LIVE_CLOSED_MS : LIVE_OPEN_MS);
+          scheduleNext(
+            st === "pre" ? LIVE_PRE_MS : st === "post" ? LIVE_POST_MS : st === "closed" ? LIVE_CLOSED_MS : LIVE_OPEN_MS,
+          );
           return;
         }
         // dev-mock (explicit demo builds only) — still show the demo banner.
