@@ -1,19 +1,22 @@
-import { COMPANY_CATALOG, TICKER_TYPE_LABEL } from "@/lib/invest/companies";
-import { getQuote, unavailableQuote } from "@/lib/invest/market-data";
+import { COMPANY_CATALOG } from "@/lib/invest/companies";
+import { getQuotes, unavailableQuote } from "@/lib/invest/market-data";
 import { safeWithDeadline } from "@/lib/safe-data";
-import Link from "next/link";
-import { CompanyTile, Eye, NativeCard, SectionTitle } from "@/components/invest-app/native";
+import { Eye, SectionTitle } from "@/components/invest-app/native";
+import { MarketList } from "@/components/invest-app/MarketList";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_DATA_BUDGET_MS = 2_500;
+const PAGE_DATA_BUDGET_MS = 16_000;
 
 export default async function MarketsPage() {
+  // Batch fetch with per-symbol isolation: one failing/slow asset can never
+  // blank the entire list.
   const quotes = await safeWithDeadline(
-    () => Promise.all(COMPANY_CATALOG.map((c) => getQuote(c.symbol))),
+    () => getQuotes(COMPANY_CATALOG.map((c) => c.symbol)),
     COMPANY_CATALOG.map((c) => unavailableQuote(c.symbol)),
     PAGE_DATA_BUDGET_MS,
   );
+  const initialQuotes = Object.fromEntries(quotes.map((q) => [q.symbol, q]));
 
   return (
     <div className="space-y-5 fade-up">
@@ -28,47 +31,9 @@ export default async function MarketsPage() {
           <SectionTitle>All securities</SectionTitle>
           <span className="text-[12px] font-bold text-zinc-500">{COMPANY_CATALOG.length}</span>
         </div>
-        <NativeCard className="mt-3 divide-y divide-white/[0.06]">
-          {COMPANY_CATALOG.map((company) => {
-            const quote = quotes.find((q) => q.symbol === company.symbol) ?? unavailableQuote(company.symbol);
-            const up = (quote?.change ?? 0) >= 0;
-            const unavailable = quote?.source === "unavailable";
-            return (
-              <Link
-                key={company.symbol}
-                href={`/invest/markets/${company.symbol}`}
-                className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
-              >
-                <CompanyTile symbol={company.mono} accent={company.accent} />
-                <span className="min-w-0 flex-1 py-0.5">
-                  <span className="block text-[15px] leading-snug font-bold text-white">{company.name}</span>
-                <span className="mt-1 block text-[12px] leading-snug text-zinc-500">
-                  {company.symbol} · {company.exchange}
-                  {company.type ? ` · ${TICKER_TYPE_LABEL[company.type]}` : ""}
-                  {` · ${company.sectorTags[0]}`}
-                </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  {unavailable ? (
-                    <span className="text-[12px] text-zinc-600">unavailable</span>
-                  ) : (
-                    <>
-                      <span className="block text-[16px] font-extrabold text-white">
-                        ${quote?.price !== null && quote?.price !== undefined ? quote.price.toFixed(2) : "—"}
-                      </span>
-                      {quote?.changePct !== null && quote?.changePct !== undefined && (
-                        <span className={`mt-0.5 block text-[13px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-                          {up ? "▲" : "▼"} {quote.changePct > 0 ? "+" : ""}
-                          {quote.changePct.toFixed(2)}%
-                        </span>
-                      )}
-                    </>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </NativeCard>
+        <div className="mt-3">
+          <MarketList initialQuotes={initialQuotes} showMeta />
+        </div>
       </section>
 
       <p className="rounded-2xl bg-white/[0.02] px-4 py-3 text-center text-[11px] leading-relaxed text-zinc-600 ring-1 ring-white/[0.05]">

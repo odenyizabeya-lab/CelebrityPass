@@ -138,7 +138,7 @@ export default async function PortfolioPage() {
                 href={`/invest/markets/${h.symbol}`}
                 className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
               >
-                <CompanyTile symbol={h.mono} accent={h.accent} />
+                <CompanyTile symbol={h.mono} ticker={h.symbol} accent={h.accent} />
                 <span className="min-w-0 flex-1 py-0.5">
                   <span className="block text-[15px] leading-snug font-bold text-white">{h.companyName}</span>
                   <span className="mt-1 block text-[12px] leading-snug text-zinc-500">

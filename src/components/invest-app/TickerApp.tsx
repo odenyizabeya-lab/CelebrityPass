@@ -6,7 +6,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { LineChart } from "@/components/invest-app/LineChart";
 import type { MarketQuote, QuoteHistory, HistoryRange } from "@/lib/invest/market-data";
 import { useWatchlist, WatchStar } from "@/components/invest-app/Watchlist";
-import { Eye, NativeCard } from "@/components/invest-app/native";
+import { Eye, NativeCard, AssetLogo } from "@/components/invest-app/native";
 import { PaymentMethodsSheet } from "@/components/invest-app/PaymentMethodsSheet";
 
 const RANGES: HistoryRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "ALL"];
@@ -83,17 +83,6 @@ function verifyColor(v: number | null | undefined): boolean {
   return v === null || v === undefined || v >= 0;
 }
 
-function Logo({ accent, mono }: { accent: string; mono: string }) {
-  return (
-    <span
-      className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-[13px] font-black text-white shadow-lg"
-      style={{ background: accent }}
-    >
-      {mono}
-    </span>
-  );
-}
-
 function InfoIcon() {
   return (
     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
@@ -146,7 +135,7 @@ function LiveStatus({ status, lastUpdated }: { status: string; lastUpdated: stri
     return (
       <span className={`${base} bg-white/[0.04] text-zinc-400 ring-white/[0.08]`}>
         <span className="h-2 w-2 rounded-full bg-zinc-500" />
-        Market closed · {fmtLastUpdated(lastUpdated)} UTC
+        Market closed · {fmtLastUpdated(lastUpdated)}
       </span>
     );
   }
@@ -519,7 +508,7 @@ export function TickerApp({
       {/* ===== COMPANY HEADER ===== */}
       <section className="fade-up flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Logo accent={accent} mono={symbol} />
+          <AssetLogo ticker={symbol} accent={accent} className="h-14 w-14 shrink-0 rounded-2xl text-[13px]" />
           <div className="min-w-0">
             <h1 className="flex items-center gap-1.5 text-[20px] font-black tracking-tight text-white">
               <span className="min-w-0 break-words">{name}</span>

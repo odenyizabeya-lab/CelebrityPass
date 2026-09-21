@@ -16,7 +16,13 @@ const fmtY = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits:
 export function LineChart({ points, height = 220 }: { points: ChartPoint[]; height?: number }) {
   const { path, area, yTicks, xTicks, color } = useMemo(() => {
     const empty = { path: "", area: "", yTicks: [] as YTick[], xTicks: [] as XTick[], color: "#22c55e" };
-    if (points.length === 0) return empty;
+    // Defensive: drop any non-finite points so a single bad tick can never turn
+    // the whole path into NaN coordinates.
+    const clean = points.filter(
+      (p) => p && typeof p.time === "string" && Number.isFinite(p.price),
+    );
+    if (clean.length === 0) return empty;
+    const use = clean;
 
     const w = 1000; // viewBox width (stretched responsively)
     const h = height; // viewBox height == rendered pixel height
@@ -24,24 +30,24 @@ export function LineChart({ points, height = 220 }: { points: ChartPoint[]; heig
     const padBottom = 26;
     const padRight = 58;
 
-    const prices = points.map((p) => p.price);
+    const prices = use.map((p) => p.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const range = max - min || 1;
 
-    const x = (i: number) => (i / Math.max(1, points.length - 1)) * (w - padRight);
+    const x = (i: number) => (i / Math.max(1, use.length - 1)) * (w - padRight);
     const y = (v: number) => padTop + (1 - (v - min) / range) * (h - padTop - padBottom);
 
     const pt = (i: number) => {
-      const c = Math.max(0, Math.min(points.length - 1, i));
-      return { cx: x(c), cy: y(points[c].price) };
+      const c = Math.max(0, Math.min(use.length - 1, i));
+      return { cx: x(c), cy: y(use[c].price) };
     };
 
     // Catmull-Rom -> Bezier smoothing for the line path
     let smooth: string;
-    if (points.length >= 3) {
+    if (use.length >= 3) {
       const segs: string[] = [];
-      for (let i = 0; i < points.length - 1; i++) {
+      for (let i = 0; i < use.length - 1; i++) {
         const p0 = pt(i - 1);
         const p1 = pt(i);
         const p2 = pt(i + 1);
@@ -55,11 +61,11 @@ export function LineChart({ points, height = 220 }: { points: ChartPoint[]; heig
       const start = pt(0);
       smooth = `M${start.cx.toFixed(2)},${start.cy.toFixed(2)} ${segs.join(" ")}`;
     } else {
-      smooth = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(p.price).toFixed(2)}`).join(" ");
+      smooth = use.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(p.price).toFixed(2)}`).join(" ");
     }
 
     const baseY = h - padBottom;
-    const area = `${smooth} L${x(points.length - 1).toFixed(2)},${baseY} L${x(0).toFixed(2)},${baseY} Z`;
+    const area = `${smooth} L${x(use.length - 1).toFixed(2)},${baseY} L${x(0).toFixed(2)},${baseY} Z`;
 
     const divisions = 4;
     const yTicks: YTick[] = Array.from({ length: divisions + 1 }, (_, i) => {
@@ -67,18 +73,18 @@ export function LineChart({ points, height = 220 }: { points: ChartPoint[]; heig
       return { value: v, top: `${(y(v) / h) * 100}%` };
     });
 
-    const xCount = Math.min(4, points.length);
+    const xCount = Math.min(4, use.length);
     const xTicks: XTick[] = Array.from({ length: xCount > 1 ? xCount : 0 }, (_, i) => {
-      const t = points[Math.round((i / (xCount - 1)) * (points.length - 1))];
+      const t = use[Math.round((i / (xCount - 1)) * (use.length - 1))];
       const label = t.time.includes("T") ? t.time.slice(11, 16) : t.time.slice(5);
       return { left: `${(x(i) / w) * 100}%`, label };
     });
 
-    const positive = points[points.length - 1].price >= points[0].price;
+    const positive = use[use.length - 1].price >= use[0].price;
     return { path: smooth, area, yTicks, xTicks, color: positive ? "#22c55e" : "#ef4444" };
   }, [points, height]);
 
-  if (points.length === 0) {
+  if (!path) {
     return <div className="grid w-full place-items-center text-sm text-zinc-500" style={{ height }}>No chart data</div>;
   }
 

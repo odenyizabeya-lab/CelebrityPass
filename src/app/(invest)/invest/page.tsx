@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { getCurrentFanId } from "@/lib/auth";
 import { getPositions, getTransactions, quantityToNumber, syncBrokerAccount } from "@/lib/invest/brokerage";
-import { getQuote } from "@/lib/invest/market-data";
+import { getQuote, getQuotes, unavailableQuote } from "@/lib/invest/market-data";
 import { getOrCreateInvestorAccount } from "@/lib/invest/account";
 import { investorBalances } from "@/lib/invest/ledger";
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
 import { safeAsync, safeWithDeadline } from "@/lib/safe-data";
-import { CompanyTile, Eye, NativeCard, SectionTitle, PrimaryAction, SecondaryAction, Metric } from "@/components/invest-app/native";
+import { Eye, NativeCard, SectionTitle, PrimaryAction, SecondaryAction, Metric } from "@/components/invest-app/native";
 import { WatchlistSection } from "@/components/invest-app/WatchlistSection";
+import { MarketList } from "@/components/invest-app/MarketList";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_DATA_BUDGET_MS = 2_500;
+const QUOTES_BUDGET_MS = 16_000;
 
 const fmt2 = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,23 +21,32 @@ const fmt2 = (n: number) =>
 export default async function InvestHomePage() {
   const fanId = await getCurrentFanId();
 
-  const [account, positions, balances, featuredQuotes, recentTx] = await safeWithDeadline(
-    async () =>
-      Promise.all([
-        fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
-        fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
-        fanId
-          ? safeAsync(async () => {
-              const inv = await getOrCreateInvestorAccount(fanId);
-              return investorBalances(inv.id);
-            }, null)
-          : Promise.resolve(null),
-        Promise.all(COMPANY_CATALOG.slice(0, 4).map((c) => getQuote(c.symbol))),
-        fanId ? safeAsync(() => getTransactions(fanId, 5), []) : Promise.resolve([]),
-      ]),
-    [null as never, [] as never[], null, COMPANY_CATALOG.slice(0, 4).map(() => null as never), [] as never[]],
-    PAGE_DATA_BUDGET_MS,
-  );
+  const [core, featuredQuotes] = await Promise.all([
+    safeWithDeadline(
+      async () =>
+        Promise.all([
+          fanId ? safeAsync(() => syncBrokerAccount(fanId), null) : Promise.resolve(null),
+          fanId ? safeAsync(() => getPositions(fanId), []) : Promise.resolve([]),
+          fanId
+            ? safeAsync(async () => {
+                const inv = await getOrCreateInvestorAccount(fanId);
+                return investorBalances(inv.id);
+              }, null)
+            : Promise.resolve(null),
+          fanId ? safeAsync(() => getTransactions(fanId, 5), []) : Promise.resolve([]),
+        ]),
+      [null as never, [] as never[], null, [] as never[]],
+      PAGE_DATA_BUDGET_MS,
+    ),
+    // Batched with per-symbol isolation — one bad asset never blanks the list.
+    safeWithDeadline(
+      () => getQuotes(COMPANY_CATALOG.map((c) => c.symbol)),
+      COMPANY_CATALOG.map((c) => unavailableQuote(c.symbol)),
+      QUOTES_BUDGET_MS,
+    ),
+  ]);
+  const [account, positions, balances, recentTx] = core;
+  const initialQuotes = Object.fromEntries(featuredQuotes.map((q) => [q.symbol, q]));
 
   let portfolioValue = 0;
   let todayChange = 0;
@@ -130,62 +141,16 @@ export default async function InvestHomePage() {
 
       {/* ==== Popular investments ==== */}
       <section className="fade-up">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Popular investments</SectionTitle>
-          <Link href="/invest/markets" className="text-[13px] font-bold text-sky-400">
-            See all
-          </Link>
+        <SectionTitle>Popular investments</SectionTitle>
+        <div className="mt-3">
+          <MarketList initialQuotes={initialQuotes} />
         </div>
-        <NativeCard className="mt-3 divide-y divide-white/[0.06]">
-          {COMPANY_CATALOG.slice(0, 4).map((c, i) => {
-            const q = featuredQuotes[i];
-            const up = (q?.change ?? 0) >= 0;
-            const unavailable = q?.source === "unavailable";
-            return (
-              <Link
-                key={c.symbol}
-                href={`/invest/markets/${c.symbol}`}
-                className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
-              >
-                <CompanyTile symbol={c.mono} accent={c.accent} />
-                <span className="min-w-0 flex-1 py-0.5">
-                  <span className="flex items-center gap-1.5">
-                    <span className="block text-[15px] leading-snug font-bold text-white">{c.name}</span>
-                  </span>
-                  <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{c.symbol} · {c.exchange}</span>
-                </span>
-                <span className="shrink-0 text-right">
-                  {unavailable ? (
-                    <span className="text-[12px] text-zinc-600">unavailable</span>
-                  ) : (
-                    <>
-                      <span className="block text-[15px] font-extrabold text-white">
-                        {q?.price !== null && q?.price !== undefined ? `$${q.price.toFixed(2)}` : "—"}
-                      </span>
-                      {q?.changePct !== null && q?.changePct !== undefined && (
-                        <span className={`block text-[12px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-                          {up ? "▲" : "▼"} {q.changePct > 0 ? "+" : ""}
-                          {q.changePct.toFixed(2)}%
-                        </span>
-                      )}
-                    </>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </NativeCard>
       </section>
 
       {/* ==== Watchlist (device-local, native star) ==== */}
       <section className="fade-up">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Watchlist</SectionTitle>
-          <Link href="/invest/markets" className="text-[13px] font-bold text-sky-400">
-            Edit
-          </Link>
-        </div>
-        <WatchlistSection catalog={COMPANY_CATALOG.slice(0, 4)} />
+        <SectionTitle>Watchlist</SectionTitle>
+        <WatchlistSection catalog={COMPANY_CATALOG} />
       </section>
 
       {/* ==== Recent activity ==== */}

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { COMPANY_CATALOG } from "@/lib/invest/companies";
-import { CompanyTile, Eye, NativeCard, SectionTitle, PrimaryAction, SecondaryAction, Metric } from "@/components/invest-app/native";
+import { Eye, NativeCard, SectionTitle, PrimaryAction, SecondaryAction, Metric } from "@/components/invest-app/native";
 import { WatchlistSection } from "@/components/invest-app/WatchlistSection";
+import { MarketList } from "@/components/invest-app/MarketList";
 
 /**
  * The invest app "Home" embedded directly on the (public, cached) celebrity
@@ -13,7 +14,6 @@ import { WatchlistSection } from "@/components/invest-app/WatchlistSection";
  * quick actions, watchlist) is the exact invest-home componentry fed through
  * the public client APIs — no server secrets, no duplicate payment logic.
  */
-type Quote = { price: number | null; changePct: number | null; change: number | null; source: string };
 type LedgerTx = { txnRef: string; kind: string; direction: string; amount: string; currency: string; createdAt: string };
 
 type HomeData = {
@@ -50,7 +50,6 @@ function Skeleton() {
 
 export default function InvestHomeEmbed() {
   const [data, setData] = useState<HomeData | null>(null);
-  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
 
   useEffect(() => {
     let active = true;
@@ -95,29 +94,6 @@ export default function InvestHomeEmbed() {
     })();
     return () => {
       active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    (async () => {
-      const next: Record<string, Quote> = {};
-      for (const c of COMPANY_CATALOG.slice(0, 4)) {
-        try {
-          const res = await fetch(`/api/invest/market/${c.symbol}`, { signal: controller.signal, cache: "no-store" });
-          const body = await res.json().catch(() => null);
-          const q = body?.quote as Quote | undefined;
-          if (active && q && q.price !== null && q.price !== undefined) next[c.symbol] = q;
-        } catch {
-          /* keep whatever already loaded */
-        }
-      }
-      if (active) setQuotes(next);
-    })();
-    return () => {
-      active = false;
-      controller.abort();
     };
   }, []);
 
@@ -189,58 +165,16 @@ export default function InvestHomeEmbed() {
 
       {/* ==== Popular investments ==== */}
       <section className="fade-up">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Popular investments</SectionTitle>
-          <Link href="/invest/markets" className="text-[13px] font-bold text-sky-400">
-            See all
-          </Link>
+        <SectionTitle>Popular investments</SectionTitle>
+        <div className="mt-3">
+          <MarketList />
         </div>
-        <NativeCard className="mt-3 divide-y divide-white/[0.06]">
-          {COMPANY_CATALOG.slice(0, 4).map((c, i) => {
-            const q = quotes[i] ?? quotes[c.symbol];
-            const up = (q?.change ?? 0) >= 0;
-            const unavailable = q?.source === "unavailable";
-            return (
-              <Link
-                key={c.symbol}
-                href={`/invest/markets/${c.symbol}`}
-                className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
-              >
-                <CompanyTile symbol={c.mono} accent={c.accent} />
-                <span className="min-w-0 flex-1 py-0.5">
-                  <span className="block text-[15px] leading-snug font-bold text-white">{c.name}</span>
-                  <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{c.symbol} · {c.exchange}</span>
-                </span>
-                <span className="shrink-0 text-right">
-                  {!q || q.price === null || q.price === undefined || unavailable ? (
-                    <span className="text-[12px] text-zinc-600">unavailable</span>
-                  ) : (
-                    <>
-                      <span className="block text-[15px] font-extrabold text-white">${q.price.toFixed(2)}</span>
-                      {q.changePct !== null && q.changePct !== undefined && (
-                        <span className={`block text-[12px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-                          {up ? "▲" : "▼"} {q.changePct > 0 ? "+" : ""}
-                          {q.changePct.toFixed(2)}%
-                        </span>
-                      )}
-                    </>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </NativeCard>
       </section>
 
       {/* ==== Watchlist (device-local, native star) ==== */}
       <section className="fade-up">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Watchlist</SectionTitle>
-          <Link href="/invest/markets" className="text-[13px] font-bold text-sky-400">
-            Edit
-          </Link>
-        </div>
-        <WatchlistSection catalog={COMPANY_CATALOG.slice(0, 4)} />
+        <SectionTitle>Watchlist</SectionTitle>
+        <WatchlistSection catalog={COMPANY_CATALOG} />
       </section>
 
       {/* ==== Recent activity ==== */}

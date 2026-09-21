@@ -22,7 +22,7 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
         href={`/invest/markets/${company.symbol}`}
         className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
       >
-        <CompanyTile symbol={company.mono} accent={company.accent} />
+        <CompanyTile symbol={company.mono} ticker={company.symbol} accent={company.accent} />
         <span className="min-w-0 flex-1 py-0.5">
           <span className="block text-[15px] leading-snug font-bold text-white">{company.name}</span>
           <span className="mt-1 block text-[12px] leading-snug text-zinc-500">

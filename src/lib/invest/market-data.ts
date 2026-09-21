@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { safeAsync } from "@/lib/safe-data";
 
 /**
  * MarketDataService — the single door for all market data.
@@ -70,10 +71,28 @@ const COINGECKO_ID: Record<string, string> = {
   BTC: "bitcoin",
   ETH: "ethereum",
   SOL: "solana",
-  XRP: "xrp",
+  // On CoinGecko the XRP Ledger asset is indexed under the "ripple" id; the
+  // naive "xrp" id returns an empty object from /simple/price and a 404 from
+  // /coins/:id, so we must use the real id for XRP quotes & history.
+  XRP: "ripple",
   BNB: "binancecoin",
   TRUMP: "official-trump",
 };
+
+/** Catalog CRYPTO symbol → Gate.io spot pair (public OHLC, no API key). */
+const GATEIO_PAIR: Record<string, string> = {
+  BTC: "BTC_USDT",
+  ETH: "ETH_USDT",
+  SOL: "SOL_USDT",
+  XRP: "XRP_USDT",
+  BNB: "BNB_USDT",
+  TRUMP: "TRUMP_USDT",
+};
+
+function gateIoPair(symbol: string): string | null {
+  const pair = GATEIO_PAIR[symbol.toUpperCase()];
+  return pair ?? null;
+}
 
 function coinGeckoId(symbol: string): string | null {
   const id = COINGECKO_ID[symbol.toUpperCase()];
@@ -104,39 +123,148 @@ function coinGeckoDays(range: HistoryRange): string {
   }
 }
 
-/** CoinGecko simple price → our MarketQuote (source "live", provider "coingecko"). */
-function coingeckoSimplePrice(
-  symbol: string,
-  data: Record<string, unknown>,
-): MarketQuote {
-  const up = num(data.usd_24h_change);
-  const price = num(data.usd);
+/**
+ * Live crypto quote from CoinGecko's public /simple/price endpoint (free, no
+ * API key, no card). Crypto trades 24/7, so isMarketOpen is reported true and
+ * marketTime is the moment the quote was fetched. Returns source
+ * "unavailable" only when CoinGecko genuinely cannot answer — never invents a
+ * coin price.
+ */
+async function fetchLiveCoinGeckoQuote(symbol: string): Promise<MarketQuote> {
+  const id = coinGeckoId(symbol);
+  if (!id) return unavailableQuote(symbol);
+  const url =
+    `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)}` +
+    `&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true` +
+    `&include_24hr_high_low=true&include_market_cap=true`;
+  const data = await requestLiveJson(url, 8_000);
+  if (!data) return unavailableQuote(symbol);
+  const row = data[id] as Record<string, unknown> | undefined;
+  if (!row || typeof row !== "object") return unavailableQuote(symbol);
+  const price = num(row.usd);
   if (price === null) return unavailableQuote(symbol);
+  const changePct = num(row.usd_24h_change);
+  const now = new Date().toISOString();
   return {
     symbol: symbol.toUpperCase(),
     name: null,
     exchange: "CoinGecko",
     currency: "USD",
     price,
-    change: price !== null && up !== null ? price * (up / 100) : null,
-    changePct: up,
-    dayHigh: null,
-    dayLow: null,
-    w52High: num(data.high_24h),
-    w52Low: num(data.low_24h),
-    volume: num(data.total_volume),
-    marketCap: num(data.market_cap),
+    change: changePct !== null ? price * (changePct / 100) : null,
+    changePct,
+    dayHigh: num(row.usd_24h_high),
+    dayLow: num(row.usd_24h_low),
+    w52High: num(row.usd_24h_high),
+    w52Low: num(row.usd_24h_low),
+    volume: num(row.usd_24h_vol),
+    marketCap: num(row.usd_market_cap),
     peRatio: null,
     provider: "coingecko",
     source: "live",
+    fetchedAt: now,
+    isMarketOpen: true,
+    marketTime: now,
+  };
+}
+
+/** Gate.io spot candle interval + limit per history range (public OHLC). */
+function gateIoRange(range: HistoryRange): { interval: string; limit: number } {
+  switch (range) {
+    case "1D":
+      return { interval: "30m", limit: 48 };
+    case "1W":
+      return { interval: "4h", limit: 42 };
+    case "1M":
+      return { interval: "1d", limit: 31 };
+    case "3M":
+      return { interval: "1d", limit: 90 };
+    case "1Y":
+      return { interval: "1d", limit: 365 };
+    case "5Y":
+      return { interval: "7d", limit: 270 };
+    case "ALL":
+      return { interval: "7d", limit: 1000 };
+  }
+}
+
+/**
+ * Crypto historical series for charting (1D–1Y) from CoinGecko's public
+ * /coins/:id/market_chart. 5Y/ALL are served by Gate.io spot OHLC candles —
+ * CoinGecko's free tier only publishes up to 365 days, while Gate.io (also
+ * free, real data) publishes decades of weekly candles. If CoinGecko is
+ * rate-limited or down for a short range, Gate.io covers every range with a
+ * sensible candle granularity. Missing/failed data yields an empty history
+ * ("unavailable"), never synthetic points.
+ */
+async function fetchLiveCoinGeckoHistory(symbol: string, range: HistoryRange): Promise<QuoteHistory> {
+  const id = coinGeckoId(symbol);
+  if (id && (range === "1D" || range === "1W" || range === "1M" || range === "3M" || range === "1Y")) {
+    const days = coinGeckoDays(range);
+    // days=1 without an interval returns intraday points; longer ranges pin
+    // daily candles so 365 days of history stays a sane (~366) series.
+    const interval = days === "1" ? "" : "&interval=daily";
+    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}${interval}`;
+    const data = await requestLiveJson(url, 8_000);
+    const pricesRaw = data?.prices;
+    const prices = Array.isArray(pricesRaw) ? (pricesRaw as unknown[]) : [];
+    const points: HistoryPoint[] = [];
+    for (const entry of prices) {
+      const pair = Array.isArray(entry) && entry.length >= 2 ? entry : null;
+      if (!pair) continue;
+      const ms = Number(pair[0]);
+      const price = num(pair[1]);
+      if (!Number.isFinite(ms) || price === null) continue;
+      points.push({ time: new Date(ms).toISOString(), price: Math.round(price * 100) / 100 });
+    }
+    if (points.length > 0) {
+      return {
+        symbol: symbol.toUpperCase(),
+        range,
+        provider: "coingecko",
+        source: "live",
+        points,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+    // CoinGecko answered nothing useful (or was rate-limited) — fall through to
+    // Gate.io below so charting still has a real provider for this coin/range.
+  }
+
+  const pair = gateIoPair(symbol);
+  if (!pair) return emptyHistory(symbol, range);
+  const { interval, limit } = gateIoRange(range);
+  const url = `https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
+  const data = await requestLiveJson(url, 8_000);
+  const values = Array.isArray(data) ? (data as unknown[]) : [];
+  const points: HistoryPoint[] = [];
+  for (const entry of values) {
+    const row = Array.isArray(entry) && entry.length >= 3 ? entry : null;
+    if (!row) continue;
+    const sec = Number(row[0]);
+    const close = num(row[2]);
+    if (!Number.isFinite(sec) || close === null) continue;
+    const d = new Date(sec * 1000);
+    if (Number.isNaN(d.getTime())) continue;
+    points.push({ time: d.toISOString(), price: Math.round(close * 100) / 100 });
+  }
+  points.sort((a, b) => a.time.localeCompare(b.time));
+  if (points.length === 0) return emptyHistory(symbol, range);
+  return {
+    symbol: symbol.toUpperCase(),
+    range,
+    provider: "gate-io",
+    source: "live",
+    points,
     fetchedAt: new Date().toISOString(),
-    isMarketOpen: null,
-    marketTime: null,
   };
 }
 
 const memory = new Map<string, { t: number; data: { point: MarketQuote } }>();
 const historyMemory = new Map<string, { t: number; data: { history: QuoteHistory } }>();
+
+/** In-flight quote fetches keyed by symbol — deduplicates concurrent callers. */
+const inflightQuotes = new Map<string, Promise<MarketQuote>>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -176,7 +304,7 @@ async function requestLiveJson(url: string, timeoutMs: number): Promise<Record<s
   return null;
 }
 
-function liveKey(symbol: string): string {
+function liveKey(): string {
   return process.env.MARKET_DATA_API_KEY ?? "";
 }
 
@@ -185,13 +313,8 @@ function mockEnabled(): boolean {
   // Explicit dev/mock mode, or any non-production environment without a key.
   return (
     process.env.MARKET_DATA_MODE === "mock" ||
-    (process.env.NODE_ENV !== "production" && !liveKey(symbolSentinel()))
+    (process.env.NODE_ENV !== "production" && !liveKey())
   );
-}
-
-// Kept simple: mock mode is decided per process, not per symbol.
-function symbolSentinel(): string {
-  return "TSLA";
 }
 
 export function unavailableQuote(symbol: string): MarketQuote {
@@ -307,31 +430,44 @@ export async function getQuote(symbol: string): Promise<MarketQuote> {
   const cached = memory.get(`q:${key}`);
   if (cached && Date.now() - cached.t < QUOTE_TTL_MS) return cached.data.point;
 
-  let quote: MarketQuote;
-  if (isCryptoSymbol(key)) {
-    // Crypto has a genuinely free provider (CoinGecko, no key/card). It must
-    // never fall through to the TwelveData path (which would "unavailable"
-    // every crypto) and never to the demo branch. If CoinGecko itself fails,
-    // the source is honestly "unavailable" — we never invent a coin price.
-    quote = await fetchLiveCoinGeckoQuote(key);
-    if (quote.source === "live") persistQuoteCache(quote).catch(() => {});
-  } else if (mockEnabled()) {
-    quote = demoQuote(key);
-    persistQuoteCache(quote).catch(() => {});
-  } else if (liveKey(key)) {
-    quote = await fetchLiveQuote(key);
-    if (quote.source === "live") persistQuoteCache(quote).catch(() => {});
-  } else {
-    quote = unavailableQuote(key);
-  }
+  // Deduplicate concurrent fetches for the same symbol: many screens can ask
+  // for the same quote in the same tick and must trigger exactly one upstream
+  // request (prevents wasteful bursts and rate-limit pressure).
+  const pending = inflightQuotes.get(key);
+  if (pending) return pending;
 
-  // Only cache results that actually contain data. Unavailable/empty results
-  // are never cached, so a transient upstream failure cannot poison the cache
-  // and every failed fetch gets immediately retried instead.
-  if (quote.source !== "unavailable") {
-    memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
-  }
-  return quote;
+  const task = (async () => {
+    try {
+      let quote: MarketQuote;
+      if (isCryptoSymbol(key)) {
+        // Crypto has a genuinely free provider (CoinGecko, no key/card). It
+        // never falls through to the TwelveData/Yahoo path (which cannot
+        // answer crypto) and never to the demo branch. If CoinGecko itself
+        // fails, the source is honestly "unavailable" — never an invented price.
+        quote = await fetchLiveCoinGeckoQuote(key);
+      } else if (mockEnabled()) {
+        quote = demoQuote(key);
+      } else {
+        // Configured provider (TwelveData) first; if it is rate-limited or
+        // down, fall back to Yahoo Finance (also real data, no key) so a valid
+        // quote is never replaced by "unavailable".
+        quote = await fetchLiveQuote(key);
+      }
+
+      // Only cache results that actually contain data. Unavailable/empty
+      // results are never cached, so a transient upstream failure cannot
+      // poison the cache and every failed fetch gets immediately retried.
+      if (quote.source !== "unavailable") {
+        memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+        persistQuoteCache(quote).catch(() => {});
+      }
+      return quote;
+    } finally {
+      inflightQuotes.delete(key);
+    }
+  })();
+  inflightQuotes.set(key, task);
+  return task;
 }
 
 /**
@@ -342,12 +478,20 @@ export async function getQuote(symbol: string): Promise<MarketQuote> {
  */
 export async function getLiveTick(symbol: string): Promise<MarketQuote> {
   const key = symbol.toUpperCase();
+  if (isCryptoSymbol(key)) {
+    const quote = await fetchLiveCoinGeckoQuote(key);
+    if (quote.source === "live") {
+      memory.set(`q:${key}`, { t: Date.now(), data: { point: quote } });
+      persistQuoteCache(quote).catch(() => {});
+    }
+    return quote;
+  }
   if (mockEnabled()) {
     const quote = demoQuote(key);
     persistQuoteCache(quote).catch(() => {});
     return quote;
   }
-  if (!liveKey(key)) return unavailableQuote(key);
+  if (!liveKey()) return unavailableQuote(key);
   const quote = await fetchLiveQuote(key);
   if (quote.source === "live") {
     // Refresh the short cache only; persist a snapshot for the admin status.
@@ -365,7 +509,9 @@ export async function getHistory(symbol: string, range: HistoryRange): Promise<Q
   if (cached && Date.now() - cached.t < HISTORY_TTL_MS) return cached.data.history;
 
   let history: QuoteHistory;
-  if (mockEnabled()) {
+  if (isCryptoSymbol(key)) {
+    history = await fetchLiveCoinGeckoHistory(key, range);
+  } else if (mockEnabled()) {
     history = {
       symbol: key,
       range,
@@ -374,7 +520,7 @@ export async function getHistory(symbol: string, range: HistoryRange): Promise<Q
       points: demoHistory(key, range),
       fetchedAt: new Date().toISOString(),
     };
-  } else if (liveKey(key)) {
+  } else if (liveKey()) {
     history = await fetchLiveHistory(key, range);
   } else {
     history = emptyHistory(key, range);
@@ -384,6 +530,31 @@ export async function getHistory(symbol: string, range: HistoryRange): Promise<Q
     historyMemory.set(ck, { t: Date.now(), data: { history } });
   }
   return history;
+}
+
+/**
+ * Batch-loader for many symbols with per-symbol isolation: a single failing
+ * symbol (or a slow upstream) can only affect its own row, never the whole
+ * page. Fetches are processed with limited concurrency so a 20-security list
+ * layers requests instead of bursting free providers all at once.
+ */
+export async function getQuotes(symbols: string[], concurrency = 6): Promise<MarketQuote[]> {
+  const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  const out = new Array<MarketQuote>(unique.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < unique.length) {
+      const idx = cursor++;
+      const sym = unique[idx];
+      out[idx] = await safeAsync(() => getQuote(sym), unavailableQuote(sym));
+    }
+  };
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(concurrency, unique.length)) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return out;
 }
 
 /** Persist the latest quote snapshot to the DB cache (admin market-data status). */
@@ -436,10 +607,14 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
   try {
     const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
     const data = await requestLiveJson(url, 6_000);
-    if (!data) return unavailableQuote(symbol);
-    if (data.status === "error") return unavailableQuote(symbol);
+    if (!data || data.status === "error") {
+      // TwelveData is rate-limited or unhealthy — fall back to Yahoo Finance
+      // (real market data, no key) rather than declaring valid symbols
+      // "unavailable".
+      return fetchYahooQuote(symbol);
+    }
     const price = num(data.close);
-    if (price === null) return unavailableQuote(symbol);
+    if (price === null) return fetchYahooQuote(symbol);
     const w52 = (data.fifty_two_week ?? {}) as Record<string, unknown>;
     return {
       symbol: (data.symbol as string) ?? symbol,
@@ -463,7 +638,112 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
       marketTime: typeof data.datetime === "string" && data.datetime ? data.datetime : null,
     };
   } catch {
+    return fetchYahooQuote(symbol);
+  }
+}
+
+/**
+ * Free, keyless Yahoo Finance quote (v8 chart meta is populated for equities,
+ * ETFs, commodities trusts and indices around the clock). Serves as the
+ * resilience fallback when the configured provider is down or rate-limited —
+ * always real market data, never an invented number.
+ */
+async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
+    const data = await requestLiveJson(url, 6_000);
+    const chart = (data?.chart ?? {}) as { result?: Record<string, unknown>[] };
+    const result = Array.isArray(chart.result) ? chart.result[0] : undefined;
+    const meta = (result?.meta ?? {}) as Record<string, unknown>;
+    const price = num(meta.regularMarketPrice);
+    if (price === null) return unavailableQuote(symbol);
+    const prev = num(meta.previousClose) ?? num(meta.chartPreviousClose);
+    const change = num(meta.regularMarketChange);
+    const changePct = num(meta.regularMarketChangePercent);
+    const marketTimeRaw = num(meta.regularMarketTime);
+    const marketState = typeof meta.marketState === "string" ? meta.marketState : "";
+    return {
+      symbol: String(meta.symbol ?? symbol).toUpperCase(),
+      name: typeof meta.longName === "string" ? meta.longName : typeof meta.shortName === "string" ? meta.shortName : null,
+      exchange: typeof meta.fullExchangeName === "string" ? meta.fullExchangeName : typeof meta.exchangeName === "string" ? meta.exchangeName : null,
+      currency: (meta.currency as string) ?? "USD",
+      price,
+      // Derive change from previous close when Yahoo omits the delta fields.
+      change: change !== null ? change : prev !== null ? price - prev : null,
+      changePct: changePct !== null ? changePct : prev !== null && prev !== 0 ? ((price - prev) / prev) * 100 : null,
+      dayHigh: num(meta.regularMarketDayHigh),
+      dayLow: num(meta.regularMarketDayLow),
+      w52High: num(meta.fiftyTwoWeekHigh),
+      w52Low: num(meta.fiftyTwoWeekLow),
+      volume: num(meta.regularMarketVolume),
+      marketCap: num(meta.marketCap),
+      peRatio: num(meta.trailingPE),
+      provider: "yahoo-finance",
+      source: "live",
+      fetchedAt: new Date().toISOString(),
+      isMarketOpen: marketState ? marketState === "REGULAR" : null,
+      marketTime: marketTimeRaw !== null ? new Date(marketTimeRaw * 1000).toISOString() : null,
+    };
+  } catch {
     return unavailableQuote(symbol);
+  }
+}
+
+/** Map the chart ranges to Yahoo chart range/interval parameters (real data). */
+function yahooRange(range: HistoryRange): { range: string; interval: string } {
+  switch (range) {
+    case "1D":
+      return { range: "1d", interval: "5m" };
+    case "1W":
+      return { range: "5d", interval: "30m" };
+    case "1M":
+      return { range: "1mo", interval: "1d" };
+    case "3M":
+      return { range: "3mo", interval: "1d" };
+    case "1Y":
+      return { range: "1y", interval: "1d" };
+    case "5Y":
+      return { range: "5y", interval: "1d" };
+    case "ALL":
+      return { range: "max", interval: "1wk" };
+  }
+}
+
+/** Historical series from Yahoo Finance (free, keyless). */
+async function fetchYahooHistory(symbol: string, range: HistoryRange): Promise<QuoteHistory> {
+  try {
+    const { range: yRange, interval } = yahooRange(range);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${yRange}&interval=${interval}`;
+    const data = await requestLiveJson(url, 8_000);
+    const chart = (data?.chart ?? {}) as { result?: Record<string, unknown>[] };
+    const result = Array.isArray(chart.result) ? chart.result[0] : undefined;
+    const ts = Array.isArray(result?.timestamp) ? (result.timestamp as number[]) : [];
+    const quote = (result?.indicators as { quote?: Record<string, unknown>[] } | undefined)?.quote?.[0] ?? {};
+    const closes = Array.isArray(quote.close) ? (quote.close as (number | null)[]) : [];
+    if (ts.length === 0 || closes.length === 0) return emptyHistory(symbol, range);
+
+    const points: HistoryPoint[] = [];
+    for (let i = 0; i < ts.length; i++) {
+      const close = num(closes[i]);
+      const sec = ts[i];
+      if (close === null || !Number.isFinite(sec)) continue;
+      const d = new Date(sec * 1000);
+      if (Number.isNaN(d.getTime())) continue;
+      const t = interval === "5m" || interval === "30m" ? d.toISOString() : d.toISOString().slice(0, 10);
+      points.push({ time: t, price: Math.round(close * 100) / 100 });
+    }
+    points.sort((a, b) => a.time.localeCompare(b.time));
+    if (points.length === 0) return emptyHistory(symbol, range);
+    return {
+      symbol,
+      range,
+      provider: "yahoo-finance",
+      source: "live",
+      points,
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch {
+    return emptyHistory(symbol, range);
   }
 }
 
@@ -494,10 +774,13 @@ async function fetchLiveHistory(symbol: string, range: HistoryRange): Promise<Qu
   try {
     const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${cfg.interval}&outputsize=${cfg.outputsize}&apikey=${encodeURIComponent(apiKey ?? "")}&timezone=${HISTORY_TZ}`;
     const data = await requestLiveJson(url, 8_000);
-    if (!data) return emptyHistory(symbol, range);
-    if (data.status === "error") return emptyHistory(symbol, range);
+    if (!data || data.status === "error") {
+      // Rate-limited or unhealthy — fall back to Yahoo's real chart data so
+      // the range still renders instead of an empty "unavailable" chart.
+      return fetchYahooHistory(symbol, range);
+    }
     const values = Array.isArray(data.values) ? (data.values as Record<string, unknown>[]) : [];
-    if (values.length === 0) return emptyHistory(symbol, range);
+    if (values.length === 0) return fetchYahooHistory(symbol, range);
     const points = values
       .map((v) => {
         const close = num(v.close);
@@ -512,6 +795,7 @@ async function fetchLiveHistory(symbol: string, range: HistoryRange): Promise<Qu
       .filter((p): p is HistoryPoint => p !== null)
       .filter((p) => p.time.length > 0 && Number.isFinite(p.price))
       .sort((a, b) => a.time.localeCompare(b.time));
+    if (points.length === 0) return fetchYahooHistory(symbol, range);
     return {
       symbol,
       range,

@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import type { Company } from "@/lib/invest/companies";
 import { useWatchlist, WatchStar } from "./Watchlist";
 import { NativeCard, CompanyTile } from "./native";
-
-type LiveQuote = { price: number | null; changePct: number | null; change: number | null; source: string };
+import { useMarketQuotes } from "./market-store";
 
 export function WatchlistSection({
   catalog,
@@ -17,36 +15,9 @@ export function WatchlistSection({
 }) {
   const { symbols, toggle } = useWatchlist();
   const shown = symbols.length > 0 ? symbols : placeholderSymbols;
-  const [quotes, setQuotes] = useState<Record<string, LiveQuote>>({});
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    (async () => {
-      const next: Record<string, LiveQuote> = {};
-      for (const sym of shown) {
-        try {
-          const live = await fetch(`/api/invest/market/${sym}/live`, { signal: controller.signal });
-          const liveData = (await live.json().catch(() => null)) as { quote?: LiveQuote } | null;
-          let quote = liveData?.quote ?? null;
-          if (!quote || quote.price === null || quote.source === "unavailable" || quote.source !== "live") {
-            const full = await fetch(`/api/invest/market/${sym}`, { signal: controller.signal });
-            const fullData = (await full.json().catch(() => null)) as { quote?: LiveQuote } | null;
-            quote = fullData?.quote ?? null;
-          }
-          if (active && quote?.price !== null && quote?.price !== undefined) next[sym] = quote;
-        } catch {
-          /* keep whatever we have */
-        }
-      }
-      if (active) setQuotes(next);
-    })();
-    return () => {
-      active = false;
-      controller.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbols.join(",")]);
+  // Shared live feed — same poller/data as Home and Markets, so the watchlist
+  // price can never disagree with the price shown on the market list.
+  const { quotes } = useMarketQuotes();
 
   return (
     <NativeCard className="mt-3 divide-y divide-white/[0.06]">
@@ -64,6 +35,7 @@ export function WatchlistSection({
         shown.map((sym) => {
           const company = catalog.find((c) => c.symbol === sym);
           const q = quotes[sym];
+          const hasPrice = q && q.source !== "unavailable" && q.price !== null && q.price !== undefined;
           const up = (q?.change ?? 0) >= 0;
           return (
             <Link
@@ -71,16 +43,16 @@ export function WatchlistSection({
               href={`/invest/markets/${sym}`}
               className="flex items-center gap-3 px-4 py-4 transition active:bg-white/[0.04]"
             >
-              <CompanyTile symbol={company?.mono ?? sym} accent={company?.accent ?? "#334155"} />
+              <CompanyTile symbol={company?.mono ?? sym} ticker={sym} accent={company?.accent ?? "#334155"} />
               <span className="min-w-0 flex-1 py-0.5">
                 <span className="block text-[15px] leading-snug font-bold text-white">{company?.name ?? sym}</span>
                 <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{sym} · {company?.exchange ?? "—"}</span>
               </span>
               <span className="shrink-0 text-right">
                 <span className="block text-[15px] font-extrabold text-white">
-                  {q && q.price !== null ? `$${q.price.toFixed(2)}` : "—"}
+                  {hasPrice ? `$${q.price!.toFixed(2)}` : "—"}
                 </span>
-                {q && q.changePct !== null && q.changePct !== undefined && (
+                {hasPrice && q.changePct !== null && q.changePct !== undefined && (
                   <span className={`block text-[12px] font-bold ${up ? "text-emerald-400" : "text-rose-400"}`}>
                     {up ? "▲" : "▼"} {q.changePct > 0 ? "+" : ""}{q.changePct.toFixed(2)}%
                   </span>

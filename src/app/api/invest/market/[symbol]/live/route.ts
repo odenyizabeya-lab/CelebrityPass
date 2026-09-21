@@ -5,8 +5,9 @@ import { safeWithDeadline } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
 
-// Bounded so the client's poll never hangs the page.
-const LIVE_BUDGET_MS = 3_000;
+// Bounded so the client's poll never hangs the page — but generous enough for
+// slow upstreams (a 5s provider response cannot masquerade as "unavailable").
+const LIVE_BUDGET_MS = 15_000;
 
 export async function GET(_request: Request, { params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
