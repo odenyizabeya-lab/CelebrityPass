@@ -122,11 +122,13 @@ export function CompanyIdentity({
   name,
   symbol,
   exchange,
+  typeLabel,
   subtitle,
 }: {
   name: string;
   symbol: string;
   exchange: string;
+  typeLabel?: string;
   subtitle?: string;
 }) {
   return (
@@ -138,6 +140,7 @@ export function CompanyIdentity({
         </p>
         <p className="mt-0.5 text-[12px] font-medium text-zinc-500">
           {symbol} · {exchange}
+          {typeLabel ? ` · ${typeLabel}` : ""}
           {subtitle ? ` · ${subtitle}` : ""}
         </p>
       </div>

@@ -57,6 +57,84 @@ const HISTORY_TTL_MS = 5 * 60_000;
 // intraday ranges (1D, 1W) line up with actual trading hours.
 const HISTORY_TZ = "America/New_York";
 
+/* ------------------------------------------------------------------------ */
+/* CoinGecko — crypto market data, free forever (no API key, no account,     */
+/* no card). Used ONLY for CompanyType "CRYPTO" symbols so a real crypto     */
+/* price is never routed through the TwelveData free tier or an invented     */
+/* number. If CoinGecko is unreachable this yields "unavailable", never a    */
+/* fake price.                                                               */
+/* ------------------------------------------------------------------------ */
+
+/** Catalog CRYPTO symbol → CoinGecko internal coin id (public, no auth). */
+const COINGECKO_ID: Record<string, string> = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  XRP: "xrp",
+  BNB: "binancecoin",
+  TRUMP: "official-trump",
+};
+
+function coinGeckoId(symbol: string): string | null {
+  const id = COINGECKO_ID[symbol.toUpperCase()];
+  return id ?? null;
+}
+
+function isCryptoSymbol(symbol: string): boolean {
+  return coinGeckoId(symbol) !== null;
+}
+
+/** CoinGecko "days" per history range (market_chart param). Free endpoint. */
+function coinGeckoDays(range: HistoryRange): string {
+  switch (range) {
+    case "1D":
+      return "1";
+    case "1W":
+      return "7";
+    case "1M":
+      return "30";
+    case "3M":
+      return "90";
+    case "1Y":
+      return "365";
+    case "5Y":
+      return "1825";
+    case "ALL":
+      return "max";
+  }
+}
+
+/** CoinGecko simple price → our MarketQuote (source "live", provider "coingecko"). */
+function coingeckoSimplePrice(
+  symbol: string,
+  data: Record<string, unknown>,
+): MarketQuote {
+  const up = num(data.usd_24h_change);
+  const price = num(data.usd);
+  if (price === null) return unavailableQuote(symbol);
+  return {
+    symbol: symbol.toUpperCase(),
+    name: null,
+    exchange: "CoinGecko",
+    currency: "USD",
+    price,
+    change: price !== null && up !== null ? price * (up / 100) : null,
+    changePct: up,
+    dayHigh: null,
+    dayLow: null,
+    w52High: num(data.high_24h),
+    w52Low: num(data.low_24h),
+    volume: num(data.total_volume),
+    marketCap: num(data.market_cap),
+    peRatio: null,
+    provider: "coingecko",
+    source: "live",
+    fetchedAt: new Date().toISOString(),
+    isMarketOpen: null,
+    marketTime: null,
+  };
+}
+
 const memory = new Map<string, { t: number; data: { point: MarketQuote } }>();
 const historyMemory = new Map<string, { t: number; data: { history: QuoteHistory } }>();
 
@@ -230,7 +308,14 @@ export async function getQuote(symbol: string): Promise<MarketQuote> {
   if (cached && Date.now() - cached.t < QUOTE_TTL_MS) return cached.data.point;
 
   let quote: MarketQuote;
-  if (mockEnabled()) {
+  if (isCryptoSymbol(key)) {
+    // Crypto has a genuinely free provider (CoinGecko, no key/card). It must
+    // never fall through to the TwelveData path (which would "unavailable"
+    // every crypto) and never to the demo branch. If CoinGecko itself fails,
+    // the source is honestly "unavailable" — we never invent a coin price.
+    quote = await fetchLiveCoinGeckoQuote(key);
+    if (quote.source === "live") persistQuoteCache(quote).catch(() => {});
+  } else if (mockEnabled()) {
     quote = demoQuote(key);
     persistQuoteCache(quote).catch(() => {});
   } else if (liveKey(key)) {

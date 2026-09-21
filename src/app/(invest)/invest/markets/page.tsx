@@ -1,4 +1,4 @@
-import { COMPANY_CATALOG } from "@/lib/invest/companies";
+import { COMPANY_CATALOG, TICKER_TYPE_LABEL } from "@/lib/invest/companies";
 import { getQuote, unavailableQuote } from "@/lib/invest/market-data";
 import { safeWithDeadline } from "@/lib/safe-data";
 import Link from "next/link";
@@ -42,9 +42,11 @@ export default async function MarketsPage() {
                 <CompanyTile symbol={company.mono} accent={company.accent} />
                 <span className="min-w-0 flex-1 py-0.5">
                   <span className="block text-[15px] leading-snug font-bold text-white">{company.name}</span>
-                  <span className="mt-1 block text-[12px] leading-snug text-zinc-500">
-                    {company.symbol} · {company.exchange} · {company.sectorTags[0]}
-                  </span>
+                <span className="mt-1 block text-[12px] leading-snug text-zinc-500">
+                  {company.symbol} · {company.exchange}
+                  {company.type ? ` · ${TICKER_TYPE_LABEL[company.type]}` : ""}
+                  {` · ${company.sectorTags[0]}`}
+                </span>
                 </span>
                 <span className="shrink-0 text-right">
                   {unavailable ? (

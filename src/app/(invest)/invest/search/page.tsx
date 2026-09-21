@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { COMPANY_CATALOG } from "@/lib/invest/companies";
+import { COMPANY_CATALOG, TICKER_TYPE_LABEL } from "@/lib/invest/companies";
 import { getQuote } from "@/lib/invest/market-data";
 import { CompanyTile, NativeCard, PriceChange } from "@/components/invest-app/native";
 
@@ -25,7 +25,10 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
         <CompanyTile symbol={company.mono} accent={company.accent} />
         <span className="min-w-0 flex-1 py-0.5">
           <span className="block text-[15px] leading-snug font-bold text-white">{company.name}</span>
-          <span className="mt-1 block text-[12px] leading-snug text-zinc-500">{company.symbol} · {company.exchange}</span>
+          <span className="mt-1 block text-[12px] leading-snug text-zinc-500">
+            {company.symbol} · {company.exchange}
+            {company.type ? ` · ${TICKER_TYPE_LABEL[company.type]}` : ""}
+          </span>
         </span>
         {unavailable ? (
           <span className="shrink-0 text-[12px] text-zinc-600">unavailable</span>
