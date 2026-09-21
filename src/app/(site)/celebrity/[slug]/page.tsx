@@ -21,7 +21,7 @@ import { safeAsync } from "@/lib/safe-data";
 import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
-import { NO_VERIFIED_OFFERING_COPY } from "@/lib/profiles/investor";
+
 import { BottomNav } from "@/components/invest-app/BottomNav";
 import InvestHomeEmbed from "@/components/invest-app/InvestHomeEmbed";
 import QRCode from "qrcode";
@@ -603,17 +603,7 @@ export default async function CelebrityPage({ params }: Props) {
 </section>
             ) : (
               <section id="investment-section">
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">Business &amp; Investment Profile</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                  Verified Business &amp; <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-transparent">Investment Info</span>
-                </h2>
-                <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
-                  Factual, person-specific business and investment information about {celebrity.name}, drawn only from verified authoritative sources. This is not an offer to invest.
-                </p>
-                <div className="mt-8">
-                  <InvestorSection celebrity={celebrity} />
-                </div>
-                <div className="mt-10 max-w-xl overflow-hidden rounded-[2rem] bg-[#05060a] shadow-2xl ring-1 ring-white/10">
+                <div className="max-w-xl overflow-hidden rounded-[2rem] bg-[#05060a] shadow-2xl ring-1 ring-white/10">
                   <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
                     <span className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500">
                       CelebrityPass Invest
@@ -1108,144 +1098,8 @@ function FollowerTile({
   );
 }
 
-const dateFmt = new Intl.DateTimeFormat("en", { dateStyle: "long" });
-function fmtDate(iso: string): string {
-  try {
-    return dateFmt.format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
-/**
- * Person-specific verified business/investment info. Rendered ONLY for the one
- * person it belongs to (keyed 1:1 to the profile id) — content is never copied
- * between profiles. When nothing is verified, we say so plainly rather than
- * inventing an offering, minimum, return or partnership.
- */
-function InvestorSection({ celebrity }: { celebrity: CelebrityDetail }) {
-  const investor = celebrity.investor;
-  const showInvestor =
-    !!investor &&
-    (investor.enabled || !!investor.overview || !!investor.ventures);
-  if (!showInvestor) {
-    return (
-      <div className="space-y-5">
-        <div className="glass rounded-3xl px-6 py-8 text-center">
-          <p className="text-base font-semibold text-zinc-200">
-            {NO_VERIFIED_OFFERING_COPY}
-          </p>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-zinc-500">
-            We show only verified, sourced facts about {celebrity.name}. If a
-            real, documented investment opportunity is found and checked, it
-            appears here — never invented, never copied from another person.
-          </p>
-        </div>
-        <div className="rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
-            Important
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-            Nothing on this page is investment advice and no content here is an
-            offer to invest. Always verify independently with official,
-            authoritative sources before acting.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
-  const verifiedDate = investor.verifiedAt ? fmtDate(investor.verifiedAt) : null;
-  const hasOpportunityText = !!(investor.opportunities || investor.eligibility);
-
-  return (
-    <div className="space-y-5">
-      {investor.sector && (
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-            Sector
-          </p>
-          <span className="mt-2 inline-flex rounded-full bg-white/[0.06] px-3.5 py-1.5 text-sm font-bold text-white ring-1 ring-white/15">
-            {investor.sector}
-          </span>
-        </div>
-      )}
-      {investor.overview && (
-        <ProfileBlock title="Overview" text={investor.overview} />
-      )}
-      {investor.ventures && (
-        <ProfileBlock title="Ventures & Roles" text={investor.ventures} />
-      )}
-      {investor.opportunities && (
-        <ProfileBlock
-          title="How Eligible Investors May Engage"
-          text={investor.opportunities}
-        />
-      )}
-      {investor.eligibility && (
-        <ProfileBlock title="Who Is Eligible" text={investor.eligibility} />
-      )}
-      {investor.risks && (
-        <ProfileBlock title="Risks to Weigh" text={investor.risks} />
-      )}
-      {investor.sources.length > 0 && (
-        <div className="glass rounded-3xl px-6 py-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-            Verification Sources
-          </p>
-          <ul className="mt-3 space-y-2.5">
-            {investor.sources.map((s, i) => (
-              <li key={i}>
-                <a
-                  href={s.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group inline-flex max-w-full items-baseline gap-1.5 text-sm text-sky-300 underline decoration-sky-300/30 underline-offset-2 hover:decoration-sky-300"
-                >
-                  <span className="truncate">{s.label}</span>
-                  {s.date && (
-                    <span className="shrink-0 text-xs text-zinc-500">
-                      · {s.date}
-                    </span>
-                  )}
-                </a>
-              </li>
-            ))}
-          </ul>
-          {verifiedDate && (
-            <p className="mt-4 text-xs text-zinc-500">
-              Last verified {verifiedDate}.
-            </p>
-          )}
-        </div>
-      )}
-      {hasOpportunityText && (
-        <div className="rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] px-6 py-5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
-            Investment Disclaimer
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-            {investor.disclaimer ||
-              "This information describes documented public business activity. It is not an offer to invest, a recommendation, or a guarantee. Investments carry risk; verify every detail against the authoritative sources cited and consult a qualified adviser before acting."}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProfileBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="glass rounded-3xl px-6 py-6">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-        {title}
-      </p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-zinc-200">
-        {text}
-      </p>
-    </div>
-  );
-}
 
 function ProfileFacts({
   celebrity,
