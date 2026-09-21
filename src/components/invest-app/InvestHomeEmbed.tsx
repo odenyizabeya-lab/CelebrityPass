@@ -160,11 +160,6 @@ export default function InvestHomeEmbed() {
                 {data.brokerStatus === "CONNECTED" ? "Brokerage connected" : "Broker integration required"}
               </span>
             )}
-            {data.hasDemo && (
-              <span className="rounded-full bg-amber-500/10 px-3 py-1 font-bold text-amber-400 ring-1 ring-amber-500/25">
-                Demo / paper trading
-              </span>
-            )}
           </div>
         </NativeCard>
 

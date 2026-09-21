@@ -64,7 +64,6 @@ export default async function PortfolioPage() {
   const totalValue = holdings.reduce((s, h) => s + (h.value ?? 0), 0);
   const totalCost = holdings.reduce((s, h) => s + h.qty * h.avgCost, 0);
   const totalPnl = holdings.reduce((s, h) => s + (h.pnl ?? 0), 0);
-  const hasDemo = holdings.some((h) => h.isDemo);
   const cash = balances ? Number(balances.cash) : 0;
 
   return (
@@ -73,12 +72,6 @@ export default async function PortfolioPage() {
         <p className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500">Portfolio</p>
         <h1 className="mt-1 text-[26px] font-black tracking-tight text-white">Your holdings</h1>
       </div>
-
-      {hasDemo && (
-        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest text-amber-400 ring-1 ring-amber-500/25">
-          DEMO / PAPER TRADING — these holdings are not real assets
-        </p>
-      )}
 
       {/* Summary */}
       <NativeCard className="relative overflow-hidden p-5">
