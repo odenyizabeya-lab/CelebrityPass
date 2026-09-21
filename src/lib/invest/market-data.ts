@@ -660,34 +660,44 @@ async function fetchLiveQuote(symbol: string): Promise<MarketQuote> {
  * Free, keyless Yahoo Finance quote (v8 chart meta is populated for equities,
  * ETFs, commodities trusts and indices around the clock). Serves as the
  * resilience fallback when the configured provider is down or rate-limited —
- * always real market data, never an invented number. Price reflects the
- * CURRENT trading phase (pre-market / regular / after-hours) exactly like the
- * public sites do, so out-of-hours numbers still move.
+ * always real market data, never an invented number. Outside the regular
+ * session Yahoo exposes the LIVE pre-market/after-hours price in fulldayPrice
+ * (the same number Google shows next to Friday's close), so out-of-hours
+ * prices keep moving instead of sitting frozen on the last close.
  */
 async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
-    const data = await requestLiveJson(url, 6_000);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1m&includePrePost=true`;
+    const data = await requestLiveJson(url, 9_000);
     const chart = (data?.chart ?? {}) as { result?: Record<string, unknown>[] };
     const result = Array.isArray(chart.result) ? chart.result[0] : undefined;
     const meta = (result?.meta ?? {}) as Record<string, unknown>;
     const marketState = typeof meta.marketState === "string" ? meta.marketState : "";
-    const phase: MarketPhase | null = yahooPhase(marketState);
+    const hasPrePost = meta.hasPrePostMarketData === true;
+    const phase = yahooPhase(marketState, hasPrePost);
+    const inExtended = phase === "PRE" || phase === "POST";
 
-    // Like Google: during pre-market/after-hours show THAT session's price,
-    // not the stale regular-session close. Fall back to the regular price if
-    // the out-of-hours session hasn't printed yet.
+    // Like Google: outside the regular session show the LIVE extended-hours
+    // price (fulldayPrice), not the stale session close. Fall back to the
+    // regular price when no out-of-hours session is active (symbols without
+    // extended-hours support, indices, and after hours end).
+    const fullDay = num(meta.fulldayPrice) ?? num(meta.regularMarketPrice);
     const price =
       num(meta.preMarketPrice) ??
       num(meta.postMarketPrice) ??
+      (inExtended ? fullDay : null) ??
       num(meta.regularMarketPrice);
     if (price === null) return unavailableQuote(symbol);
 
     const change =
-      num(meta.preMarketChange) ?? num(meta.postMarketChange) ?? num(meta.regularMarketChange);
+      num(meta.preMarketChange) ??
+      num(meta.postMarketChange) ??
+      (inExtended ? num(meta.fulldayChange) : null) ??
+      num(meta.regularMarketChange);
     const changePct =
       num(meta.preMarketChangePercent) ??
       num(meta.postMarketChangePercent) ??
+      (inExtended ? num(meta.fulldayChangePercent) : null) ??
       num(meta.regularMarketChangePercent);
     const prev = num(meta.previousClose) ?? num(meta.chartPreviousClose);
     const timeEpoch =
@@ -711,7 +721,13 @@ async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
       source: "live",
       fetchedAt: new Date().toISOString(),
       isMarketOpen: phase === "REGULAR",
-      marketTime: timeEpoch !== null ? new Date(timeEpoch * 1000).toISOString() : null,
+      // An extended-hours quote is "now" — stamp the fetch time so the badge
+      // always reads fresh; the regular-session tick keeps its own timestamp.
+      marketTime: inExtended
+        ? new Date().toISOString()
+        : timeEpoch !== null
+          ? new Date(timeEpoch * 1000).toISOString()
+          : null,
       marketPhase: phase,
     };
   } catch {
@@ -719,11 +735,41 @@ async function fetchYahooQuote(symbol: string): Promise<MarketQuote> {
   }
 }
 
-/** Map Yahoo marketState to our phase; default CLOSED (no session data). */
-function yahooPhase(marketState: string): MarketPhase {
+/** Map Yahoo marketState to our phase; default CLOSED when invisible. */
+function yahooPhase(marketState: string, hasPrePost: boolean): MarketPhase {
   if (marketState === "REGULAR") return "REGULAR";
   if (marketState === "PRE" || marketState === "PREPRE") return "PRE";
   if (marketState === "POST" || marketState === "POSTPOST") return "POST";
+  // Yahoo frequently omits marketState from chart meta. When the symbol
+  // supports extended hours, fall back to the US-market clock so pre-market
+  // and after-hours still show the live extended-hours price + badge.
+  if (hasPrePost) return nySessionPhase();
+  return "CLOSED";
+}
+
+/** Infer the NYSE session purely from the New York clock (4:00/9:30/16:00/20:00). */
+function nySessionPhase(): MarketPhase {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  let day = "";
+  let hh = 0;
+  let mm = 0;
+  for (const p of parts) {
+    if (p.type === "weekday") day = p.value;
+    else if (p.type === "hour") hh = Number(p.value);
+    else if (p.type === "minute") mm = Number(p.value);
+  }
+  if (day === "Sat" || day === "Sun") return "CLOSED";
+  const mins = hh * 60 + mm;
+  if (mins < 240) return "CLOSED";
+  if (mins < 570) return "PRE";
+  if (mins < 960) return "REGULAR";
+  if (mins < 1200) return "POST";
   return "CLOSED";
 }
 

@@ -6,8 +6,9 @@ import { safeWithDeadline } from "@/lib/safe-data";
 export const dynamic = "force-dynamic";
 
 // Bounded so the client's poll never hangs the page — but generous enough for
-// slow upstreams (a 5s provider response cannot masquerade as "unavailable").
-const LIVE_BUDGET_MS = 15_000;
+// slow/cold upstreams (Yahoo's retry can take ~18s worst-case before a valid
+// quote is produced; that must not masquerade as "unavailable").
+const LIVE_BUDGET_MS = 24_000;
 
 // Never cache anywhere: this is the real-time feed on the detail page.
 const NO_STORE = { "Cache-Control": "no-store, no-cache, must-revalidate" };
