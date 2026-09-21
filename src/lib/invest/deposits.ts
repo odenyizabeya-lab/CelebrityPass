@@ -21,7 +21,10 @@ import {
  * deposit intent, reference prefix, proof, pending status and admin queue is
  * method-specific so they can never be mixed up or approved across methods.
  *
- * This is the real-money path: no auto-credit, no card gateway, no simulation.
+ * Funds are NEVER credited until an admin verifies the customer's actual
+ * receipt. Approved credits land in the investor's simulated/demo balance —
+ * demo balances are simulated and have no real monetary value. Nothing is
+ * auto-credited on the browser's say-so.
  *
  *   1. createDepositIntent creates a PENDING ledger Transaction for the chosen
  *      method — nothing is ever credited until an admin verifies a real receipt.
@@ -611,8 +614,9 @@ export async function approveInvestDeposit(args: {
         subscribed = true;
       }
     } catch (err) {
-      // Cash is already credited. The investor can subscribe manually from
-      // their investor hub — never silently lose real money.
+      // Demo cash is already credited. The investor can subscribe manually from
+      // their investor hub — a rejected/errored subscribe never loses the
+      // credited balance (Demo balances are simulated — no real money moves).
       console.error("[invest-deposit] auto-subscribe failed:", err);
     }
   }

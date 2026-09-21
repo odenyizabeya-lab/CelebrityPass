@@ -24,12 +24,12 @@ import {
  *
  * Honest by construction:
  *  - With no provider configured the account stays NOT_CONNECTED and every
- *    order attempt is REJECTED with an honest reason — no fake order exists.
+ *    order attempt is REJECTED with an honest reason — no phantom order exists.
  *  - With Alpaca configured, orders are sent to the REAL Alpaca API (free
  *    paper trading by default). Executions, positions and transactions are
  *    created ONLY from data the provider actually reports back.
- *  - Paper-trading positions are marked isDemo=true and MUST be labeled
- *    DEMO / PAPER TRADING on every screen — no real money moves.
+ *  - All investor balances are simulated/demo: they carry no real monetary
+ *    value and exist only within this platform's ledger.
  */
 
 export const BROKERAGE_NOT_CONFIGURED =
