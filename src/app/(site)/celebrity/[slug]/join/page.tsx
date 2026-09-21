@@ -20,7 +20,7 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
   if (!celebrity.fansCardEnabled) redirect(`/celebrity/${celebrity.slug}`);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-14">
       <div className="mb-10 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: celebrity.accentColor }}>
           <T k="join.community" />
