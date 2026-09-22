@@ -217,6 +217,7 @@ export const ar: Dict = {
     getMyCard: "احصل على بطاقتي",
     proceed: "المتابعة إلى الدفع",
     proceedReady: "بياناتك صحيحة — تابِع إلى الدفع.",
+    readyToPay: "جاهز للدفع",
     backToProfile: "العودة إلى {name}",
   },
   auth: {

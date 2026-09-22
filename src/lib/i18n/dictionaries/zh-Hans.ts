@@ -217,6 +217,7 @@ export const zhHans: Dict = {
     getMyCard: "获取我的粉丝卡",
     proceed: "继续付款",
     proceedReady: "您的信息填写正确 — 继续付款。",
+    readyToPay: "准备付款",
     backToProfile: "返回 {name}",
   },
   auth: {

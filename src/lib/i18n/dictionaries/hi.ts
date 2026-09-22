@@ -217,6 +217,7 @@ export const hi: Dict = {
     getMyCard: "मेरा फैन कार्ड प्राप्त करें",
     proceed: "भुगतान के लिए आगे बढ़ें",
     proceedReady: "आपकी जानकारी सही है — भुगतान के लिए आगे बढ़ें।",
+    readyToPay: "भुगतान के लिए तैयार",
     backToProfile: "{name} पर वापस जाएँ",
   },
   auth: {

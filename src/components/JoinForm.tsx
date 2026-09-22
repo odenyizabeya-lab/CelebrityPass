@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/payments";
 import { fetchWithTimeout } from "@/lib/client-http";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
+import { tierPalette, PAYMENT_PALETTE, type TierPalette } from "@/lib/membership-colors";
 
 const COUNTRIES = [
   "Afghanistan", "Argentina", "Australia", "Austria", "Bangladesh", "Belgium", "Brazil", "Canada", "Chile", "China",
@@ -37,22 +38,30 @@ function LevelOptionThumb({
   celebrityName,
   imageUrl,
   accent,
+  pal,
+  selected = false,
 }: {
   tone: "standard" | "vip";
   tierName: string;
   celebrityName: string;
   imageUrl: string | null;
   accent: string;
+  pal?: TierPalette;
+  selected?: boolean;
 }) {
   const gold = "#fcd34d";
-  const neon = tone === "vip" ? gold : "#7dd3fc";
+  const neon = pal ? pal.accent : tone === "vip" ? gold : "#7dd3fc";
   const bg =
-    tone === "vip"
+    pal?.bg ??
+    (tone === "vip"
       ? "linear-gradient(120deg,#2b1045 0%,#6d28d9 42%,#1f1236 100%)"
-      : "linear-gradient(120deg,#0b1330 0%,#1e3a8a 48%,#0b1026 100%)";
+      : "linear-gradient(120deg,#0b1330 0%,#1e3a8a 48%,#0b1026 100%)");
   const first = celebrityName.trim().split(/\s+/)[0] ?? "";
   return (
-    <div className="relative w-full overflow-hidden rounded-xl shadow-lg ring-1 ring-white/15" style={{ background: bg, aspectRatio: "1.62 / 1" }}>
+    <div
+      className={`relative w-full overflow-hidden rounded-xl shadow-lg ring-1 transition ${selected ? "ring-emerald-200/70" : "ring-white/15"}`}
+      style={{ background: bg, aspectRatio: "1.62 / 1" }}
+    >
       <div className="pointer-events-none absolute -inset-x-6 -top-10 h-20 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       {tone === "vip" && (
         <div className="pointer-events-none absolute -left-6 top-1/3 h-24 w-16 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/15 to-transparent" />
@@ -236,46 +245,52 @@ export default function JoinForm({
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.membershipLevel")}</label>
           {standard.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {standard.map((m) => (
-                <label
-                  key={m.id}
-                  className={`relative cursor-pointer rounded-2xl border p-4 transition ${
-                    level === m.id
-                      ? "border-transparent text-white"
-                      : "border-white/10 bg-white/[0.03] hover:border-white/25"
-                  }`}
-                  style={
-                    level === m.id
-                      ? { backgroundImage: `linear-gradient(135deg, ${accent}, ${accent}B3)`, boxShadow: `0 12px 36px ${accent}59` }
-                      : undefined
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="level"
-                    value={m.id}
-                    checked={level === m.id}
-                    onChange={() => setLevel(m.id)}
-                    className="sr-only"
-                  />
-                  <div className="flex flex-col gap-4">
-                    <div>
-                      <span className={`text-sm font-bold ${level === m.id ? "text-white" : ""}`} style={level === m.id ? undefined : { color: accent }}>
-                        {m.name}
-                      </span>
-                      <span className={`ml-1.5 text-xs font-bold ${level === m.id ? "text-white/95" : "text-emerald-300"}`}>
-                        {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
-                      </span>
-                      <span className={`mt-1 block text-xs leading-relaxed ${level === m.id ? "text-white/85" : "text-zinc-400"}`}>
-                        {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
-                      </span>
+              {standard.map((m, i) => {
+                const pal = tierPalette(m.name, i);
+                const selected = level === m.id;
+                return (
+                  <label
+                    key={m.id}
+                    className={`relative cursor-pointer rounded-2xl border p-4 transition hover:brightness-110 ${
+                      selected ? "border-emerald-300 ring-2 ring-emerald-300/60" : "border-white/15 ring-1 ring-white/10"
+                    }`}
+                    style={{ background: selected ? PAYMENT_PALETTE.bg : pal.bg }}
+                  >
+                    <input
+                      type="radio"
+                      name="level"
+                      value={m.id}
+                      checked={selected}
+                      onChange={() => setLevel(m.id)}
+                      className="sr-only"
+                    />
+                    <div className="flex flex-col gap-4">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-white">{m.name}</span>
+                          <span className="shrink-0 text-xs font-bold text-white" style={!selected ? { color: pal.accent } : undefined}>
+                            {m.price != null && m.price > 0 ? formatMoney(m.price, m.currency) : formatMoney(0, m.currency)}
+                          </span>
+                        </div>
+                        <span className="mt-1 block text-xs leading-relaxed text-white/85">
+                          {m.description ?? m.benefits ?? t("join.fanCard", { name: celebrityName })}
+                        </span>
+                        {selected && (
+                          <span className="mt-2 inline-flex w-max items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-800">
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            {t("join.readyToPay")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-auto">
+                        <LevelOptionThumb tone="standard" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} pal={pal} selected={selected} />
+                      </div>
                     </div>
-                    <div className="mt-auto">
-                      <LevelOptionThumb tone="standard" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} />
-                    </div>
-                  </div>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </div>
           )}
 
@@ -285,17 +300,16 @@ export default function JoinForm({
                 {t("membership.signatureExperiences")} · {formatMoney(PREMIUM_MIN_PRICE, "USD")} to {formatMoney(3000000, "USD")}
               </p>
               <div className="space-y-3">
-                {premium.map((m) => {
+                {premium.map((m, i) => {
                   const selected = level === m.id;
+                  const pal = tierPalette(m.name, standard.length + i);
                   return (
                     <label
                       key={m.id}
-                      className={`relative block cursor-pointer rounded-2xl border p-4 transition sm:p-5 ${
-                        selected
-                          ? "border-transparent text-ink-900 shadow-[0_14px_44px_rgba(251,191,36,0.35)]"
-                          : "border-white/10 bg-white/[0.03] hover:border-amber-400/40"
+                      className={`relative block cursor-pointer rounded-2xl border p-4 transition hover:brightness-110 sm:p-5 ${
+                        selected ? "border-emerald-300 ring-2 ring-emerald-300/60" : "border-white/15 ring-1 ring-white/10"
                       }`}
-                      style={selected ? { background: "linear-gradient(120deg,#fbbf24,#f59e0b,#f97316)" } : undefined}
+                      style={{ background: selected ? PAYMENT_PALETTE.bg : pal.bg }}
                     >
                       <input
                         type="radio"
@@ -308,32 +322,40 @@ export default function JoinForm({
                       <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
                         <div>
                           <div className="flex flex-wrap items-center justify-between gap-3">
-                            <span className={`flex items-center gap-2 text-base font-black ${selected ? "text-ink-900" : "text-white"}`}>
+                            <span className="flex items-center gap-2 text-base font-black text-white">
                               {m.name}
                               <span
                                 className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ring-1 ${
-                                  selected ? "bg-ink-900/15 text-ink-900 ring-ink-900/30" : "bg-amber-400/15 text-amber-300 ring-amber-400/30"
+                                  selected ? "bg-white/25 text-white ring-white/40" : "bg-white/15 text-white ring-white/30"
                                 }`}
                               >
                                 Experience
                               </span>
                             </span>
-                            <span className={`text-base font-black ${selected ? "text-ink-900" : "text-amber-300"}`}>
+                            <span className="shrink-0 text-base font-black text-white" style={!selected ? { color: pal.accent } : undefined}>
                               {formatMoney(m.price ?? 0, m.currency)}
                             </span>
                           </div>
-                          <p className={`mt-1.5 text-sm font-medium ${selected ? "text-ink-900/80" : "text-zinc-300"}`}>{m.description}</p>
+                          {selected && (
+                            <span className="mt-1.5 inline-flex w-max items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-800">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              {t("join.readyToPay")}
+                            </span>
+                          )}
+                          <p className={`mt-1.5 text-sm font-medium ${selected ? "text-white/95" : "text-white/85"}`}>{m.description}</p>
                           <ul className="mt-3 space-y-1.5">
                             {benefitLines(m.benefits ?? m.description).map((line) => (
-                              <li key={line} className={`flex items-start gap-2 text-sm leading-relaxed ${selected ? "text-ink-900/75" : "text-zinc-400"}`}>
-                                <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-ink-900/80" : "bg-amber-400/80"}`} />
+                              <li key={line} className={`flex items-start gap-2 text-sm leading-relaxed ${selected ? "text-white/90" : "text-white/80"}`}>
+                                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/80" />
                                 {line}
                               </li>
                             ))}
                           </ul>
                         </div>
                         <div className="w-full max-w-[220px] sm:w-44">
-                          <LevelOptionThumb tone="vip" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} />
+                          <LevelOptionThumb tone="vip" tierName={m.name} celebrityName={celebrityName} imageUrl={imageUrl} accent={accent} pal={pal} selected={selected} />
                         </div>
                       </div>
                     </label>

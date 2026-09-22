@@ -21,6 +21,7 @@ import { safeAsync } from "@/lib/safe-data";
 import { tryParseJson } from "@/lib/utils";
 import type { MembershipLevelType } from "@/lib/utils";
 import { PROFILE_TYPE_LABELS } from "@/lib/profiles/classes";
+import { tierPalette, type TierPalette } from "@/lib/membership-colors";
 
 import { BottomNav } from "@/components/invest-app/BottomNav";
 import InvestHomeEmbed from "@/components/invest-app/InvestHomeEmbed";
@@ -585,7 +586,7 @@ export default async function CelebrityPage({ params }: Props) {
             <T k="membership.to" /> {formatMoney(3000000, "USD")}.
           </p>
           <div className="mt-6 space-y-8">
-            {premiumTiers.map((level) => (
+            {premiumTiers.map((level, i) => (
               <SignatureExperienceCard
                 key={level.id}
                 level={level}
@@ -593,6 +594,7 @@ export default async function CelebrityPage({ params }: Props) {
                 celebrityName={celebrity.name}
                 imageUrl={celebrity.profileImageUrl}
                 firstName={firstName}
+                index={standardTiers.length + i}
               />
             ))}
           </div>
@@ -656,6 +658,7 @@ async function LevelCardGraphic({
   imageUrl,
   firstName,
   qrValue,
+  pal,
 }: {
   variant: "standard" | "vip" | "elite";
   name: string;
@@ -666,17 +669,19 @@ async function LevelCardGraphic({
   imageUrl: string | null;
   firstName: string;
   qrValue: string;
+  pal?: TierPalette;
 }) {
   const qr = await cardQrSvg(qrValue);
   const taglines = variant === "vip" || variant === "elite" ? CARD_TAGLINES.vip : CARD_TAGLINES.standard;
-  const neon = variant === "standard" ? "#7dd3fc" : "#fcd34d";
+  const neon = pal ? pal.accent : variant === "standard" ? "#7dd3fc" : "#fcd34d";
   const gold = "#fcd34d";
-  const bg =
+  const fallbackBg =
     variant === "elite"
       ? "linear-gradient(125deg,#1b1510 0%,#3a2b16 46%,#0b0c10 100%)"
       : variant === "vip"
         ? "linear-gradient(120deg,#2b1045 0%,#6d28d9 42%,#1f1236 100%)"
         : "linear-gradient(120deg,#0b1330 0%,#1e3a8a 48%,#0b1026 100%)";
+  const bg = pal?.bg ?? fallbackBg;
 
   return (
     <div
@@ -795,25 +800,24 @@ function MembershipLevelCard({
   levelNumber: number;
 }) {
   const popular = variant === "vip";
+  const pal = tierPalette(level.name, levelNumber - 1);
   const features = benefitLines(level.benefits ?? level.description);
   const featureList = features.length > 0 ? features : [...CARD_DEFAULT_FEATURES[variant]];
   const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 ${
-        popular
-          ? "bg-gradient-to-br from-fuchsia-950/40 via-ink-900 to-ink-900 shadow-[0_24px_80px_-24px_rgba(168,85,247,0.45)] ring-2 ring-amber-400/40"
-          : "bg-gradient-to-br from-sky-950/40 via-ink-900 to-ink-900 shadow-[0_24px_80px_-24px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/25"
+      className={`relative overflow-hidden rounded-3xl p-6 ring-2 shadow-2xl sm:p-8 ${
+        popular ? "ring-amber-300/50" : "ring-white/15"
       }`}
+      style={{ background: pal.bg }}
     >
       <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.15fr]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1 ${
-                popular ? "bg-amber-400/10 text-amber-300 ring-amber-400/40" : "bg-sky-400/10 text-sky-300 ring-sky-400/40"
-              }`}
+              className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1"
+              style={{ color: pal.accent, backgroundColor: "rgba(255,255,255,0.12)", borderColor: pal.accent }}
             >
               Level {levelNumber}
             </span>
@@ -831,24 +835,20 @@ function MembershipLevelCard({
             )}
           </div>
 
-          <h3
-            className={`mt-3 text-3xl font-black tracking-tight sm:text-4xl ${
-              popular ? "bg-gradient-to-r from-amber-200 via-amber-300 to-fuchsia-300 bg-clip-text text-transparent" : "text-white"
-            }`}
-          >
+          <h3 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
             {level.name}
           </h3>
-          <p className="mt-2 text-base leading-relaxed text-zinc-400">
-            {popular ? "Everything in Premium, plus so much more." : `Official digital fan card for ${celebrityName}`}
+          <p className="mt-2 text-base leading-relaxed text-white/75">
+            {pal.blurb ?? (popular ? "Everything in Premium, plus so much more." : `Official digital fan card for ${celebrityName}`)}
           </p>
-          <p className={`mt-3 text-2xl font-black ${popular ? "text-fuchsia-300" : "text-sky-300"}`}>
+          <p className="mt-3 text-2xl font-black" style={{ color: pal.accent }}>
             {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
           </p>
 
           <ul className="mt-4 space-y-2">
             {featureList.map((f) => (
-              <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
-                <svg className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-white/80">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-white/70" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 {f}
@@ -858,19 +858,16 @@ function MembershipLevelCard({
 
           <Link
             href={qrValue}
-            className={`mt-6 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition hover:brightness-110 active:scale-[0.98] ${
-              popular
-                ? "bg-gradient-to-r from-pink-500 via-orange-500 to-amber-400 shadow-[0_10px_30px_-6px_rgba(244,114,182,0.55)]"
-                : "bg-sky-500 shadow-[0_10px_30px_-6px_rgba(56,189,248,0.5)]"
-            }`}
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition hover:brightness-110 active:scale-[0.98]"
+            style={{ background: pal.button, color: pal.buttonText }}
           >
             <T k="membership.chooseLevel" />
             <span aria-hidden>›</span>
           </Link>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 sm:grid-cols-4">
             {CARD_ICONS[variant].map((Icon, i) => (
-              <div key={CARD_ICON_LABELS[variant][i]} className="flex items-center gap-2 text-xs text-zinc-400">
+              <div key={CARD_ICON_LABELS[variant][i]} className="flex items-center gap-2 text-xs text-white/75">
                 <Icon />
                 <span>{CARD_ICON_LABELS[variant][i]}</span>
               </div>
@@ -889,6 +886,7 @@ function MembershipLevelCard({
             imageUrl={imageUrl}
             firstName={firstName}
             qrValue={qrValue}
+            pal={pal}
           />
         </div>
       </div>
@@ -902,45 +900,54 @@ function SignatureExperienceCard({
   celebrityName,
   imageUrl,
   firstName,
+  index = 0,
 }: {
   level: MembershipLevelType;
   slug: string;
   celebrityName: string;
   imageUrl: string | null;
   firstName: string;
+  index?: number;
 }) {
+  const pal = tierPalette(level.name, index);
   const features = benefitLines(level.benefits ?? level.description);
   const featureList = features.length > 0 ? features : [];
   const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950/40 via-ink-900 to-ink-900 p-6 shadow-[0_24px_80px_-24px_rgba(245,158,11,0.4)] ring-2 ring-amber-400/40 sm:p-8">
+    <div
+      className="relative overflow-hidden rounded-3xl p-6 ring-2 ring-white/20 shadow-2xl sm:p-8"
+      style={{ background: pal.bg }}
+    >
       <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.15fr]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-amber-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-amber-300 ring-1 ring-amber-400/40">
+            <span
+              className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1"
+              style={{ color: pal.accent, backgroundColor: "rgba(255,255,255,0.12)", borderColor: pal.accent }}
+            >
               Signature Experience
             </span>
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-orange-500 text-ink-900">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-white/25 text-white">
               <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z" />
               </svg>
             </span>
           </div>
 
-          <h3 className="mt-3 bg-gradient-to-r from-amber-200 via-amber-300 to-rose-300 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
+          <h3 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
             {level.name}
           </h3>
-          {level.description && <p className="mt-2 text-base font-medium text-zinc-300">{level.description}</p>}
-          <p className="mt-3 text-2xl font-black text-amber-300">
+          {level.description && <p className="mt-2 text-base font-medium text-white/80">{level.description}</p>}
+          <p className="mt-3 text-2xl font-black" style={{ color: pal.accent }}>
             {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
           </p>
 
           {featureList.length > 0 && (
             <ul className="mt-4 space-y-2">
               {featureList.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-300">
-                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <li key={f} className="flex items-start gap-2.5 text-sm leading-relaxed text-white/80">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   {f}
@@ -951,15 +958,16 @@ function SignatureExperienceCard({
 
           <Link
             href={qrValue}
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-pink-500 via-orange-500 to-amber-400 px-7 py-3 text-sm font-bold text-white shadow-[0_10px_30px_-6px_rgba(245,158,11,0.55)] transition hover:brightness-110 active:scale-[0.98]"
+            className="mt-6 inline-flex items-center justify-center rounded-full px-7 py-3 text-sm font-bold transition hover:brightness-110 active:scale-[0.98]"
+            style={{ background: pal.button, color: pal.buttonText }}
           >
             <T k="membership.chooseLevel" />
             <span className="ml-2" aria-hidden>›</span>
           </Link>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 sm:grid-cols-4">
             {CARD_ICONS.vip.map((Icon, i) => (
-              <div key={CARD_ICON_LABELS.vip[i]} className="flex items-center gap-2 text-xs text-zinc-400">
+              <div key={CARD_ICON_LABELS.vip[i]} className="flex items-center gap-2 text-xs text-white/75">
                 <Icon />
                 <span>{CARD_ICON_LABELS.vip[i]}</span>
               </div>
@@ -978,6 +986,7 @@ function SignatureExperienceCard({
             imageUrl={imageUrl}
             firstName={firstName}
             qrValue={qrValue}
+            pal={pal}
           />
         </div>
       </div>

@@ -223,6 +223,7 @@ export const en = {
     getMyCard: "Get My Fan Card",
     proceed: "Proceed to Payment",
     proceedReady: "Your details look good — continue to payment.",
+    readyToPay: "Ready for payment",
     backToProfile: "Back to {name}",
   },
   auth: {
