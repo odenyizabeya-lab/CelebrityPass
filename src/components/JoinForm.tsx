@@ -6,9 +6,9 @@ import { useState } from "react";
 import type { MembershipLevelType } from "@/lib/utils";
 import { formatMoney } from "@/lib/payments";
 import { fetchWithTimeout } from "@/lib/client-http";
-import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { tierPalette, PAYMENT_PALETTE, type TierPalette } from "@/lib/membership-colors";
+import { CardBarcode, CardBrandTab, CardFrame, CardGuilloche } from "@/components/card-bits";
 
 const COUNTRIES = [
   "Afghanistan", "Argentina", "Australia", "Austria", "Bangladesh", "Belgium", "Brazil", "Canada", "Chile", "China",
@@ -59,45 +59,57 @@ function LevelOptionThumb({
   const first = celebrityName.trim().split(/\s+/)[0] ?? "";
   return (
     <div
-      className={`relative w-full overflow-hidden rounded-xl shadow-lg ring-1 transition ${selected ? "ring-emerald-200/70" : "ring-white/15"}`}
-      style={{ background: bg, aspectRatio: "1.62 / 1" }}
+      className={`relative w-full overflow-hidden rounded-[16px] shadow-lg ring-1 transition ${selected ? "ring-emerald-200/70" : "ring-white/15"}`}
+      style={{ background: bg, aspectRatio: "85.6 / 54" }}
     >
+      <CardGuilloche color={neon} />
       <div className="pointer-events-none absolute -inset-x-6 -top-10 h-20 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       {tone === "vip" && (
         <div className="pointer-events-none absolute -left-6 top-1/3 h-24 w-16 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/15 to-transparent" />
       )}
-      <div className="relative flex h-full flex-col justify-between p-2.5">
-        <div className="flex items-start justify-between">
-          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white">
-            Celebrity<span style={{ color: neon }}>Pass</span>
-          </span>
-          <span className="grid h-5 w-5 place-items-center rounded-md bg-white text-[8px] font-black text-ink-900 shadow">
-            <Logo size="xs" className="rounded-md shadow-md" />
+      <CardFrame />
+      <div className="relative flex h-full flex-col p-[5.5%]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <CardBrandTab />
+            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white">
+              Celebrity<span style={{ color: neon }}>Pass</span>
+            </span>
+          </div>
+          <span className="rounded-full bg-emerald-100/90 px-1.5 py-px text-[6px] font-black uppercase tracking-[0.12em] text-emerald-900">
+            Active
           </span>
         </div>
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.1em] text-white">{tierName}</p>
-          <p className="text-[7px] font-bold uppercase tracking-[0.32em] text-white/70">Official Fan Card</p>
+        <div className="mt-[3%] min-h-0 flex-1">
+          <p className="truncate text-sm font-black uppercase tracking-[0.1em] text-white">{tierName}</p>
+          <p className="text-[6.5px] font-bold uppercase tracking-[0.3em] text-white/70">Official Fan Card</p>
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <div className="h-7 w-7 shrink-0 overflow-hidden rounded-md ring-1 ring-white/40">
-              {imageUrl ? (
-                <Image src={imageUrl} alt="" width={28} height={36} className="h-full w-full object-cover" unoptimized />
-              ) : (
-                <div className="grid h-full w-full place-items-center text-[10px] font-black text-white" style={{ backgroundColor: accent }}>
-                  {first[0] ?? "C"}
-                </div>
-              )}
+            <div className="relative h-9 w-8 shrink-0 overflow-hidden rounded-[6px] bg-white/90 p-[1px] shadow-inner">
+              <div className="h-full w-full overflow-hidden bg-neutral-200">
+                {imageUrl ? (
+                  <Image src={imageUrl} alt="" width={32} height={40} className="h-full w-full object-cover object-top" unoptimized />
+                ) : (
+                  <div className="grid h-full w-full place-items-center text-[10px] font-black text-white" style={{ backgroundColor: accent }}>
+                    {first[0] ?? "C"}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              {first && <p className="text-[8px] font-black uppercase tracking-[0.08em] text-white">{first.toUpperCase()}</p>}
-              <p className="text-[7px] font-bold uppercase tracking-[0.18em] text-white/55">Member</p>
+            <div className="min-w-0">
+              {first && <p className="truncate text-[8px] font-black uppercase tracking-[0.08em] text-white">{first.toUpperCase()}</p>}
+              <p className="text-[6.5px] font-bold uppercase tracking-[0.18em] text-white/55">Member</p>
             </div>
           </div>
-          <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: neon }}>
-            {tone === "vip" ? "VIP" : "PREMIUM"}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <div className="hidden h-3.5 w-[38px] shrink-0 overflow-hidden rounded-[2px] bg-white/[0.08] px-0.5 text-white/60 ring-1 ring-white/10 sm:block">
+              <CardBarcode seed={`thumb:${tierName}:${celebrityName}`} className="opacity-90" />
+            </div>
+            <span className="shrink-0 text-[7px] font-black uppercase tracking-widest" style={{ color: neon }}>
+              {tone === "vip" ? "VIP" : "PREMIUM"}
+            </span>
+          </div>
         </div>
       </div>
     </div>

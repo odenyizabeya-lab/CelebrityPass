@@ -2,6 +2,7 @@ import Image from "next/image";
 import { formatDate, tryParseJson, type CardDesign } from "@/lib/utils";
 import T from "./T";
 import VerifiedBadge from "./VerifiedBadge";
+import { CardBarcode, CardBrandTab, CardChip, CardFrame, CardGuilloche } from "./card-bits";
 
 export type CardViewData = {
   fanNumber: string;
@@ -25,170 +26,175 @@ export type CardViewData = {
 };
 
 const STATUS_BADGE: Record<string, { key: string; cls: string }> = {
-  ACTIVE: { key: "fanCard.statusActive", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" },
-  SUSPENDED: { key: "fanCard.statusSuspended", cls: "bg-rose-500/15 text-rose-300 ring-rose-400/30" },
-  EXPIRED: { key: "fanCard.statusExpired", cls: "bg-zinc-500/15 text-zinc-300 ring-zinc-400/30" },
+  ACTIVE: { key: "fanCard.statusActive", cls: "bg-emerald-100/90 text-emerald-900" },
+  SUSPENDED: { key: "fanCard.statusSuspended", cls: "bg-rose-100/90 text-rose-900" },
+  EXPIRED: { key: "fanCard.statusExpired", cls: "bg-zinc-200/90 text-zinc-800" },
 };
 
 // Cards at or above this price render in the premium black-gold "ELITE" skin.
 const PREMIUM_MIN_PRICE = 2500;
 
-/** Renders an official fan membership card for the given card data. */
+/** Renders an official, realistic membership ID card (front face only). */
 export default function FanCardView({ card }: { card: CardViewData }) {
   const design = tryParseJson<CardDesign>(card.celebrity.cardDesign, {
     primary: card.celebrity.accentColor,
   });
   const premium = (card.membershipPrice ?? 0) >= PREMIUM_MIN_PRICE;
   const primary = design.primary || card.celebrity.accentColor;
-  const accent = premium ? "#f0b429" : design.accent || "#f59e0b";
-  const gradientFrom = primary;
-  const gradientTo = "#0b0c10";
-  const status = STATUS_BADGE[card.status] ?? { key: null, cls: "bg-zinc-500/15 text-zinc-300" };
-  const badgeText = premium ? "ELITE EXPERIENCE" : design.badgeText ?? "FAN CARD";
-  const watermark = premium ? "OFFICIAL ELITE MEMBER" : design.watermark ?? "Official Fan Member";
+  const status = STATUS_BADGE[card.status] ?? { key: null, cls: "bg-zinc-200/90 text-zinc-800" };
+  const initials = card.celebrity.name.split(" ").slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase();
+  const classLabel = premium ? "ELITE" : card.membershipName ?? "STANDARD";
+  const brandAccent = premium ? "#f0c75e" : "#ffffff";
+  const fail = "FFFFFFFF";
 
   return (
-    <div className="w-full max-w-2xl">
-      <div
-        className={`relative overflow-hidden rounded-3xl shadow-2xl ${
-          premium ? "ring-2 ring-amber-400/60" : "ring-1 ring-white/15"
-        }`}
-        style={{
-          background: premium
-            ? "linear-gradient(125deg, #1b1510 0%, #3a2b16 46%, #0b0c10 100%)"
-            : `linear-gradient(125deg, ${gradientFrom} 0%, #27104a 46%, ${gradientTo} 100%)`,
-        }}
-      >
-        {/* Holographic shine */}
-        <div className="pointer-events-none absolute -inset-x-10 -top-24 h-48 rotate-6 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-        {premium && (
-          <div className="pointer-events-none absolute -left-10 top-1/3 h-40 w-32 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-300/15 to-transparent" />
-        )}
-
-        {/* Watermark */}
+    <div className="flex w-full flex-col items-center">
+      {/* Camera-height finish: the card floats with a soft platform shadow like a
+          native app ID preview. */}
+      <div className="w-full max-w-[560px]">
         <div
-          className="pointer-events-none absolute inset-0 grid place-items-center opacity-[0.05]"
-          aria-hidden
+          className="relative w-full select-none overflow-hidden rounded-[22px] shadow-[0_30px_70px_-20px_rgba(0,0,0,0.85),0_8px_24px_-8px_rgba(0,0,0,0.6)] ring-1 ring-white/15"
+          style={{ aspectRatio: "85.6 / 54", background: premium ? "linear-gradient(135deg,#171310 0%,#3b2b12 42%,#0c0a07 100%)" : `linear-gradient(135deg,${primary} 0%,#241a4d 52%,#0a0b12 100%)` }}
         >
-          <span className="text-6xl font-black tracking-widest" style={{ color: "#fff" }}>
-            {card.celebrity.name.split(" ").slice(0, 2).map((w) => w[0]).join("")}
-          </span>
-        </div>
+          {/* Printed look: guilloche + edge lighting + hologram sheen */}
+          <CardGuilloche color={premium ? "#f0c75e" : brandAccent} />
+          <div className="pointer-events-none absolute -inset-x-8 -top-24 h-48 rotate-6 bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+          {premium && (
+            <div className="pointer-events-none absolute -left-12 top-1/4 h-44 w-36 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/[0.12] to-transparent" />
+          )}
 
-        <div className="relative p-6 sm:p-8">
-          {/* Top row */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 overflow-hidden rounded-xl bg-ink-900 p-1 ring-2 ring-white/40">
-                {card.celebrity.profileImage ? (
-                  <Image
-                    src={`/images/${card.celebrity.slug}/profile`}
-                    alt={card.celebrity.name}
-                    width={64}
-                    height={80}
-                    sizes="64px"
-                    unoptimized
-                    className="h-full w-full rounded-lg object-contain object-top"
-                  />
-                ) : (
-                  <div
-                    className="grid h-full w-full place-items-center rounded-lg text-base font-black text-white"
-                    style={{ backgroundColor: primary }}
-                  >
-                    {card.celebrity.name[0]}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                  <T k="fanCard.official" />
-                </p>
-                <p className="flex items-center gap-1 text-lg font-black leading-tight text-white">
-                  {card.celebrity.name}
-                  {card.celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
-                </p>
-              </div>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${status.cls}`}>
-              ● {status.key ? <T k={status.key} /> : card.status}
-            </span>
-          </div>
+          {/* Inner printed frame (double-line border like a government ID) */}
+          <CardFrame />
 
-          {/* Celebrity cover strip */}
-          <div className="mt-4 h-20 overflow-hidden rounded-xl ring-1 ring-white/15">
-            {card.celebrity.coverImage ? (
-              <Image
-                src={card.celebrity.coverImage}
-                alt=""
-                fill
-                sizes="(max-width: 672px) 90vw, 608px"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div style={{ background: `linear-gradient(100deg, ${accent}, transparent)` }} className="h-full w-full" />
-            )}
-          </div>
-
-          {/* Middle: member identity + QR */}
-          <div className="mt-5 flex items-center justify-between gap-6">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60"><T k="membership.cardHolder" /></p>
-              <p className="truncate text-xl font-black tracking-tight text-white">{card.fanName}</p>
-              <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-                <span className="font-medium text-white/70"><T k="fanCard.fanId" /></span>
-                <span className="font-mono font-bold tracking-wide text-white">{card.fanNumber}</span>
-                <span className="font-medium text-white/70"><T k="fanCard.membership" /></span>
-                <span className="font-semibold text-white">{card.membershipName ?? "Standard"}</span>
-                <span className="font-medium text-white/70"><T k="fanCard.country" /></span>
-                <span className="font-semibold text-white">{card.fanCountry ?? "—"}</span>
-                <span className="font-medium text-white/70"><T k="fanCard.issued" /></span>
-                <span className="font-semibold text-white">{formatDate(card.registeredAt)}</span>
-              </div>
-            </div>
-
-            <div className="shrink-0 rounded-2xl bg-white p-2.5 shadow-lg">
-              {card.qrCode ? (
-                <Image
-                  src={card.qrCode}
-                  alt={`QR code for ${card.fanNumber}`}
-                  width={104}
-                  height={104}
-                  className="h-24 w-24 sm:h-24 sm:w-24"
-                  unoptimized
-                />
-              ) : (
-                <div className="grid h-24 w-24 place-items-center text-center text-[10px] font-semibold text-ink-600">
-                  <T k="fanCard.statusActive" />
-                  <br />
-                  <T k="fanCard.membership" />
+          <div className="relative flex h-full flex-col p-[6%]">
+            {/* ===== Header band ===== */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardBrandTab />
+                <div className="leading-none">
+                  <p className="text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: brandAccent }}>
+                    Celebrity<span className="opacity-80">Pass</span>
+                  </p>
+                  <p className="mt-0.5 text-[6.5px] font-bold uppercase tracking-[0.28em] text-white/60">
+                    Official Membership Card
+                  </p>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bottom: chip + card url + badge */}
-          <div className="mt-6 flex items-end justify-between border-t border-white/15 pt-4">
-            <div>
-              <div className="flex gap-1.5">
-                <span className="h-7 w-9 rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600" />
-                <span className="h-7 w-9 rounded-md bg-gradient-to-br from-white/30 to-white/5 ring-1 ring-white/20" />
               </div>
-              <p className="mt-2 text-[11px] text-white/55">{card.cardUrl ?? "/celebrity/" + card.celebrity.slug}</p>
+              <div className="flex items-center gap-2">
+                {card.celebrity.isVerified && (
+                  <VerifiedBadge className="h-3.5 w-3.5" />
+                )}
+                <span className={`rounded-full px-2 py-0.5 text-[7.5px] font-black uppercase tracking-[0.12em] ${status.cls}`}>
+                  {status.key ? <T k={status.key} /> : card.status}
+                </span>
+              </div>
             </div>
-            <div className="text-right">
-              <p
-                className="text-[10px] font-black uppercase tracking-[0.2em]"
-                style={{ color: accent }}
-              >
-                {badgeText}
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-widest text-white/50">
-                {watermark}
-              </p>
+
+            {/* ===== Body: photo + ID details ===== */}
+            <div className="mt-[6%] flex min-h-0 flex-1 items-stretch gap-[4.5%]">
+              {/* Photo panel (mounted like a license photo) */}
+              <div className="relative w-[24%] shrink-0 overflow-hidden rounded-[10px] bg-white/90 p-[2.5%] shadow-inner">
+                <div className="relative h-full w-full overflow-hidden bg-neutral-200">
+                  {card.celebrity.profileImage ? (
+                    <Image
+                      src={`/images/${card.celebrity.slug}/profile`}
+                      alt={card.celebrity.name}
+                      width={120}
+                      height={150}
+                      sizes="120px"
+                      unoptimized
+                      className="h-full w-full object-cover object-top"
+                    />
+                  ) : (
+                    <div
+                      className="grid h-full w-full place-items-center text-lg font-black text-white"
+                      style={{ backgroundColor: primary }}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                <p className="absolute inset-x-0 bottom-0 bg-white/70 py-[3%] text-center text-[5.5px] font-bold uppercase tracking-[0.2em] text-neutral-600">
+                  Fan Card
+                </p>
+              </div>
+
+              {/* ID details */}
+              <div className="flex min-w-0 flex-1 flex-col justify-between gap-[3%]">
+                <div className="min-w-0">
+                  <p className="text-[7px] font-bold uppercase tracking-[0.24em] text-white/55"><T k="membership.cardHolder" /></p>
+                  <p className="truncate text-[clamp(12px,2.4vw,19px)] font-black uppercase leading-tight tracking-[0.04em] text-white">
+                    {card.fanName.trim() || "—"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-[8%] gap-y-[4%]">
+                  <div className="min-w-0">
+                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.fanId" /></p>
+                    <p className="font-mono text-[clamp(8px,1.5vw,12px)] font-bold tracking-[0.08em] text-white">
+                      {card.fanNumber}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50">Class</p>
+                    <p className="truncate text-[clamp(8px,1.5vw,12px)] font-black uppercase tracking-[0.06em] text-white">
+                      {classLabel}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.country" /></p>
+                    <p className="truncate text-[clamp(8px,1.5vw,12px)] font-bold text-white">
+                      {card.fanCountry || "—"}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.issued" /></p>
+                    <p className="text-[clamp(8px,1.5vw,12px)] font-bold text-white">
+                      {formatDate(card.registeredAt)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ===== Bottom strip: chip + barcode + member # ===== */}
+            <div className="mt-[5%] flex items-center justify-between gap-[4%] border-t border-white/15 pt-[3.5%]">
+              <div className="flex shrink-0 items-center gap-2">
+                <CardChip tone={premium ? "gold" : "brand"} />
+                <div className="hidden leading-none sm:block">
+                  <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member since</p>
+                  <p className="mt-0.5 text-[9px] font-black text-white">{formatDate(card.registeredAt).slice(-4)}</p>
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-1 items-center justify-end gap-[4%]">
+                <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-[4px] bg-white/[0.08] px-1 py-[5%] text-white/70 ring-1 ring-white/10">
+                  <CardBarcode seed={`${card.fanNumber}:${card.celebrity.slug}:${fail}`} className="opacity-90" />
+                </div>
+                <div className="shrink-0 overflow-hidden rounded-lg bg-white p-[3px] shadow-md ring-1 ring-white/30">
+                  {card.qrCode ? (
+                    <Image
+                      src={card.qrCode}
+                      alt={`QR code for ${card.fanNumber}`}
+                      width={64}
+                      height={64}
+                      className="h-9 w-9 sm:h-11 sm:w-11"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="grid h-9 w-9 place-items-center text-[6px] font-bold text-neutral-600 sm:h-11 sm:w-11">
+                      CP
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Micro-credential line under the card (also part of the "real card" feel) */}
+        <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+          {premium ? "Elite Experience · Signature Collection" : "CelebrityPass · Verified Membership"}
+        </p>
       </div>
     </div>
   );

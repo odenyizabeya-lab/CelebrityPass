@@ -8,6 +8,7 @@ import T from "@/components/T";
 import BackButton from "@/components/BackButton";
 import EmptyState from "@/components/EmptyState";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { CardBarcode, CardBrandTab, CardChip, CardFrame, CardGuilloche } from "@/components/card-bits";
 import GooglePanel from "@/components/GooglePanel";
 import Logo from "@/components/Logo";
 import ChatNowButton from "@/components/chat/ChatNowButton";
@@ -685,18 +686,20 @@ async function LevelCardGraphic({
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15"
-      style={{ background: bg, aspectRatio: "1.62 / 1" }}
+      className="relative w-full overflow-hidden rounded-[22px] shadow-[0_28px_60px_-20px_rgba(0,0,0,0.85),0_8px_20px_-8px_rgba(0,0,0,0.6)] ring-1 ring-white/15"
+      style={{ background: bg, aspectRatio: "85.6 / 54" }}
     >
+      <CardGuilloche color={neon} />
       <div className="pointer-events-none absolute -inset-x-8 -top-16 h-40 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       {(variant === "vip" || variant === "elite") && (
         <div className="pointer-events-none absolute -left-8 top-1/3 h-32 w-24 rotate-[24deg] bg-gradient-to-r from-transparent via-amber-200/15 to-transparent" />
       )}
-      <div className="pointer-events-none absolute inset-0 grid place-items-center opacity-[0.06]" aria-hidden>
+      <div className="pointer-events-none absolute inset-0 grid place-items-center opacity-[0.05]" aria-hidden>
         <span className="text-7xl font-black tracking-widest text-white">
           {name.split(" ").slice(0, 2).map((w) => w[0]).join("")}
         </span>
       </div>
+      <CardFrame />
 
       {/* Vertical tagline strip (right edge) */}
       <div className="absolute inset-y-4 right-1.5 z-10 hidden flex-col items-center justify-center gap-1.5 sm:flex">
@@ -1030,55 +1033,106 @@ function SocialLinksRow({ links }: { links: CanonicalSocialLinks }) {
 
 function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
   const design = tryParseJson<{ accent?: string; badgeText?: string }>(celebrity.cardDesign ? JSON.stringify(celebrity.cardDesign) : null, {});
-  const accent = design.accent ?? "#f59e0b";
   return (
     <Link
       href={`/celebrity/${celebrity.slug}/join`}
       aria-label={`Get your fan card for ${celebrity.name}`}
-      className="group relative block overflow-hidden rounded-2xl shadow-xl ring-1 ring-white/10 transition hover:ring-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+      className="group relative block w-full overflow-hidden rounded-[22px] shadow-[0_24px_50px_-18px_rgba(0,0,0,0.8),0_6px_18px_-8px_rgba(0,0,0,0.55)] ring-1 ring-white/15 transition hover:ring-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
       style={{
-        background: `linear-gradient(130deg, ${celebrity.accentColor}, #27104a 45%, #0b0c10)`,
+        aspectRatio: "85.6 / 54",
+        background: `linear-gradient(135deg, ${celebrity.accentColor}, #241a4d 52%, #0a0b12 100%)`,
       }}
     >
-      <div className="pointer-events-none absolute -inset-x-10 -top-20 h-40 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      <div className="relative p-5">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-white/20 text-sm font-black text-white backdrop-blur-sm">
-            {celebrity.name.slice(0, 1)}
-          </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-sm font-black text-white">{celebrity.name}</p>
-              {celebrity.isVerified && <VerifiedBadge className="h-4 w-4" />}
+      <CardGuilloche color="#ffffff" />
+      <div className="pointer-events-none absolute -inset-x-8 -top-20 h-40 rotate-6 bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+      <CardFrame />
+
+      <div className="relative flex h-full flex-col p-[5.5%]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardBrandTab />
+            <div className="leading-none">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white">
+                Celebrity<span className="opacity-80">Pass</span>
+              </p>
+              <p className="mt-0.5 text-[6px] font-bold uppercase tracking-[0.28em] text-white/60">
+                Official Fan Card
+              </p>
             </div>
-            <p className="text-[10px] uppercase tracking-widest text-white/60"><T k="membership.officialMembership" /></p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {celebrity.isVerified && <VerifiedBadge className="h-3.5 w-3.5" />}
+            <span className="rounded-full bg-emerald-100/90 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-emerald-900">
+              <T k="fanCard.statusActive" />
+            </span>
           </div>
         </div>
-        <div className="mt-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-white/50"><T k="membership.cardHolder" /></p>
-            <p className="text-base font-black text-white/80"><T k="membership.yourNameHere" /></p>
-            <p className="mt-1.5 font-mono text-[11px] text-white/70">
-              FC-000000
-              <span className="ml-2 text-white/50"><T k="membership.sampleId" /></span>
+
+        <div className="mt-[5%] flex min-h-0 flex-1 items-stretch gap-[4.5%]">
+          <div className="relative w-[24%] shrink-0 overflow-hidden rounded-[10px] bg-white/90 p-[2.5%] shadow-inner">
+            <div
+              className="grid h-full w-full place-items-center"
+              style={{ backgroundColor: celebrity.accentColor }}
+            >
+              <span className="text-lg font-black text-white">
+                {celebrity.name.slice(0, 1)}
+              </span>
+            </div>
+            <p className="absolute inset-x-0 bottom-0 bg-white/70 py-[3%] text-center text-[5px] font-bold uppercase tracking-[0.2em] text-neutral-600">
+              Fan Card
             </p>
           </div>
-          <div className="rounded-md bg-white p-1.5">
-            <div className="grid h-12 w-12 place-items-center text-[8px] font-bold text-ink-600">YOUR QR</div>
+
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-[3%]">
+            <div className="min-w-0">
+              <p className="text-[7px] font-bold uppercase tracking-[0.24em] text-white/55"><T k="membership.cardHolder" /></p>
+              <p className="truncate text-[clamp(12px,2.2vw,18px)] font-black uppercase leading-tight tracking-[0.04em] text-white/90">
+                <T k="membership.yourNameHere" />
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-[8%] gap-y-[4%]">
+              <div className="min-w-0">
+                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member ID</p>
+                <p className="font-mono text-[clamp(8px,1.4vw,11px)] font-bold tracking-[0.08em] text-white/90">
+                  FC-000000 <span className="text-white/50"><T k="membership.sampleId" /></span>
+                </p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Class</p>
+                <p className="truncate text-[clamp(8px,1.4vw,11px)] font-black uppercase tracking-[0.06em] text-white/90">
+                  {design.badgeText ?? "FAN CARD"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-between border-t border-white/15 pt-3">
-          <span className="h-4 w-6 rounded-sm bg-gradient-to-br from-amber-200 to-amber-600" />
-          <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: accent }}>
-            {design.badgeText ?? "FAN CARD"}
-          </p>
-          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.15em] text-white/70 transition group-hover:text-white">
-            Get your fan card
-            <svg className="h-3 w-3 transition group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </span>
+
+        <div className="mt-[4%] flex items-center justify-between gap-[4%] border-t border-white/15 pt-[3%]">
+          <div className="flex shrink-0 items-center gap-2">
+            <CardChip tone="brand" />
+            <div className="hidden leading-none sm:block">
+              <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member since</p>
+              <p className="mt-0.5 text-[9px] font-black text-white">----</p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-[4%]">
+            <div className="h-5 min-w-0 flex-1 overflow-hidden rounded-[4px] bg-white/[0.08] px-1 py-[5%] text-white/70 ring-1 ring-white/10">
+              <CardBarcode seed={`preview:${celebrity.slug}`} className="opacity-90" />
+            </div>
+            <div className="shrink-0 overflow-hidden rounded-lg bg-white p-[3px] shadow-md ring-1 ring-white/30">
+              <div className="grid h-8 w-8 place-items-center text-[7px] font-black tracking-tight text-neutral-500 sm:h-9 sm:w-9">
+                YOUR QR
+              </div>
+            </div>
+          </div>
         </div>
+
+        <span className="pointer-events-none absolute right-[4%] top-[6%] hidden items-center gap-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/0 transition group-hover:text-amber-300 sm:inline-flex">
+          Get your fan card
+          <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </span>
       </div>
     </Link>
   );
