@@ -215,6 +215,8 @@ export const es: Dict = {
     issuedNote: "Tu membresía elegida se emite en cuanto tu pago se confirma en el checkout. Los niveles Signature Experience se completan después de la verificación del pago.",
     issuing: "Emitiendo tu tarjeta…",
     getMyCard: "Obtener mi tarjeta de fan",
+    proceed: "Continuar al pago",
+    proceedReady: "Tus datos se ven bien: continúa al pago.",
     backToProfile: "Volver a {name}",
   },
   auth: {

@@ -215,6 +215,8 @@ export const fr: Dict = {
     issuedNote: "Votre adhésion choisie est émise dès que votre paiement est confirmé au moment du paiement. Les niveaux Signature Experience se terminent après vérification du paiement.",
     issuing: "Émission de votre carte…",
     getMyCard: "Obtenir ma carte de fan",
+    proceed: "Passer au paiement",
+    proceedReady: "Vos informations semblent correctes — passez au paiement.",
     backToProfile: "Retour à {name}",
   },
   auth: {

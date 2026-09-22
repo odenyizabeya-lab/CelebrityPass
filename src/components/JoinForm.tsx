@@ -125,6 +125,13 @@ export default function JoinForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // The three details needed to proceed: a name, a valid email and a country.
+  // Once all three are in place, a "Proceed to Payment" step appears instantly
+  // right below the fields — no scrolling, no hunting for the button.
+  const emailValid = /.+@.+\..+/.test(email.trim());
+  const canProceed = name.trim().length > 0 && emailValid && country.trim().length > 0;
+  const selectedLevel = memberships.find((m) => m.id === level) ?? memberships[0] ?? null;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -190,6 +197,39 @@ export default function JoinForm({
           </datalist>
         </div>
       </div>
+
+      {canProceed && (
+        <div
+          className="mt-5 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 p-4 transition sm:p-5"
+          role="region"
+          aria-live="polite"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-white">
+                {t("join.proceedReady")}
+              </p>
+              <p className="mt-0.5 text-sm text-emerald-200">
+                {selectedLevel
+                  ? `${selectedLevel.name} · ${selectedLevel.price != null && selectedLevel.price > 0 ? formatMoney(selectedLevel.price, selectedLevel.currency) : formatMoney(0, selectedLevel.currency)}`
+                  : t("join.fanCard", { name: celebrityName })}
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-grad inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-8 py-3.5 text-base font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+            >
+              {loading ? t("join.issuing") : (
+                <>
+                  {t("join.proceed")}
+                  <span aria-hidden>››</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {memberships.length > 0 && (
         <div className="mt-6">

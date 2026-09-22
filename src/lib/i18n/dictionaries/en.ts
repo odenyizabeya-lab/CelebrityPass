@@ -221,6 +221,8 @@ export const en = {
     issuedNote: "Your chosen membership is issued as soon as your payment is confirmed at checkout. Signature Experience tiers complete after payment verification.",
     issuing: "Issuing your card…",
     getMyCard: "Get My Fan Card",
+    proceed: "Proceed to Payment",
+    proceedReady: "Your details look good — continue to payment.",
     backToProfile: "Back to {name}",
   },
   auth: {

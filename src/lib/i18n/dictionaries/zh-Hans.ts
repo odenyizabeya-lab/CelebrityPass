@@ -215,6 +215,8 @@ export const zhHans: Dict = {
     issuedNote: "您选择的会员在结账确认付款后发放。签名体验等级在付款验证后完成。",
     issuing: "正在发放您的卡片…",
     getMyCard: "获取我的粉丝卡",
+    proceed: "继续付款",
+    proceedReady: "您的信息填写正确 — 继续付款。",
     backToProfile: "返回 {name}",
   },
   auth: {

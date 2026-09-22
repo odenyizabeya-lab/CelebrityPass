@@ -215,6 +215,8 @@ export const ar: Dict = {
     issuedNote: "تُصدر عضويتك المختارة بمجرد تأكيد دفعتك في صفحة الدفع. تُستكمل مستويات Signature Experience بعد التحقق من الدفع.",
     issuing: "جارٍ إصدار بطاقتك…",
     getMyCard: "احصل على بطاقتي",
+    proceed: "المتابعة إلى الدفع",
+    proceedReady: "بياناتك صحيحة — تابِع إلى الدفع.",
     backToProfile: "العودة إلى {name}",
   },
   auth: {
