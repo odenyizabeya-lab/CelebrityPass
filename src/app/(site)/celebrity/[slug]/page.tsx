@@ -1032,8 +1032,10 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
   const design = tryParseJson<{ accent?: string; badgeText?: string }>(celebrity.cardDesign ? JSON.stringify(celebrity.cardDesign) : null, {});
   const accent = design.accent ?? "#f59e0b";
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-white/10"
+    <Link
+      href={`/celebrity/${celebrity.slug}/join`}
+      aria-label={`Get your fan card for ${celebrity.name}`}
+      className="group relative block overflow-hidden rounded-2xl shadow-xl ring-1 ring-white/10 transition hover:ring-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
       style={{
         background: `linear-gradient(130deg, ${celebrity.accentColor}, #27104a 45%, #0b0c10)`,
       }}
@@ -1070,9 +1072,15 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
           <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: accent }}>
             {design.badgeText ?? "FAN CARD"}
           </p>
+          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.15em] text-white/70 transition group-hover:text-white">
+            Get your fan card
+            <svg className="h-3 w-3 transition group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
