@@ -46,6 +46,10 @@ export default function FanCardView({ card }: { card: CardViewData }) {
   const classLabel = premium ? "ELITE" : card.membershipName ?? "STANDARD";
   const brandAccent = premium ? "#f0c75e" : "#ffffff";
   const fail = "FFFFFFFF";
+  const profileSrc =
+    card.celebrity.profileImage && /^https?:\/\//i.test(card.celebrity.profileImage)
+      ? card.celebrity.profileImage
+      : `/images/${card.celebrity.slug}/profile`;
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -97,7 +101,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                 <div className="relative h-full w-full overflow-hidden bg-neutral-200">
                   {card.celebrity.profileImage ? (
                     <Image
-                      src={`/images/${card.celebrity.slug}/profile`}
+                      src={profileSrc}
                       alt={card.celebrity.name}
                       width={120}
                       height={150}
@@ -167,8 +171,8 @@ export default function FanCardView({ card }: { card: CardViewData }) {
               </div>
 
               <div className="flex min-w-0 flex-1 items-center justify-end gap-[4%]">
-                <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-[4px] bg-white/[0.08] px-1 py-[5%] text-white/70 ring-1 ring-white/10">
-                  <CardBarcode seed={`${card.fanNumber}:${card.celebrity.slug}:${fail}`} className="opacity-90" />
+                <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-[4px] bg-white px-1 py-[5%] text-black shadow-inner">
+                  <CardBarcode seed={`${card.fanNumber}:${card.celebrity.slug}:${fail}`} className="opacity-100" />
                 </div>
                 <div className="shrink-0 overflow-hidden rounded-lg bg-white p-[3px] shadow-md ring-1 ring-white/30">
                   {card.qrCode ? (
