@@ -216,7 +216,7 @@ export const ar: Dict = {
     issuing: "جارٍ إصدار بطاقتك…",
     getMyCard: "احصل على بطاقتي",
     proceed: "المتابعة إلى الدفع",
-    proceedReady: "بياناتك صحيحة — تابِع إلى الدفع.",
+    proceedReady: "المتابعة إلى الدفع",
     readyToPay: "جاهز للدفع",
     backToProfile: "العودة إلى {name}",
   },

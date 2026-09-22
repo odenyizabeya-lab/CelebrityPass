@@ -216,7 +216,7 @@ export const zhHans: Dict = {
     issuing: "正在发放您的卡片…",
     getMyCard: "获取我的粉丝卡",
     proceed: "继续付款",
-    proceedReady: "您的信息填写正确 — 继续付款。",
+    proceedReady: "继续付款",
     readyToPay: "准备付款",
     backToProfile: "返回 {name}",
   },

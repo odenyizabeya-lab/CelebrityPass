@@ -222,7 +222,7 @@ export const en = {
     issuing: "Issuing your card…",
     getMyCard: "Get My Fan Card",
     proceed: "Proceed to Payment",
-    proceedReady: "Your details look good — continue to payment.",
+    proceedReady: "Proceed to Payment",
     readyToPay: "Ready for payment",
     backToProfile: "Back to {name}",
   },

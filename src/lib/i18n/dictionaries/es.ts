@@ -216,7 +216,7 @@ export const es: Dict = {
     issuing: "Emitiendo tu tarjeta…",
     getMyCard: "Obtener mi tarjeta de fan",
     proceed: "Continuar al pago",
-    proceedReady: "Tus datos se ven bien: continúa al pago.",
+    proceedReady: "Continuar al pago",
     readyToPay: "Listo para el pago",
     backToProfile: "Volver a {name}",
   },

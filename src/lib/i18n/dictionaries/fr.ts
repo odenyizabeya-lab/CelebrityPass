@@ -216,7 +216,7 @@ export const fr: Dict = {
     issuing: "Émission de votre carte…",
     getMyCard: "Obtenir ma carte de fan",
     proceed: "Passer au paiement",
-    proceedReady: "Vos informations semblent correctes — passez au paiement.",
+    proceedReady: "Passer au paiement",
     readyToPay: "Prêt pour le paiement",
     backToProfile: "Retour à {name}",
   },
