@@ -93,14 +93,13 @@ function isPublicPath(pathname: string): boolean {
   if (PUBLIC_FILE_NAMES.has(pathname.split("/").filter(Boolean).pop() ?? "")) {
     return true;
   }
-  // Private sub-paths of public prefixes must remain login-gated: fan cards
-  // (personal data), the join/purchase funnel, ticket checkout, and the
-  // brokerage portfolio (holdings/orders = personal data).
-  if (
-    pathname.includes("/fan/") ||
-    pathname.endsWith("/join") ||
-    pathname.startsWith("/invest/portfolio")
-  ) {
+  // Private sub-paths of public prefixes must remain login-gated: ticket
+  // checkout and the brokerage portfolio (holdings/orders = personal data).
+  // Fan cards and the /join funnel stay PUBLIC on purpose: a card link is a
+  // shareable public verification page (FAQ) and card purchase is deliberately
+  // login-free (register API), so logged-out fans can still open both on any
+  // device (phones included).
+  if (pathname.startsWith("/invest/portfolio")) {
     return false;
   }
   if (pathname === "/") {
