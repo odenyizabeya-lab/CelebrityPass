@@ -66,8 +66,8 @@ export default function AiSettingsPane() {
   const [assistantTesting, setAssistantTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [assistantTestResult, setAssistantTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
+  const [assistantTestResult, setAssistantTestResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -144,7 +144,7 @@ export default function AiSettingsPane() {
         body: JSON.stringify({ key: primaryKey.trim() || undefined, model }),
       });
       const d = await res.json();
-      setTestResult({ ok: Boolean(d.ok), message: d.message || "Test finished." });
+      setTestResult({ ok: Boolean(d.ok), message: d.message || "Test finished.", detail: typeof d.detail === "string" ? d.detail : undefined });
     } catch {
       setTestResult({ ok: false, message: "Connection failed. Try again." });
     } finally {
@@ -279,6 +279,11 @@ export default function AiSettingsPane() {
           <div className={testResult.ok ? okCls : errCls}>
             {testResult.ok ? "✓ " : ""}
             {testResult.message}
+            {!testResult.ok && testResult.detail && (
+              <p className="mt-2 break-words text-xs leading-5 opacity-80">
+                Google&apos;s reply: {testResult.detail}
+              </p>
+            )}
           </div>
         )}
 

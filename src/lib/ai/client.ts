@@ -42,48 +42,81 @@ export class AiCallError extends Error {
   }
 }
 
+/**
+ * Pull Google's own human-readable reason out of an HTTP error message when the
+ * payload is a JSON error body. Google's message text never contains the API
+ * key, so it is safe to show to the admin.
+ */
+function googleHumanMessage(message: string): string | null {
+  if (!/^Gemini HTTP \d+: /.test(message)) return null;
+  const body = message.replace(/^Gemini HTTP \d+: /, "");
+  try {
+    const j = JSON.parse(body);
+    const errMsg = j?.error?.message;
+    return typeof errMsg === "string" && errMsg.trim() ? errMsg.trim().slice(0, 300) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Turn any error into a safe, user-facing message (never contains a key). */
 export function friendlyAiError(e: unknown): { message: string; detail?: string } {
-  if (e instanceof AiCallError) {
-    switch (e.type) {
-      case "invalid_key":
-        return { message: "The Gemini API key was rejected. Check the key in Admin → AI Settings." };
-      case "api_disabled":
-        return {
-          message: "The Generative Language (Gemini) API is not enabled for this key's Google Cloud project.",
-          detail: "Enable it in Google Cloud console, or add a working GEMINI_API_KEY.",
-        };
-      case "billing":
-        return {
-          message: "The Gemini key is valid, but this model requires billing on the Google project.",
-          detail: "Link a billing account in Google Cloud console. A valid key without billing can often use gemini-3.6-flash.",
-        };
-      case "project_restriction":
-        return {
-          message: "The Gemini key is valid but restricted — its API/IP/referrer allow-list blocked this request.",
-          detail: "Remove the key's application/IP restrictions in Google AI Studio or Cloud.",
-        };
-      case "quota":
-        return {
-          message: "The Gemini API has reached its quota/rate limit right now.",
-          detail:
-            "Wait a minute and retry. If this keeps happening every scan, the key's monthly search/billing quota is used up — enable billing in Google Cloud for this key's project, or add a fresh key in Admin → AI Settings (the current backup key is suspended).",
-        };
-      case "model":
-        return { message: "The configured Gemini model is unavailable. The scanner is retrying a current model automatically." };
-      case "permission":
-        return { message: "The Gemini API denied this request (key suspended or project locked)." };
-      case "timeout":
-        return { message: "Gemini took too long to respond. Try again in a moment." };
-      case "network":
-        return { message: "Could not reach the Gemini API (network error). Try again in a moment." };
-      case "unsupported_combination":
-        return { message: "The model does not support search grounding with structured JSON output on this request." };
-      default:
-        return { message: `Gemini request failed: ${e.message}` };
-    }
+  if (!(e instanceof AiCallError)) {
+    return { message: `Gemini request failed: ${e instanceof Error ? e.message : String(e)}` };
   }
-  return { message: `Gemini request failed: ${e instanceof Error ? e.message : String(e)}` };
+  const google = googleHumanMessage(e.message);
+  const withDetail = (message: string, fallback?: string) => {
+    const detail = google ?? fallback;
+    return detail ? { message, detail } : { message };
+  };
+
+  switch (e.type) {
+    case "invalid_key":
+      return withDetail("The Gemini API key was rejected. Check the key in Admin → AI Settings.");
+    case "api_disabled":
+      return withDetail(
+        "The Generative Language (Gemini) API is not enabled for this key's Google Cloud project.",
+        "Enable the \"Generative Language API\" in Google Cloud console (or create the key from Google AI Studio: aistudio.google.com).",
+      );
+    case "billing":
+      return withDetail(
+        "The Gemini key is valid, but this model requires billing on the Google project.",
+        "Link a billing account in Google Cloud console. A valid key without billing can often use gemini-3.6-flash.",
+      );
+    case "project_restriction":
+      return withDetail(
+        "The Gemini key is valid but restricted — its API/IP/referrer allow-list blocked this request.",
+        "Remove the key's application/IP restrictions in Google AI Studio or Google Cloud.",
+      );
+    case "quota":
+      return withDetail(
+        "The Gemini API has reached its quota/rate limit right now.",
+        "Wait a minute and retry. If this keeps happening every scan, the key's monthly search/billing quota is used up — enable billing in Google Cloud for this key's project, or add a fresh key in Admin → AI Settings.",
+      );
+    case "model":
+      return withDetail(
+        "The configured Gemini model is unavailable. The scanner is retrying a current model automatically.",
+        google ?? undefined,
+      );
+    case "permission":
+      // This is the vague case the admin kept hitting. Surface Google's real
+      // wording so the fix (different project / enable API / remove
+      // restrictions / billing) is obvious instead of a dead-end message.
+      return withDetail(
+        google && /suspend/i.test(google)
+          ? "Google suspended this API key or project (403)."
+          : "Google denied the request at the project level (403).",
+        "Common causes: the Generative Language API is not enabled for the project, the key has application/IP/referrer restrictions, or billing is required. If the key itself is suspended, create a FRESH key in a DIFFERENT Google Cloud project (or a different Google account) and paste it in Admin → AI Settings.",
+      );
+    case "timeout":
+      return withDetail("Gemini took too long to respond. Try again in a moment.");
+    case "network":
+      return withDetail("Could not reach the Gemini API (network error). Try again in a moment.");
+    case "unsupported_combination":
+      return withDetail("The model does not support search grounding with structured JSON output on this request.");
+    default:
+      return withDetail(`Gemini request failed: ${e.message}`);
+  }
 }
 
 type GeminiErrorBody = { status: string; reason: string; message: string };
@@ -111,6 +144,7 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
   const body = parseGeminiError(text);
   const t = body.message.toLowerCase();
   const has = (...words: string[]) => words.some((w) => t.includes(w));
+  const reason = body.reason.toUpperCase();
 
   if (status === 401) return "invalid_key";
 
@@ -119,8 +153,8 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
   if (status === 404 || body.status === "NOT_FOUND") return "model";
 
   if (status === 400) {
-    if (body.reason === "API_KEY_INVALID" || has("api key not valid", "key is not valid", "invalid api key", "unauthenticated")) return "invalid_key";
-    if (body.reason === "PROJECT_INVALID" || body.reason === "USER_PROJECT_INVALID" || has("project not found", "project id")) return "project_restriction";
+    if (reason === "API_KEY_INVALID" || has("api key not valid", "key is not valid", "invalid api key", "unauthenticated")) return "invalid_key";
+    if (reason === "PROJECT_INVALID" || reason === "USER_PROJECT_INVALID" || has("project not found", "project id")) return "project_restriction";
     if (has("referrer", "ip address", "api key internal", "restriction")) return "project_restriction";
     if (has("model")) return "model";
     if (hadSearchTool && /(search|grounding|schema|mime type|mimetype|not supported|combination|cannot use)/.test(t)) return "unsupported_combination";
@@ -129,15 +163,34 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
   }
 
   if (status === 403) {
-    if (body.reason === "SERVICE_DISABLED") return "api_disabled";
-    if (body.reason === "CONSUMER_INVALID") return "project_restriction";
-    if (body.reason === "API_KEY_INVALID") return "invalid_key";
+    // Google's official ErrorInfo "reason" codes tell us the real cause much
+    // more reliably than guessing from the message text — match them first so
+    // a fresh-but-blocked key is never mislabelled "suspended", and vice versa.
+    const reasonDisabled = reason === "SERVICE_DISABLED" || reason === "API_NOT_ENABLED" || reason === "GENIE_DISABLED" || reason === "API_DISABLED";
+    const reasonRestricted =
+      reason === "CONSUMER_INVALID" ||
+      reason === "PROJECT_INVALID" ||
+      reason === "USER_PROJECT_INVALID" ||
+      reason === "IP_BLOCKED" ||
+      reason === "REFERRER_BLOCKED" ||
+      reason === "APP_BLOCKED" ||
+      reason === "API_KEY_RESTRICTED" ||
+      reason === "ANDROID_APP_BLOCKED" ||
+      reason === "IOS_APP_BLOCKED" ||
+      reason === "BROWSER_BLOCKED";
+    const reasonSuspended =
+      reason === "CONSUMER_SUSPENDED" || reason === "API_KEY_SUSPENDED" || reason === "KEY_SUSPENDED" || reason === "SERVICE_SUSPENDED";
+
+    if (reasonDisabled) return "api_disabled";
+    if (reasonRestricted) return "project_restriction";
+    if (reason === "API_KEY_INVALID") return "invalid_key";
+    if (reason === "BILLING_DISABLED" || reason === "BILLING_NOT_ENABLED") return "billing";
+    if (reasonSuspended || has("suspended")) return "permission";
     if (body.status === "FAILED_PRECONDITION" || has("billing", "paid", "upgrade", "pricing", "payment", "plan")) return "billing";
-    if (body.reason === "CONSUMER_SUSPENDED" || has("suspended")) return "permission";
     if (has("quota", "rate", "limit", "exhausted")) return "quota";
     if (has("not enabled", "disabled", "enable the", "enable it", "enable this", "api key that cannot", "api is not")) return "api_disabled";
     if (has("restricted", "restriction", "ip addresses", "referrer", "android package", "permitted", "allowlisted")) return "project_restriction";
-    if (has("not authorized", "not have permission", "does not have permission", "unauthorized", "access denied")) return "permission";
+    if (has("not authorized", "not have permission", "does not have permission", "permission denied", "unauthorized", "access denied")) return "permission";
     if (has("model") && has("not available", "not found", "not supported", "not exist")) return "model";
     if (has("api key not valid", "invalid api key")) return "invalid_key";
     return "permission";
@@ -605,14 +658,19 @@ export async function callAcrossCredentials<T>(
               const value = await fn(pair);
               return { value, used: pair };
             } catch (e2) {
+              // Even if the refill attempt timed out, the real blocker is
+              // quota — never misreport it as a timeout.
               if (e2 instanceof AiCallError && (e2.type === "quota" || e2.type === "timeout")) {
-                errors.push({ type: e2.type, label: pair.label, message: e2.message });
-                break; // quota is scan-wide — do not keep hammering the chain
+                errors.push({ type: "quota", label: pair.label, message: e2.message });
+                break; // one short refill already consumed — stop retrying this pair
               }
               throw e2;
             }
           }
-          errors.push({ type: e.type, label: pair.label, message: e.message });
+          errors.push({ type: "quota", label: pair.label, message: e.message });
+          // Quota is usually scan-wide: do not keep hammering the remaining
+          // (model × key) pairs with requests that can only fail again. A
+          // single refill attempt was already made above.
           break;
         }
         if (keyBlock) {

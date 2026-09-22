@@ -11,7 +11,7 @@
 // valid"). Every other failure is reported with its real cause.
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthed } from "@/lib/auth";
-import { classifyError, type AiErrorType } from "@/lib/ai/client";
+import { classifyError, parseGeminiError, type AiErrorType } from "@/lib/ai/client";
 import {
   getGeminiKeys,
   getAIModel,
@@ -128,6 +128,14 @@ export async function POST(request: NextRequest) {
   }
 
   const code = classifyError(res.status, text, false);
+  // Include Google's own wording so a blocked key shows the REAL reason
+  // (API not enabled / suspended / restrictions / billing) instead of a
+  // generic "blocked at the project level".
+  const rawBody = parseGeminiError(text);
+  const detail =
+    rawBody.reason || (rawBody.message && rawBody.message !== text)
+      ? [rawBody.reason, rawBody.message].filter(Boolean).join(" — ").slice(0, 300)
+      : text.slice(0, 300);
   return NextResponse.json({
     ok: false,
     code,
@@ -135,5 +143,6 @@ export async function POST(request: NextRequest) {
     status: res.status,
     provider: AI_PROVIDER_NAME,
     message: messageFor(code, model),
+    detail,
   });
 }
