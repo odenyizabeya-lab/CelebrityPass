@@ -159,7 +159,7 @@ type VoiceRecognition = {
   abort: () => void;
 };
 
-export default function AppSearch() {
+export default function AppSearch({ placeholder = "Search any celebrity…" }: { placeholder?: string }) {
   const router = useRouter();
   const overlayInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -415,7 +415,7 @@ export default function AppSearch() {
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
       </svg>
       <span className="w-full min-w-0 flex-1 truncate py-3.5 text-left text-base font-medium text-zinc-400 sm:text-lg">
-        Search any celebrity…
+        {placeholder}
       </span>
       <button
         type="button"
@@ -489,7 +489,7 @@ export default function AppSearch() {
                   setFetchedOnce(true);
                 }}
                 onKeyDown={onKeyDown}
-                placeholder="Search any celebrity…"
+                placeholder={placeholder}
                 autoComplete="off"
                 spellCheck={false}
                 aria-label="Search celebrities"

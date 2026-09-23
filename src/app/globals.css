@@ -267,6 +267,15 @@ body {
   animation-delay: 0.3s;
 }
 
+/* Hide scrollbars on the horizontal community rails while keeping them swipeable. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .welcome-glow,
   .welcome-exit,
