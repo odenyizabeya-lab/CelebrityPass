@@ -809,8 +809,9 @@ function MembershipLevelCard({
   const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-3xl p-6 ring-2 shadow-2xl sm:p-8 ${
+    <Link
+      href={qrValue}
+      className={`group relative block cursor-pointer overflow-hidden rounded-3xl p-6 ring-2 shadow-2xl transition hover:ring-amber-300/60 sm:p-8 ${
         popular ? "ring-amber-300/50" : "ring-white/15"
       }`}
       style={{ background: pal.bg }}
@@ -859,14 +860,13 @@ function MembershipLevelCard({
             ))}
           </ul>
 
-          <Link
-            href={qrValue}
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition hover:brightness-110 active:scale-[0.98]"
+          <span
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
             style={{ background: pal.button, color: pal.buttonText }}
           >
             <T k="membership.chooseLevel" />
             <span aria-hidden>›</span>
-          </Link>
+          </span>
 
           <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 sm:grid-cols-4">
             {CARD_ICONS[variant].map((Icon, i) => (
@@ -893,7 +893,7 @@ function MembershipLevelCard({
           />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -918,8 +918,9 @@ function SignatureExperienceCard({
   const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
 
   return (
-    <div
-      className="relative overflow-hidden rounded-3xl p-6 ring-2 ring-white/20 shadow-2xl sm:p-8"
+    <Link
+      href={qrValue}
+      className="group relative block cursor-pointer overflow-hidden rounded-3xl p-6 ring-2 ring-white/20 shadow-2xl transition hover:ring-amber-300/60 sm:p-8"
       style={{ background: pal.bg }}
     >
       <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.15fr]">
@@ -959,14 +960,13 @@ function SignatureExperienceCard({
             </ul>
           )}
 
-          <Link
-            href={qrValue}
-            className="mt-6 inline-flex items-center justify-center rounded-full px-7 py-3 text-sm font-bold transition hover:brightness-110 active:scale-[0.98]"
+          <span
+            className="mt-6 inline-flex items-center justify-center rounded-full px-7 py-3 text-sm font-bold"
             style={{ background: pal.button, color: pal.buttonText }}
           >
             <T k="membership.chooseLevel" />
             <span className="ml-2" aria-hidden>›</span>
-          </Link>
+          </span>
 
           <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 sm:grid-cols-4">
             {CARD_ICONS.vip.map((Icon, i) => (
@@ -993,7 +993,7 @@ function SignatureExperienceCard({
           />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
