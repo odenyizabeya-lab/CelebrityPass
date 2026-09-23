@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import CountUp from "@/components/CountUp";
 import CelebrityCard from "@/components/CelebrityCard";
 import AppSearch from "@/components/AppSearch";
+import InfiniteCelebrityFeed from "@/components/home-app/InfiniteCelebrityFeed";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
 import WelcomeScreen from "@/components/welcome/WelcomeScreen";
@@ -108,9 +109,12 @@ export default async function HomePage() {
   const worldLeaders = celebrities.filter((c) => c.isWorldLeader).slice(0, 8);
   const totalActive = celebrities.length;
   const totalFans = celebrities.reduce((sum, c) => sum + c.fanCount, 0);
-  const browseAll = celebrities
-    .filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id))
-    .slice(0, 8);
+  const inFeaturedSections = new Set<string>([
+    ...featuredIds,
+    ...popularIds,
+    ...worldLeaders.map((c) => c.id),
+  ]);
+  const feedPool = celebrities.filter((c) => !inFeaturedSections.has(c.id));
 
   const railCovers = [...featured, ...popular, ...worldLeaders].filter(Boolean);
 
@@ -337,12 +341,6 @@ export default async function HomePage() {
                   <T k="home.presidents" />
                 </h2>
               </div>
-              <Link
-                href="/celebrities"
-                className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white"
-              >
-                <T k="home.browseAll" />
-              </Link>
             </div>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {worldLeaders.map((c) => (
@@ -364,12 +362,6 @@ export default async function HomePage() {
                   <T k="home.featuredCommunities" />
                 </h2>
               </div>
-              <Link
-                href="/celebrities"
-                className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white"
-              >
-                <T k="home.browseAll" />
-              </Link>
             </div>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {featured.map((c) => (
@@ -403,37 +395,8 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* ============ ALL COMMUNITIES ============ */}
-        {browseAll.length > 0 && (
-          <section className="mt-10">
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
-                  <T k="home.browseEverything" />
-                </p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
-                  <T k="home.allCommunities" />
-                </h2>
-              </div>
-              <span className="hidden text-sm text-zinc-500 sm:block">
-                <T k="home.sealed" />
-              </span>
-            </div>
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {browseAll.map((c) => (
-                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
-              ))}
-            </div>
-            <div className="mt-8 text-center">
-              <Link
-                href="/celebrities"
-                className="btn-grad inline-block rounded-full px-7 py-3 text-sm font-bold text-white"
-              >
-                <T k="home.browseAll" vars={{ n: totalActive }} />
-              </Link>
-            </div>
-          </section>
-        )}
+        {/* ============ ENDLESS COMMUNITY FEED (no Browse-all, no Next) ============ */}
+        <InfiniteCelebrityFeed initial={feedPool.slice(0, 12).map(toCardCelebrity)} excludeIds={[...inFeaturedSections]} />
 
         {/* ============ LONGER DESCRIPTION (lower on the page) ============ */}
         <section className="mt-10 rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6">
