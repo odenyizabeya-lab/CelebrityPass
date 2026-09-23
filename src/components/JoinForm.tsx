@@ -9,16 +9,7 @@ import { fetchWithTimeout } from "@/lib/client-http";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { tierPalette, PAYMENT_PALETTE, type TierPalette } from "@/lib/membership-colors";
 import { CardBarcode, CardBrandTab, CardFrame, CardGuilloche } from "@/components/card-bits";
-
-const COUNTRIES = [
-  "Afghanistan", "Argentina", "Australia", "Austria", "Bangladesh", "Belgium", "Brazil", "Canada", "Chile", "China",
-  "Colombia", "Croatia", "Czech Republic", "Denmark", "Egypt", "Finland", "France", "Germany", "Ghana", "Greece",
-  "Hong Kong", "Hungary", "Iceland", "India", "Indonesia", "Ireland", "Israel", "Italy", "Japan", "Kenya", "Malaysia",
-  "Mexico", "Morocco", "Netherlands", "New Zealand", "Nigeria", "Norway", "Pakistan", "Peru", "Philippines", "Poland",
-  "Portugal", "Qatar", "Romania", "Russia", "Saudi Arabia", "Singapore", "South Africa", "South Korea", "Spain",
-  "Sri Lanka", "Sweden", "Switzerland", "Taiwan", "Thailand", "Türkiye", "Ukraine", "United Arab Emirates",
-  "United Kingdom", "United States", "Vietnam",
-];
+import { SELECTABLE_COUNTRIES } from "@/lib/countries";
 
 // Membership levels priced at or above this are treated as premium "Signature
 // Experience" tiers and get the featured, full-width treatment in the form.
@@ -203,21 +194,56 @@ export default function JoinForm({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-zinc-300">{t("join.country")}</label>
-          <input
+          <select
             required
-            list="country-list"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className={inputCls}
-            placeholder={t("join.countryPlaceholder")}
-          />
-          <datalist id="country-list">
-            {COUNTRIES.map((c) => (
-              <option key={c} value={c} />
+            className={`${inputCls} appearance-none`}
+          >
+            <option value="" disabled className="bg-ink-800 text-zinc-500">
+              {t("join.countryPlaceholder")}
+            </option>
+            {SELECTABLE_COUNTRIES.map((c) => (
+              <option key={c} value={c} className="bg-ink-800 text-white">
+                {c}
+              </option>
             ))}
-          </datalist>
+          </select>
         </div>
       </div>
+
+      {canProceed && (
+        <div
+          className="mt-6 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 p-4 transition sm:p-5"
+          role="region"
+          aria-live="polite"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-white">
+                {t("join.proceedReady")}
+              </p>
+              <p className="mt-0.5 text-sm text-emerald-200">
+                {selectedLevel
+                  ? `${selectedLevel.name} · ${selectedLevel.price != null && selectedLevel.price > 0 ? formatMoney(selectedLevel.price, selectedLevel.currency) : formatMoney(0, selectedLevel.currency)}`
+                  : t("join.fanCard", { name: celebrityName })}
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-grad inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-8 py-3.5 text-base font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+            >
+              {loading ? t("join.issuing") : (
+                <>
+                  {t("join.proceed")}
+                  <span aria-hidden>››</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {memberships.length > 0 && (
         <div className="mt-6">
@@ -343,39 +369,6 @@ export default function JoinForm({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {canProceed && (
-        <div
-          className="mt-6 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 p-4 transition sm:p-5"
-          role="region"
-          aria-live="polite"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-black text-white">
-                {t("join.proceedReady")}
-              </p>
-              <p className="mt-0.5 text-sm text-emerald-200">
-                {selectedLevel
-                  ? `${selectedLevel.name} · ${selectedLevel.price != null && selectedLevel.price > 0 ? formatMoney(selectedLevel.price, selectedLevel.currency) : formatMoney(0, selectedLevel.currency)}`
-                  : t("join.fanCard", { name: celebrityName })}
-              </p>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-grad inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-8 py-3.5 text-base font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-            >
-              {loading ? t("join.issuing") : (
-                <>
-                  {t("join.proceed")}
-                  <span aria-hidden>››</span>
-                </>
-              )}
-            </button>
-          </div>
         </div>
       )}
 

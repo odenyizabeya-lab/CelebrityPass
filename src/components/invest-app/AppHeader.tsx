@@ -85,9 +85,9 @@ export function AppHeader({
           <Link
             href="/account"
             aria-label="Account and security"
-            className="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 text-[12px] font-black text-white shadow-lg shadow-purple-900/40 ring-2 ring-white/10 active:scale-95"
+            className="grid h-11 w-11 place-items-center active:scale-95"
           >
-            CP
+            <BrandMark small />
           </Link>
         </div>
       </div>

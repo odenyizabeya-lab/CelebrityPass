@@ -3,6 +3,7 @@ import { formatDate, tryParseJson, type CardDesign } from "@/lib/utils";
 import T from "./T";
 import VerifiedBadge from "./VerifiedBadge";
 import { CardBarcode, CardBrandTab, CardChip, CardFrame, CardGuilloche } from "./card-bits";
+import { StarGlyph } from "./Logo";
 
 export type CardViewData = {
   fanNumber: string;
@@ -185,8 +186,8 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                       unoptimized
                     />
                   ) : (
-                    <div className="grid h-9 w-9 place-items-center text-[6px] font-bold text-neutral-600 sm:h-11 sm:w-11">
-                      CP
+                    <div className="grid h-9 w-9 place-items-center rounded-sm bg-gradient-to-br from-primary-600 to-accent-500 sm:h-11 sm:w-11">
+                      <StarGlyph className="h-[62%] w-[62%]" />
                     </div>
                   )}
                 </div>

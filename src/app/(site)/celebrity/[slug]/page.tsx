@@ -715,7 +715,7 @@ async function LevelCardGraphic({
       </div>
 
       <div className="relative flex h-full flex-col justify-between p-4 sm:p-5">
-        {/* Top: brand + CP badge */}
+        {/* Top: brand + logo tile */}
         <div className="flex items-start justify-between">
           <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white">
             Celebrity<span style={{ color: neon }}>Pass</span>

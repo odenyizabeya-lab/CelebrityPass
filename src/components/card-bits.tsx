@@ -1,6 +1,7 @@
 // Shared "printed card" building blocks. Used by FanCardView and the card
 // graphics on celebrity pages so every card — real fan cards and previews —
 // looks like the same physical, professional ID card.
+import { StarGlyph } from "./Logo";
 
 /** Fine-line guilloche background that makes cards feel printed, not painted. */
 export function CardGuilloche({ color }: { color: string }) {
@@ -72,11 +73,11 @@ export function CardBarcode({ seed, className = "" }: { seed: string; className?
   );
 }
 
-/** The CP tab that sits in the brand corner of every card. */
-export function CardBrandTab({ label = "CP" }: { label?: string }) {
+/** The brand logo tile that sits in the corner of every card. */
+export function CardBrandTab({ className = "" }: { className?: string }) {
   return (
-    <div className="grid h-5 w-7 place-items-center rounded bg-white shadow-sm">
-      <p className="text-[7px] font-black tracking-tighter text-neutral-800">{label}</p>
+    <div className={`grid h-5 w-7 place-items-center rounded bg-gradient-to-br from-primary-600 to-accent-500 shadow-sm ${className}`}>
+      <StarGlyph className="h-[68%] w-[68%]" />
     </div>
   );
 }
