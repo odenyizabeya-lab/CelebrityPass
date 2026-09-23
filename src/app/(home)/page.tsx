@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata, Viewport } from "next";
 import CountUp from "@/components/CountUp";
+import CelebrityCard from "@/components/CelebrityCard";
 import AppSearch from "@/components/AppSearch";
 import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
@@ -88,16 +89,6 @@ const BASE_TIERS = [
   },
 ];
 
-function formatCount(n: number): string {
-  if (n < 1000) return `${n}`;
-  if (n < 1_000_000) {
-    const k = n / 1000;
-    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}K`;
-  }
-  const m = n / 1_000_000;
-  return `${m >= 100 ? Math.round(m) : m.toFixed(1)}M`;
-}
-
 export default async function HomePage() {
   // Data fetching never crashes the page: a DB/network failure resolves to empty
   // fallbacks and the shell (hero, ecosystem, membership, FAQ…) still renders.
@@ -113,9 +104,13 @@ export default async function HomePage() {
     .filter((c) => !featuredIds.has(c.id))
     .sort((a, b) => b.fanCount - a.fanCount)
     .slice(0, 8);
+  const popularIds = new Set(popular.map((c) => c.id));
   const worldLeaders = celebrities.filter((c) => c.isWorldLeader).slice(0, 8);
   const totalActive = celebrities.length;
   const totalFans = celebrities.reduce((sum, c) => sum + c.fanCount, 0);
+  const browseAll = celebrities
+    .filter((c) => !featuredIds.has(c.id) && !popularIds.has(c.id))
+    .slice(0, 8);
 
   const railCovers = [...featured, ...popular, ...worldLeaders].filter(Boolean);
 
@@ -330,23 +325,113 @@ export default async function HomePage() {
           </p>
         </section>
 
-        {/* ============ COMMUNITY RAILS ============ */}
+        {/* ============ WORLD LEADERS ============ */}
         {worldLeaders.length > 0 && (
           <section className="mt-10">
-            <RailHeader eyebrow="World Leaders" title={<T k="home.presidents" />} href="/celebrities" />
-            <Rail items={worldLeaders} />
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                  World Leaders
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                  <T k="home.presidents" />
+                </h2>
+              </div>
+              <Link
+                href="/celebrities"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white"
+              >
+                <T k="home.browseAll" />
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {worldLeaders.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
           </section>
         )}
+
+        {/* ============ FEATURED ============ */}
         {featured.length > 0 && (
-          <section className="mt-9">
-            <RailHeader eyebrow="Featured" title={<T k="home.featuredCommunities" />} href="/celebrities" />
-            <Rail items={featured} />
+          <section className="mt-10">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                  Featured
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                  <T k="home.featuredCommunities" />
+                </h2>
+              </div>
+              <Link
+                href="/celebrities"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:text-white"
+              >
+                <T k="home.browseAll" />
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
           </section>
         )}
+
+        {/* ============ POPULAR ============ */}
         {popular.length > 0 && (
-          <section className="mt-9">
-            <RailHeader eyebrow="Popular" title={<T k="home.popularCommunities" />} href="/celebrities" />
-            <Rail items={popular} />
+          <section className="mt-10">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                  Popular
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                  <T k="home.popularCommunities" />
+                </h2>
+              </div>
+              <p className="hidden text-sm text-zinc-500 sm:block">
+                <T k="home.rankedBy" />
+              </p>
+            </div>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {popular.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ============ ALL COMMUNITIES ============ */}
+        {browseAll.length > 0 && (
+          <section className="mt-10">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+                  <T k="home.browseEverything" />
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                  <T k="home.allCommunities" />
+                </h2>
+              </div>
+              <span className="hidden text-sm text-zinc-500 sm:block">
+                <T k="home.sealed" />
+              </span>
+            </div>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {browseAll.map((c) => (
+                <CelebrityCard key={c.id} celebrity={toCardCelebrity(c)} />
+              ))}
+            </div>
+            <div className="mt-8 text-center">
+              <Link
+                href="/celebrities"
+                className="btn-grad inline-block rounded-full px-7 py-3 text-sm font-bold text-white"
+              >
+                <T k="home.browseAll" vars={{ n: totalActive }} />
+              </Link>
+            </div>
           </section>
         )}
 
@@ -669,64 +754,5 @@ function OpportunityCard({
         {cta}
       </span>
     </Link>
-  );
-}
-
-function RailHeader({
-  eyebrow,
-  title,
-  href,
-}: {
-  eyebrow: string;
-  title: React.ReactNode;
-  href: string;
-}) {
-  return (
-    <div className="flex items-end justify-between">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary-400">{eyebrow}</p>
-        <h2 className="mt-1 text-xl font-black tracking-tight text-white">{title}</h2>
-      </div>
-      <Link
-        href={href}
-        className="rounded-full px-4 py-2 text-[12px] font-bold text-zinc-300 ring-1 ring-white/10 transition hover:text-white"
-      >
-        See all
-      </Link>
-    </div>
-  );
-}
-
-function Rail({ items }: { items: Array<ReturnType<typeof toCardCelebrity>> }) {
-  return (
-    <div className="no-scrollbar -mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-      {items.map((c) => (
-        <Link
-          key={c.id}
-          href={`/celebrity/${c.slug}`}
-          className="group w-[168px] shrink-0 snap-start overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] transition hover:border-white/[0.18]"
-        >
-          <div className="relative h-40 overflow-hidden">
-            {c.coverImageUrl ? (
-              <Image
-                src={c.coverImageUrl}
-                alt=""
-                fill
-                sizes="168px"
-                className="object-cover transition duration-500 group-hover:scale-105"
-                unoptimized
-              />
-            ) : (
-              <div className="h-full w-full" style={{ background: `linear-gradient(100deg, ${c.accentColor}, #0b0c10)` }} />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
-            <div className="absolute bottom-3 left-3 right-3">
-              <p className="truncate text-[13px] font-bold text-white">{c.name}</p>
-              <p className="mt-0.5 text-[11px] font-medium text-zinc-300">{formatCount(c.fanCount)} fans</p>
-            </div>
-          </div>
-        </Link>
-      ))}
-    </div>
   );
 }
