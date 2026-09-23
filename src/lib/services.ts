@@ -45,19 +45,30 @@ export function isWorldLeaderName(googleInfo: string | null): boolean {
 const READ_CACHE_TTL_MS = 45_000;
 const READ_CACHE_LIMIT = 64;
 const readCache = new Map<string, { value: unknown; expires: number }>();
+// In-flight loader dedupe so concurrent requests (home SSR + feed xhr) never
+// run the same expensive query twice when the cache is cold.
+const readInflight = new Map<string, Promise<unknown>>();
 
-function cachedRead<V>(key: string, loader: () => Promise<V>): Promise<V> {
-  const hit = readCache.get(key);
+function cachedRead<V>(key: string, loader: () => Promise<V>, ttlMs = READ_CACHE_TTL_MS): Promise<V> {
   const now = Date.now();
+  const hit = readCache.get(key);
   if (hit && hit.expires > now) return Promise.resolve(hit.value as V);
-  return loader().then((value) => {
-    readCache.set(key, { value, expires: now + READ_CACHE_TTL_MS });
-    if (readCache.size > READ_CACHE_LIMIT) {
-      const oldest = readCache.keys().next().value;
-      if (oldest) readCache.delete(oldest);
-    }
-    return value;
-  });
+  const inflight = readInflight.get(key);
+  if (inflight) return inflight as Promise<V>;
+  const promise = loader()
+    .then((value) => {
+      readCache.set(key, { value, expires: Date.now() + ttlMs });
+      if (readCache.size > READ_CACHE_LIMIT) {
+        const oldest = readCache.keys().next().value;
+        if (oldest) readCache.delete(oldest);
+      }
+      return value;
+    })
+    .finally(() => {
+      readInflight.delete(key);
+    });
+  readInflight.set(key, promise);
+  return promise;
 }
 
 /**
@@ -157,6 +168,144 @@ export function toCardCelebrity(c: CelebritySummary): CelebrityCardData {
 }
 
 /** List celebrity communities with LIVE fan/community stats. */
+type CelebritySummaryRow = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  country: string;
+  city: string | null;
+  profession: string;
+  googleInfo: string | null;
+  bio: string | null;
+  accentColor: string;
+  isFeatured: boolean;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: Date;
+  instagramFollowers: number | null;
+  tiktokFollowers: number | null;
+  facebookFollowers: number | null;
+  displayFanCount: number | null;
+  imageVerified: boolean;
+  imageStatus: string | null;
+  imageLicense: string | null;
+  imageAttribution: string | null;
+  imageSourceUrl: string | null;
+  profileImageHash: string | null;
+  coverImageHash: string | null;
+  profileType: string | null;
+  fansCardEnabled: boolean;
+};
+
+function mapCelebritySummary(
+  c: CelebritySummaryRow,
+  imageFlags: Map<string, { hasProfile: boolean; hasCover: boolean }>,
+  totalCountries: number,
+): CelebritySummary {
+  const img = imageFlags.get(c.slug);
+  const hasProfile = img?.hasProfile ?? false;
+  const hasCover = img?.hasCover ?? false;
+  const profileV = imgVersion(c.profileImageHash);
+  const coverV = imgVersion(c.coverImageHash);
+  return {
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    category: c.category,
+    country: c.country,
+    city: c.city,
+    profession: c.profession,
+    bio: c.bio,
+    tagline: panelTagline(c.googleInfo) ?? c.bio,
+    profileImage: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
+    coverImage: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
+    profileImageUrl: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
+    profileImageW: hasProfile ? 375 : 144,
+    profileImageH: hasProfile ? 500 : 180,
+    coverImageUrl: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
+    imageVerified: c.imageVerified,
+    imageStatus: c.imageStatus,
+    imageLicense: c.imageLicense,
+    imageAttribution: c.imageAttribution,
+    imageSourceUrl: c.imageSourceUrl,
+    accentColor: c.accentColor,
+    isFeatured: c.isFeatured,
+    isWorldLeader: isWorldLeaderName(c.googleInfo),
+    isActive: c.isActive,
+    isVerified: c.isVerified,
+    profileType: normalizeProfileType(c.profileType),
+    fansCardEnabled: c.fansCardEnabled,
+    fanCount: displayFanCountFor(c),
+    countryCount: displayCountryCount(totalCountries),
+    createdAt: c.createdAt,
+    instagramFollowers: c.instagramFollowers,
+    tiktokFollowers: c.tiktokFollowers,
+    facebookFollowers: c.facebookFollowers,
+  };
+}
+
+/**
+ * One page of the infinite home feed, paginated IN THE DATABASE. Fetches only
+ * the requested slice (one small query) instead of loading all ~775 rows and
+ * slicing in JS — so a feed page is fast even on a cold cache/instance and
+ * across requests that share no in-memory state.
+ */
+export async function getCelebrityFeedPage(opts: {
+  offset: number;
+  limit: number;
+  excludeIds?: readonly string[];
+}): Promise<{ items: CelebrityCardData[]; total: number; done: boolean }> {
+  const where: { isActive: boolean; id?: { notIn: string[] } } = { isActive: true };
+  const excluded = opts.excludeIds?.filter(Boolean) ?? [];
+  if (excluded.length > 0) where.id = { notIn: excluded };
+
+  const [celebrities, imageFlags, totalCountries] = await Promise.all([
+    prisma.celebrity.findMany({
+      where,
+      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+      skip: opts.offset,
+      take: opts.limit + 1,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        category: true,
+        country: true,
+        city: true,
+        profession: true,
+        googleInfo: true,
+        bio: true,
+        accentColor: true,
+        isFeatured: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+        instagramFollowers: true,
+        tiktokFollowers: true,
+        facebookFollowers: true,
+        displayFanCount: true,
+        imageVerified: true,
+        imageStatus: true,
+        imageLicense: true,
+        imageAttribution: true,
+        imageSourceUrl: true,
+        profileImageHash: true,
+        coverImageHash: true,
+        profileType: true,
+        fansCardEnabled: true,
+      },
+    }),
+    celebrityImageFlags(),
+    platformCountryTotal(),
+  ]);
+
+  const hasNext = celebrities.length > opts.limit;
+  const slice = celebrities.slice(0, opts.limit);
+  const items = slice.map((c) => toCardCelebrity(mapCelebritySummary(c, imageFlags, totalCountries)));
+  return { items, total: opts.offset + slice.length, done: !hasNext };
+}
+
 export async function getCelebritySummaries(filters: CelebritiesFilters = {}): Promise<CelebritySummary[]> {
   return cachedRead(`summaries:${JSON.stringify(filters)}`, async () => {
     const where: Record<string, unknown> = {};
