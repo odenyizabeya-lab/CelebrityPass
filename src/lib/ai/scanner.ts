@@ -15,7 +15,7 @@
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 import { BASE_MEMBERSHIP_TIERS } from "@/lib/memberships";
-import { getAIModel, getGeminiKeys } from "./settings";
+import { getAIModel, getGeminiKeys, getGeminiKeyHealth } from "./settings";
 import {
   AiCallError,
   buildCredentialChain,
@@ -28,6 +28,7 @@ import {
 } from "./client";
 import type {
   IdentifiedPerson,
+  ScanDiagnostics,
   ScanEvent,
   ScanInvestor,
   ScanOutcome,
@@ -242,16 +243,50 @@ async function researchEventsSmart(c: GeminiCredential, name: string, w: ScanQuo
   }
 }
 
+/** Key-level failures that are permanent (config can't fix at scan time). */
+const PERMANENT_BLOCK_KINDS = new Set([
+  "invalid_key",
+  "api_disabled",
+  "billing",
+  "project_restriction",
+  "permission",
+  "denied",
+]);
+
 /** Build the ordered credential chain from DB settings + env (best key first). */
-async function credentialChain(): Promise<GeminiCredential[]> {
+async function credentialChain(): Promise<{ pairs: GeminiCredential[]; diagnostics: ScanDiagnostics }> {
   const model = await getAIModel();
   const keys = await getGeminiKeys();
   const sources: { key: string; label: string }[] = [];
-  if (keys.primary) sources.push({ key: keys.primary, label: keys.primarySource === "db" ? "Gemini primary key" : "GEMINI_API_KEY env" });
-  if (keys.backup) sources.push({ key: keys.backup, label: keys.backupSource === "db" ? "Gemini backup key" : "GEMINI_BACKUP_API_KEY env" });
+  if (keys.primary) sources.push({ key: keys.primary, label: keys.primarySource === "db" ? "Primary key (database)" : "GEMINI_API_KEY env" });
+  if (keys.backup) sources.push({ key: keys.backup, label: keys.backupSource === "db" ? "Backup key (database)" : "GEMINI_BACKUP_API_KEY env" });
   if (process.env.GEMINI_API_KEY?.trim()) sources.push({ key: process.env.GEMINI_API_KEY.trim(), label: "GEMINI_API_KEY env" });
   if (process.env.GEMINI_BACKUP_API_KEY?.trim()) sources.push({ key: process.env.GEMINI_BACKUP_API_KEY.trim(), label: "GEMINI_BACKUP_API_KEY env" });
-  return buildCredentialChain(sources, model);
+
+  // Preflight-probe each configured key (a tiny real generation) and drop keys
+  // with a permanent block from the chain so one dead key never produces a slow,
+  // confusing 403 at the start of every scan. Quota/slow keys stay in the chain
+  // (the existing retry/rollover logic handles those).
+  const skipped: ScanDiagnostics["skipped"] = [];
+  try {
+    const health = await getGeminiKeyHealth();
+    const blocked = health.filter((h) => !h.result?.ok && PERMANENT_BLOCK_KINDS.has(h.result?.kind ?? ""));
+    const blockedKeys = new Set(blocked.map((h) => h.key));
+    const reasonFor = new Map(blocked.map((h) => [h.key, h.result?.kind ?? "blocked"]));
+    const kept = sources.filter((s) => {
+      if (blockedKeys.has(s.key)) {
+        skipped.push({ label: s.label, reason: reasonFor.get(s.key) ?? "blocked" });
+        return false;
+      }
+      return true;
+    });
+    sources.length = 0;
+    sources.push(...kept);
+  } catch {
+    // Health probe failed (network/cache) — fall back to the full chain.
+  }
+
+  return { pairs: buildCredentialChain(sources, model), diagnostics: { used: null, skipped } };
 }
 
 /**
@@ -259,11 +294,15 @@ async function credentialChain(): Promise<GeminiCredential[]> {
  * Returns an error-free outcome the API route serializes for admin review.
  */
 export async function runCelebrityScan(imageDataUri: string, opts: { includeEvents?: boolean } = {}): Promise<ScanOutcome> {
-  const pairs = await credentialChain();
+  const { pairs, diagnostics } = await credentialChain();
   if (pairs.length === 0) {
     return {
       status: "provider_error",
-      message: "No Gemini API key is configured yet. Open Admin → AI Settings to add your key, or set GEMINI_API_KEY.",
+      message: "No working Gemini API key is configured yet. Open Admin → AI Settings to add a fresh key, or set GEMINI_API_KEY.",
+      detail: diagnostics.skipped.length
+        ? `All configured keys are blocked by Google (${diagnostics.skipped.map((s) => s.label).join(", ")}). Create a NEW key from a DIFFERENT Google account/project and add it in Admin → AI Settings.`
+        : "Open Admin → AI Settings to add your key, or set GEMINI_API_KEY.",
+      diagnostics,
     };
   }
 
@@ -271,6 +310,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
   let identity: IdentifiedPerson;
   try {
     const identified = await callAcrossCredentials(pairs, (c) => identifyPerson(c, imageDataUri));
+    diagnostics.used = { label: identified.used.label, model: identified.used.model };
     // A valid low-confidence answer is NOT retried on another key — the image
     // itself is unclear, so a fallback key would only guess. Ask for a clearer photo.
     identity = {
@@ -282,7 +322,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
     };
   } catch (e) {
     const { message, detail } = friendlyAiError(e);
-    return { status: "provider_error", message, detail };
+    return { status: "provider_error", message, detail, diagnostics };
   }
 
   if (!identity.identified || identity.confidence !== "high" || !identity.bestName) {
@@ -320,7 +360,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
     // Only the profile is mandatory; its failure (or a fully exhausted
     // credential chain) aborts the scan with an honest, friendly message.
     const { message, detail } = friendlyAiError(e);
-    return { status: "provider_error", message, detail };
+    return { status: "provider_error", message, detail, diagnostics };
   }
 
   return {
@@ -331,6 +371,7 @@ export async function runCelebrityScan(imageDataUri: string, opts: { includeEven
       events,
       duplicateOf,
     },
+    diagnostics,
   };
 }
 
@@ -347,11 +388,14 @@ export type CommunityByImageOutcome =
  * clear "not found" outcome the UI can explain honestly.
  */
 export async function searchCommunityByImage(imageDataUri: string): Promise<CommunityByImageOutcome> {
-  const pairs = await credentialChain();
+  const { pairs, diagnostics } = await credentialChain();
   if (pairs.length === 0) {
     return {
       status: "provider_error",
-      message: "No Gemini API key is configured yet. Open Admin → AI Settings to add your key, or set GEMINI_API_KEY.",
+      message: "No working Gemini API key is configured. Ask the site owner to add a fresh key in Admin → AI Settings.",
+      detail: diagnostics.skipped.length
+        ? `All configured keys are blocked by Google (${diagnostics.skipped.map((s) => s.label).join(", ")}).`
+        : undefined,
     };
   }
 

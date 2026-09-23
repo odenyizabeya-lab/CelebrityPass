@@ -41,6 +41,15 @@ type Status = {
   };
 };
 
+type KeyHealth = {
+  slot: string;
+  label: string;
+  source: "db" | "env" | "";
+  last4: string;
+  configured: boolean;
+  result: { ok: boolean; kind: string; message?: string } | null;
+};
+
 async function getStatus(): Promise<Status | null> {
   try {
     const res = await fetch("/api/admin/ai/settings", { cache: "no-store" });
@@ -52,8 +61,20 @@ async function getStatus(): Promise<Status | null> {
   }
 }
 
+async function getHealth(): Promise<KeyHealth[] | null> {
+  try {
+    const res = await fetch("/api/admin/ai/health", { cache: "no-store" });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return Array.isArray(d.health) ? d.health : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AiSettingsPane() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [health, setHealth] = useState<KeyHealth[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [model, setModel] = useState("");
   const [primaryKey, setPrimaryKey] = useState("");
@@ -72,9 +93,10 @@ export default function AiSettingsPane() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const s = await getStatus();
+      const [s, h] = await Promise.all([getStatus(), getHealth()]);
       if (!active) return;
       setStatus(s);
+      setHealth(h);
       if (s) {
         setModel(s.model);
         setAssistantModel(s.assistant?.model ?? "");
@@ -87,8 +109,9 @@ export default function AiSettingsPane() {
   }, []);
 
   const refresh = async () => {
-    const s = await getStatus();
+    const [s, h] = await Promise.all([getStatus(), getHealth()]);
     setStatus(s);
+    setHealth(h);
     if (s) {
       setModel(s.model);
       setAssistantModel(s.assistant?.model ?? "");
@@ -123,6 +146,7 @@ export default function AiSettingsPane() {
       const merged = { ...(d.settings ?? null), assistant: d.assistant ?? null };
       setStatus(merged);
       setAssistantModel(d.assistant?.model ?? "");
+      setHealth(await getHealth());
       setOk("AI settings saved. The assistant picks up new keys instantly — no redeploy needed.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save AI settings.");
@@ -217,11 +241,13 @@ export default function AiSettingsPane() {
         </p>
 
         <div className="mt-5 space-y-5">
+          <HealthBanner health={health} />
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-sm font-semibold text-zinc-300">Primary key (used first)</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.primarySource} />
+                <KeyHealthBadge health={health?.find((h) => h.slot === "primary")?.result ?? null} />
                 <KeyStatus configured={status?.primaryConfigured} />
               </div>
             </div>
@@ -241,6 +267,7 @@ export default function AiSettingsPane() {
               <label className="text-sm font-semibold text-zinc-300">Backup key (automatic fallback)</label>
               <div className="flex items-center gap-2">
                 <SourceChip source={status?.backupSource} />
+                <KeyHealthBadge health={health?.find((h) => h.slot === "backup")?.result ?? null} />
                 <KeyStatus configured={status?.backupConfigured} />
               </div>
             </div>
@@ -483,6 +510,52 @@ function KeyStatus({ configured }: { configured: boolean | undefined }) {
     <span className={`text-xs font-semibold ${configured ? "text-emerald-400" : "text-zinc-500"}`}>
       {configured ? "● configured" : "○ not set"}
     </span>
+  );
+}
+
+const HEALTH_TEXT: Record<string, { label: string; tone: string }> = {
+  ok: { label: "● working", tone: "text-emerald-400" },
+  denied: { label: "● BLOCKED — project denied", tone: "text-rose-400" },
+  invalid_key: { label: "● key rejected", tone: "text-rose-400" },
+  api_disabled: { label: "● API disabled", tone: "text-amber-400" },
+  billing: { label: "▲ needs billing", tone: "text-amber-400" },
+  project_restriction: { label: "▲ restricted", tone: "text-amber-400" },
+  permission: { label: "● suspended", tone: "text-rose-400" },
+  quota: { label: "▲ quota", tone: "text-amber-400" },
+  model: { label: "▲ model issue", tone: "text-amber-400" },
+  timeout: { label: "○ check timed out", tone: "text-zinc-500" },
+  network: { label: "○ reachable?", tone: "text-zinc-500" },
+  server: { label: "○ probe failed", tone: "text-zinc-500" },
+};
+
+function KeyHealthBadge({ health }: { health: { ok: boolean; kind: string; message?: string } | null }) {
+  if (!health) return null;
+  const cfg = HEALTH_TEXT[health.kind] ?? (health.ok ? HEALTH_TEXT.ok : HEALTH_TEXT.server);
+  return (
+    <span className={`text-xs font-semibold ${cfg.tone}`} title={health.ok ? "This key reached Gemini successfully." : `Google's reply: ${health.message ?? health.kind}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function HealthBanner({ health }: { health: KeyHealth[] | null }) {
+  if (!health || health.length === 0) return null;
+  const blocked = health.filter((h) => !h.result?.ok);
+  if (blocked.length === 0) {
+    return (
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        ✓ All configured Gemini keys are working.
+      </div>
+    );
+  }
+  const anyDenied = blocked.some((h) => h.result?.kind === "denied");
+  return (
+    <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+      ⚠ {blocked.map((h) => h.label).join(", ")} probe failed — Google{" "}
+      {anyDenied
+        ? "denied access for this key's project. Create a NEW key from a DIFFERENT Google account/project and paste it below."
+        : "rejects these keys. Replace them with fresh keys from Google AI Studio."}
+    </div>
   );
 }
 

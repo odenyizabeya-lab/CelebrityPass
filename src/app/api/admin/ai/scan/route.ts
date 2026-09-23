@@ -36,9 +36,12 @@ export async function POST(request: NextRequest) {
       });
     }
     if (outcome.status === "provider_error") {
-      return NextResponse.json({ status: "provider_error", message: outcome.message, detail: outcome.detail }, { status: 502 });
+      return NextResponse.json(
+        { status: "provider_error", message: outcome.message, detail: outcome.detail, diagnostics: outcome.diagnostics },
+        { status: 502 },
+      );
     }
-    return NextResponse.json({ status: "ok", result: outcome.result });
+    return NextResponse.json({ status: "ok", result: outcome.result, diagnostics: outcome.diagnostics });
   } catch (e) {
     return NextResponse.json(
       { status: "provider_error", message: `Scan failed: ${e instanceof Error ? e.message : String(e)}` },

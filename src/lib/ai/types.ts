@@ -117,7 +117,14 @@ export type ScanResult = {
   duplicateOf: { id: string; slug: string; name: string } | null;
 };
 
+export type ScanDiagnostics = {
+  /** Credential that actually served the scan (masked hint — never the key). */
+  used: { label: string; model: string } | null;
+  /** Keys that were probed at scan start and skipped because they are blocked. */
+  skipped: { label: string; reason: string }[];
+};
+
 export type ScanOutcome =
-  | { status: "ok"; result: ScanResult }
+  | { status: "ok"; result: ScanResult; diagnostics?: ScanDiagnostics }
   | { status: "low_confidence"; identity: IdentifiedPerson }
-  | { status: "provider_error"; message: string; detail?: string };
+  | { status: "provider_error"; message: string; detail?: string; diagnostics?: ScanDiagnostics };

@@ -25,6 +25,7 @@ export type AiErrorType =
   | "model"
   | "billing"
   | "permission"
+  | "denied"
   | "api_disabled"
   | "project_restriction"
   | "unsupported_combination"
@@ -108,6 +109,15 @@ export function friendlyAiError(e: unknown): { message: string; detail?: string 
           : "Google denied the request at the project level (403).",
         "Common causes: the Generative Language API is not enabled for the project, the key has application/IP/referrer restrictions, or billing is required. If the key itself is suspended, create a FRESH key in a DIFFERENT Google Cloud project (or a different Google account) and paste it in Admin → AI Settings.",
       );
+    case "denied":
+      // Google 403 "Your project has been denied access. Please contact
+      // support." — a hard, key-wide block Google applies to the whole
+      // project (e.g. after abuse/terms flags). No config change on our side
+      // fixes it; the ONLY fix is a fresh key from a different project/account.
+      return withDetail(
+        "Google has blocked this Gemini key's project — every request with it is refused (403).",
+        'Google says: "' + (google || "Your project has been denied access. Please contact support.") + '" — this is a hard block on the key\u2019s project, not a config issue here. Create a NEW API key from a DIFFERENT Google account/project (aistudio.google.com → Get API key) and paste it in Admin → AI Settings to replace this one.',
+      );
     case "timeout":
       return withDetail("Gemini took too long to respond. Try again in a moment.");
     case "network":
@@ -181,6 +191,15 @@ export function classifyError(status: number, text: string, hadSearchTool: boole
     const reasonSuspended =
       reason === "CONSUMER_SUSPENDED" || reason === "API_KEY_SUSPENDED" || reason === "KEY_SUSPENDED" || reason === "SERVICE_SUSPENDED";
 
+    // The "project has been denied access" 403 is a whole-project hard block —
+    // check the distinctive wording FIRST so it's never mislabelled as a
+    // generic permission/suspension the admin can fix with a setting tweak.
+    if (
+      has("denied access", "has been denied", "requested project is not authorized", "contact support") ||
+      /denied access|has been denied|deny? access to this project/i.test(text)
+    ) {
+      return "denied";
+    }
     if (reasonDisabled) return "api_disabled";
     if (reasonRestricted) return "project_restriction";
     if (reason === "API_KEY_INVALID") return "invalid_key";
@@ -331,6 +350,53 @@ export async function geminiJson<T>(opts: CallOptions): Promise<T> {
   } catch {
     throw new AiCallError("server", "Gemini returned invalid JSON.");
   }
+}
+
+export type KeyProbeResult =
+  | { ok: true; kind: "ok"; message?: string }
+  | { ok: false; kind: AiErrorType | "server"; message?: string };
+
+/**
+ * Cheap health probe for a Gemini key. listModels alone is misleading — a key
+ * whose project Google has denied still lists models fine while *every
+ * generation* 403s. So the probe runs one tiny generateContent (a single
+ * token, no image, no search) which reproduces the real scan call path. Cost is
+ * negligible and cached per key; never throws.
+ */
+export async function probeGeminiKey(key: string, timeoutMs = 20_000): Promise<KeyProbeResult> {
+  const url = `${API_BASE}/${encodeURIComponent("gemini-3.6-flash")}:generateContent`;
+  const body = {
+    contents: [{ role: "user", parts: [{ text: "Reply with the single word: ok" }] }],
+    generationConfig: { temperature: 0, maxOutputTokens: 5 },
+  };
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        cache: "no-store",
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") return { ok: false, kind: "timeout", message: "The key check timed out." };
+    return { ok: false, kind: "network", message: "Could not reach the Gemini API to check the key." };
+  }
+  if (res.ok) return { ok: true, kind: "ok" };
+
+  const text = await res.text().catch(() => "");
+  const type = classifyError(res.status, text, false);
+  const google = googleHumanMessage(`Gemini HTTP ${res.status}: ${text.slice(0, 300)}`);
+  return { ok: false, kind: type, message: google || `HTTP ${res.status} ${text.slice(0, 160)}`.trim() };
 }
 
 // ---------------------------------------------------------------------------
@@ -637,6 +703,7 @@ export async function callAcrossCredentials<T>(
         const keyBlock = [
           "invalid_key",
           "permission",
+          "denied",
           "api_disabled",
           "model",
           "billing",

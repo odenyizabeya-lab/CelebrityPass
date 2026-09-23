@@ -165,6 +165,7 @@ export async function setGeminiKey(slot: "primary" | "backup", value: string): P
     slot === "primary" ? AI_SETTING_PRIMARY_KEY : AI_SETTING_BACKUP_KEY,
     v ? encryptStoredKey(v) : "",
   );
+  clearGeminiHealthCache();
 }
 
 /**
@@ -214,4 +215,70 @@ export async function getAiSettingsStatus(): Promise<AiSettingsStatus> {
     backupSource: keys.backupSource,
     encryptionEnabled: Boolean(decryptionKey()),
   };
+}
+
+export type GeminiKeyHealth = {
+  slot: "primary" | "backup" | "envPrimary" | "envBackup";
+  label: string;
+  source: GeminiKeySource;
+  /** Masked hint (never the key itself). */
+  last4: string;
+  configured: boolean;
+  result: { ok: boolean; kind: string; message?: string } | null;
+};
+
+export type GeminiKeyHealthEntry = GeminiKeyHealth & { key: string };
+
+const HEALTH_TTL_MS = 60_000;
+let healthCache: { at: number; entries: GeminiKeyHealthEntry[] } | null = null;
+
+/**
+ * Live health of every configured Gemini key, probed with a tiny real
+ * generation (listModels alone passes for keys whose project Google has denied,
+ * so the probe reproduces an actual call). Cached briefly so the settings page
+ * and a burst of scans share one probe instead of hammering Gemini.
+ * The raw key values stay server-side — callers must strip them before sending
+ * anything to the browser.
+ */
+export async function getGeminiKeyHealth(): Promise<GeminiKeyHealthEntry[]> {
+  if (healthCache && Date.now() - healthCache.at < HEALTH_TTL_MS) return healthCache.entries;
+
+  const keys = await getGeminiKeys();
+  const envPrimary = process.env.GEMINI_API_KEY?.trim() ?? "";
+  const envBackup = process.env.GEMINI_BACKUP_API_KEY?.trim() ?? "";
+
+  const slots: GeminiKeyHealthEntry[] = [];
+  const seen = new Set<string>();
+  const add = (slot: GeminiKeyHealth["slot"], key: string, label: string, source: GeminiKeySource, configured: boolean) => {
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    slots.push({ slot, label, source, last4: maskSecret(key), configured, result: null, key });
+  };
+  add("primary", keys.primary, keys.primarySource === "db" ? "Primary key (database)" : "Primary key (env)", keys.primary ? "db" : "env", true);
+  add("backup", keys.backup, keys.backupSource === "db" ? "Backup key (database)" : "Backup key (env)", keys.backup ? "db" : "env", true);
+  // The env fallbacks are distinct credentials on their own — probe them too so
+  // a scan that only survives via GEMINI_API_KEY is reported honestly.
+  if (envPrimary && envPrimary !== keys.primary) add("envPrimary", envPrimary, "GEMINI_API_KEY env", "env", true);
+  if (envBackup && envBackup !== keys.backup) add("envBackup", envBackup, "GEMINI_BACKUP_API_KEY env", "env", true);
+
+  if (slots.length === 0) {
+    healthCache = { at: Date.now(), entries: [] };
+    return [];
+  }
+
+  const { probeGeminiKey } = await import("./client");
+  const probed = await Promise.all(
+    slots.map(async (s) => {
+      const r = await probeGeminiKey(s.key);
+      return { ...s, result: { ok: r.ok, kind: r.kind, message: r.message } };
+    }),
+  );
+
+  healthCache = { at: Date.now(), entries: probed };
+  return probed;
+}
+
+/** Drop the probe cache after a key change so statuses refresh immediately. */
+export function clearGeminiHealthCache(): void {
+  healthCache = null;
 }

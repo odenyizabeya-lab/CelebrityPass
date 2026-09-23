@@ -95,6 +95,7 @@ export default function CelebrityForm({ mode, celebrity }: { mode: "create" | "e
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done" | "error" | "low_confidence">("idle");
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanDetail, setScanDetail] = useState<string | null>(null);
+  const [scanMeta, setScanMeta] = useState<{ used: string | null; skipped: string[] }>({ used: null, skipped: [] });
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [includeEvents, setIncludeEvents] = useState(true);
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
@@ -291,6 +292,11 @@ const submit = async (e: React.FormEvent) => {
         body: JSON.stringify({ imageDataUri: small, includeEvents }),
       });
       const data = await res.json().catch(() => null);
+      const meta = {
+        used: typeof data?.diagnostics?.used?.label === "string" ? data.diagnostics.used.label : null,
+        skipped: Array.isArray(data?.diagnostics?.skipped) ? data.diagnostics.skipped.map((s: { label?: string; reason?: string }) => s?.label ?? "").filter(Boolean) : [],
+      };
+      setScanMeta(meta);
       if (data?.status === "low_confidence") {
         setScanState("low_confidence");
         setScanMessage(data.message ?? "Could not confidently identify who this is. Try a clearer photo.");
@@ -711,6 +717,17 @@ const submit = async (e: React.FormEvent) => {
 
         {scanState === "done" && scanResult && (
           <div className="mt-5 space-y-5">
+            {scanMeta.used && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+                Scanned with <strong>{scanMeta.used}</strong>
+                {scanMeta.skipped.length > 0 && (
+                  <span className="text-zinc-400">
+                    {" "}
+                    · skipped blocked keys: {scanMeta.skipped.join(", ")}
+                  </span>
+                )}
+              </div>
+            )}
             {!edit && scanResult.duplicateOf && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                 This person already has a community here: <strong>{scanResult.duplicateOf.name}</strong> (e.g.{" "}
