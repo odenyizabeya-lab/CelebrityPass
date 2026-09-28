@@ -1,7 +1,8 @@
 import type { Dict } from "./en";
+import type { DeepPartial } from "../types";
 
 /** French (Français). Missing keys automatically fall back to English. */
-export const fr: Dict = {
+export const fr: DeepPartial<Dict> = {
   brand: {
     name: "CelebrityPass",
     tagline: "Cartes de fan, adhésions et expériences",

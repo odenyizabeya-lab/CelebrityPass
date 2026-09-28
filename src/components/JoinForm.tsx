@@ -40,6 +40,7 @@ function LevelOptionThumb({
   pal?: TierPalette;
   selected?: boolean;
 }) {
+  const { t } = useLanguage();
   const gold = "#fcd34d";
   const neon = pal ? pal.accent : tone === "vip" ? gold : "#7dd3fc";
   const bg =
@@ -68,12 +69,12 @@ function LevelOptionThumb({
             </span>
           </div>
           <span className="rounded-full bg-emerald-100/90 px-1.5 py-px text-[6px] font-black uppercase tracking-[0.12em] text-emerald-900">
-            Active
+            {t("fanCard.statusActive")}
           </span>
         </div>
         <div className="mt-[3%] min-h-0 flex-1">
           <p className="truncate text-sm font-black uppercase tracking-[0.1em] text-white">{tierName}</p>
-          <p className="text-[6.5px] font-bold uppercase tracking-[0.3em] text-white/70">Official Fan Card</p>
+          <p className="text-[6.5px] font-bold uppercase tracking-[0.3em] text-white/70">{t("celebrity.officialFanCard")}</p>
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="flex items-center gap-1.5">
@@ -90,7 +91,7 @@ function LevelOptionThumb({
             </div>
             <div className="min-w-0">
               {first && <p className="truncate text-[8px] font-black uppercase tracking-[0.08em] text-white">{first.toUpperCase()}</p>}
-              <p className="text-[6.5px] font-bold uppercase tracking-[0.18em] text-white/55">Member</p>
+              <p className="text-[6.5px] font-bold uppercase tracking-[0.18em] text-white/55">{t("fanCard.memberLabel")}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -327,7 +328,7 @@ export default function JoinForm({
                                   selected ? "bg-white/25 text-white ring-white/40" : "bg-white/15 text-white ring-white/30"
                                 }`}
                               >
-                                Experience
+                                {t("celebrity.experience")}
                               </span>
                             </span>
                             <span className="shrink-0 text-base font-black text-white" style={!selected ? { color: pal.accent } : undefined}>

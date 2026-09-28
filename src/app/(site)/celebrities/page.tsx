@@ -3,6 +3,7 @@ import Link from "next/link";
 import DirectoryFilters from "@/components/DirectoryFilters";
 import CelebrityCard from "@/components/CelebrityCard";
 import EmptyState from "@/components/EmptyState";
+import T from "@/components/T";
 import { getCelebritySummaries, getSearchOptions, toCardCelebrity } from "@/lib/services";
 import { safeAsync } from "@/lib/safe-data";
 import { appUrl } from "@/lib/utils";
@@ -101,11 +102,14 @@ export default async function CelebritiesPage({
         />
       )}
       <div className="mb-10 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Fan Communities</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Celebrity Directory</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">
+          <T k="celebrities.eyebrow" />
+        </p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">
+          <T k="celebrities.title" />
+        </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-zinc-400">
-          {celebrities.length} active {celebrities.length === 1 ? "community" : "communities"} · search, filter, and
-          enter any fan community to claim your official card.
+          <T k={celebrities.length === 1 ? "celebrities.subOne" : "celebrities.sub"} vars={{ count: celebrities.length }} />
         </p>
       </div>
 
@@ -114,10 +118,10 @@ export default async function CelebritiesPage({
       {filterCount > 0 && (
         <div className="mt-6 flex items-center gap-3 text-sm text-zinc-400">
           <span>
-            {celebrities.length} result{celebrities.length === 1 ? "" : "s"} for your search
+            <T k={celebrities.length === 1 ? "celebrities.resultPhraseOne" : "celebrities.resultPhrase"} vars={{ count: celebrities.length }} />
           </span>
           <Link href="/celebrities" className="rounded-full px-3 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-white/15 hover:text-white">
-            Clear filters
+            <T k="celebrities.clearFilters" />
           </Link>
         </div>
       )}
@@ -126,19 +130,15 @@ export default async function CelebritiesPage({
         {pageItems.length === 0 ? (
           <div className="mx-auto max-w-2xl">
             <EmptyState
-              title="No communities found"
-              message={
-                filterCount > 0
-                  ? "Nothing matched your search. Try a different name, category, country, or profession."
-                  : "There are no active communities yet. Check back soon."
-              }
+              title={<T k="celebrities.noResults" />}
+              message={<T k={filterCount > 0 ? "celebrities.noResultsSub" : "celebrities.noActive"} />}
             />
             <div className="mt-6 flex justify-center">
               <Link
                 href="/celebrities"
                 className="rounded-full px-5 py-2.5 text-sm font-semibold ring-1 ring-white/15 text-white hover:bg-white/5"
               >
-                Show all communities
+                <T k="celebrities.showAll" />
               </Link>
             </div>
           </div>
@@ -157,18 +157,18 @@ export default async function CelebritiesPage({
                     href={pageLinks(page - 1)}
                     className="rounded-full px-5 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:bg-white/5"
                   >
-                    ← Previous
+                    <T k="celebrities.previous" />
                   </Link>
                 )}
                 <span className="rounded-full bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-400 ring-1 ring-white/10">
-                  Page {page} of {totalPages}
+                  <T k="celebrities.pageOf" vars={{ page, total: totalPages }} />
                 </span>
                 {page < totalPages && (
                   <Link
                     href={pageLinks(page + 1)}
                     className="rounded-full px-5 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-white/15 transition hover:bg-white/5"
                   >
-                    Next →
+                    <T k="celebrities.next" />
                   </Link>
                 )}
               </div>

@@ -81,7 +81,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                     Celebrity<span className="opacity-80">Pass</span>
                   </p>
                   <p className="mt-0.5 text-[6.5px] font-bold uppercase tracking-[0.28em] text-white/60">
-                    Official Membership Card
+                    <T k="fanCard.officialCard" />
                   </p>
                 </div>
               </div>
@@ -120,7 +120,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                   )}
                 </div>
                 <p className="absolute inset-x-0 bottom-0 bg-white/70 py-[3%] text-center text-[5.5px] font-bold uppercase tracking-[0.2em] text-neutral-600">
-                  Fan Card
+                  <T k="fanCard.fanCardLabel" />
                 </p>
               </div>
 
@@ -140,7 +140,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
                     </p>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50">Class</p>
+                    <p className="text-[6.5px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.class" /></p>
                     <p className="truncate text-[clamp(8px,1.5vw,12px)] font-black uppercase tracking-[0.06em] text-white">
                       {classLabel}
                     </p>
@@ -166,7 +166,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
               <div className="flex shrink-0 items-center gap-2">
                 <CardChip tone={premium ? "gold" : "brand"} />
                 <div className="hidden leading-none sm:block">
-                  <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member since</p>
+                  <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.memberSince" /></p>
                   <p className="mt-0.5 text-[9px] font-black text-white">{formatDate(card.registeredAt).slice(-4)}</p>
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function FanCardView({ card }: { card: CardViewData }) {
 
         {/* Micro-credential line under the card (also part of the "real card" feel) */}
         <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-          {premium ? "Elite Experience · Signature Collection" : "CelebrityPass · Verified Membership"}
+          {premium ? <T k="fanCard.eliteSignature" /> : <T k="fanCard.verifiedMembership" />}
         </p>
       </div>
     </div>

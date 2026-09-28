@@ -4,6 +4,7 @@ import NativeIntegration from "@/components/NativeIntegration";
 import PushBootstrap from "@/components/PushBootstrap";
 import InAppNotifications from "@/components/InAppNotifications";
 import LanguageProvider from "@/lib/i18n/language-context";
+import { localeBootstrapScript } from "@/lib/i18n/bootstrap-script";
 import { DEFAULT_LOCALE, localeDir } from "@/lib/i18n/locales";
 import { appUrl } from "@/lib/utils";
 
@@ -66,6 +67,10 @@ export default async function RootLayout({
   return (
     <html lang={initialLocale} dir={localeDir(initialLocale)} className="h-full antialiased">
       <body className="flex min-h-full flex-col bg-aurora">
+        {/* Resolve the visitor's language before first paint: sets <html
+            lang/dir>, honours the saved choice (or Automatic), falls back to
+            browser languages, then English. */}
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrapScript() }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

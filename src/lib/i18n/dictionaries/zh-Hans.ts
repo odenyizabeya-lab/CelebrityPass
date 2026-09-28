@@ -1,7 +1,8 @@
 import type { Dict } from "./en";
+import type { DeepPartial } from "../types";
 
 /** Simplified Chinese (简体中文). Falling back to English is automatic for any missing key. */
-export const zhHans: Dict = {
+export const zhHans: DeepPartial<Dict> = {
   brand: {
     name: "CelebrityPass",
     tagline: "粉丝卡、会员与体验",

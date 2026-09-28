@@ -50,18 +50,20 @@ function benefitLines(text?: string | null): string[] {
 // ---------------------------------------------------------------------------
 
 const CARD_TAGLINES = {
-  standard: ["Be Closer Than Ever"],
-  vip: ["EXCLUSIVE ACCESS", "PRIORITY EXPERIENCES", "A HIGHER LEVEL OF FANDOM"],
+  standard: ["celebrity.taglineCloser"],
+  vip: ["celebrity.tagExclusive", "celebrity.tagPriority", "celebrity.tagHigher"],
 } as const;
 
 const CARD_ICON_LABELS = {
-  standard: ["Exclusive Content", "Priority Community", "Verified Fan ID", "Fan-Only Updates"],
-  vip: ["VIP Card Design", "Premium Support", "Recognition Badge", "Early Access"],
+  standard: ["celebrity.perkExclusiveContent", "celebrity.perkPriorityCommunity", "celebrity.perkVerifiedFanId", "celebrity.perkFanOnly"],
+  vip: ["celebrity.perkVipDesign", "celebrity.perkPremiumSupport", "celebrity.perkRecognition", "celebrity.perkEarlyAccess"],
 } as const;
 
+// Feature bullets shown when a level has no configured benefits — these are
+// dictionary keys, rendered through <T/> so they translate too.
 const CARD_DEFAULT_FEATURES = {
-  standard: ["Unique verified Fan ID", "Live card link + QR code", "Priority community news", "Exclusive digital content", "Access to fan-only updates"],
-  vip: ["Everything in Premium", "Exclusive VIP card design", "Premium support", "Special recognition badge", "Top-tier community status", "Early access to events & new features"],
+  standard: ["celebrity.perkVerifiedId", "celebrity.perkLiveLink", "celebrity.perkPriorityNews", "celebrity.perkDigitalContent", "celebrity.perkFanUpdates"],
+  vip: ["celebrity.perkEverythingPremium", "membership.vipPerk2", "membership.vipPerk3", "membership.vipPerk4", "membership.vipPerk5", "celebrity.perkEarlyUpdates"],
 } as const;
 
 const cardIconCls = "h-4 w-4 shrink-0";
@@ -404,7 +406,7 @@ export default async function CelebrityPage({ params }: Props) {
           </div>
           {celebrity.imageVerified && celebrity.imageAttribution && (
             <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-              Photo:{" "}
+              <T k="celebrity.photo" />:{" "}
               <a
                 href={celebrity.imageSourceUrl || "#"}
                 target="_blank"
@@ -483,11 +485,11 @@ export default async function CelebrityPage({ params }: Props) {
             <>
               <div className="glass rounded-3xl px-6 py-5">
                 <p className="truncate text-2xl font-black text-white sm:text-3xl">{celebrity.category}</p>
-                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500">Category</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="celebrity.categoryLabel" /></p>
               </div>
               <div className="glass rounded-3xl px-6 py-5">
                 <p className="text-2xl font-black text-white sm:text-3xl">{profileClassLabel}</p>
-                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500">Profile Class</p>
+                <p className="mt-1 text-sm font-medium uppercase tracking-wide text-zinc-500"><T k="celebrity.profileClassLabel" /></p>
               </div>
             </>
           )}
@@ -527,7 +529,7 @@ export default async function CelebrityPage({ params }: Props) {
               <svg className="h-5 w-5 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V8h-2v4zm0 3v-1h-2v1z" />
               </svg>
-              <span className="min-w-0 text-center leading-snug">Explore {celebrity.name}&apos;s Profile</span>
+              <span className="min-w-0 text-center leading-snug"><T k="celebrity.exploreProfile" vars={{ name: celebrity.name }} /></span>
             </a>
           </div>
         )}
@@ -537,25 +539,23 @@ export default async function CelebrityPage({ params }: Props) {
           {/* Bio + community info */}
           <div className="space-y-14">
             <section id="profile">
-              <h2 className="text-2xl font-black tracking-tight">About {celebrity.name}</h2>
+              <h2 className="text-2xl font-black tracking-tight"><T k="celebrity.aboutTitle" vars={{ name: celebrity.name }} /></h2>
               {celebrity.bio && (
                 <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-200">{celebrity.bio}</p>
               )}
               <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-500">
-                {fanSystem
-                  ? "CelebrityPass hosts independent fan membership communities. Fan cards are issued by the platform on behalf of each community and do not represent contracts with, or endorsement by, the celebrity."
-                  : "This profile presents factual information about this person sourced from public, authoritative references. Nothing on this page is an offer, solicitation, or endorsement — including no offer to invest."}
+                <T k={fanSystem ? "celebrity.fanCommunityDisclaimer" : "celebrity.factualDisclaimer"} />
               </p>
             </section>
 
             {fanSystem ? (
 <section>
-  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300">Join The Exclusive Community</p>
+  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300"><T k="celebrity.joinExclusive" /></p>
   <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-    Membership <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-transparent">Levels</span>
+    <T k="membership.title" /> <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 bg-clip-text text-transparent"><T k="membership.levels" /></span>
   </h2>
   <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">
-    Get your official CelebrityPass fan card and unlock a world of exclusive experiences, content and more.
+    <T k="celebrity.membershipSub" />
   </p>
   {!hasMemberships ? (
     <div className="mt-6">
@@ -609,10 +609,10 @@ export default async function CelebrityPage({ params }: Props) {
                 <div className="max-w-xl overflow-hidden rounded-[2rem] bg-[#05060a] shadow-2xl ring-1 ring-white/10">
                   <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
                     <span className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500">
-                      CelebrityPass Invest
+                      <T k="celebrity.investHeader" />
                     </span>
                     <Link href="/invest" className="text-[13px] font-bold text-sky-400">
-                      Open the app
+                      <T k="celebrity.openTheApp" />
                     </Link>
                   </div>
                   <div className="px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+5.75rem)] sm:px-5">
@@ -709,7 +709,7 @@ async function LevelCardGraphic({
             className="text-[8px] font-black uppercase tracking-[0.3em]"
             style={{ color: neon, writingMode: "vertical-rl", transform: "rotate(180deg)" }}
           >
-            {t}
+            <T k={t} />
           </span>
         ))}
       </div>
@@ -735,7 +735,7 @@ async function LevelCardGraphic({
         {/* Middle: tier */}
         <div>
           <p className="text-xl font-black uppercase tracking-[0.12em] text-white sm:text-2xl">{tierName}</p>
-          <p className="text-[9px] font-bold uppercase tracking-[0.34em] text-white/70">Official Fan Card</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.34em] text-white/70"><T k="celebrity.officialFanCard" /></p>
         </div>
 
         {/* Bottom: photo + identity left, signature + QR right */}
@@ -753,12 +753,12 @@ async function LevelCardGraphic({
             <div>
               {levelNumber > 0 && (
                 <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: neon }}>
-                  Level {levelNumber}
+                  <T k="membership.level" vars={{ n: levelNumber }} />
                 </p>
               )}
               <p className="text-sm font-black uppercase tracking-[0.08em] text-white sm:text-base">{name}</p>
               <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/55">
-                {popular && <span style={{ color: gold }}>★ </span>}Member
+                {popular && <span style={{ color: gold }}>★ </span>}<T k="celebrity.memberLabel" />
               </p>
             </div>
           </div>
@@ -805,7 +805,8 @@ function MembershipLevelCard({
   const popular = variant === "vip";
   const pal = tierPalette(level.name, levelNumber - 1);
   const features = benefitLines(level.benefits ?? level.description);
-  const featureList = features.length > 0 ? features : [...CARD_DEFAULT_FEATURES[variant]];
+  const useDefaultFeatures = features.length === 0;
+  const featureList = useDefaultFeatures ? [...CARD_DEFAULT_FEATURES[variant]] : features;
   const qrValue = `/celebrity/${slug}/join?level=${level.id}`;
 
   return (
@@ -823,7 +824,7 @@ function MembershipLevelCard({
               className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1"
               style={{ color: pal.accent, backgroundColor: "rgba(255,255,255,0.12)", borderColor: pal.accent }}
             >
-              Level {levelNumber}
+              <T k="membership.level" vars={{ n: levelNumber }} />
             </span>
             {popular && (
               <>
@@ -833,7 +834,7 @@ function MembershipLevelCard({
                   </svg>
                 </span>
                 <span className="inline-flex rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow">
-                  Most Popular
+                  <T k="membership.mostPopular" />
                 </span>
               </>
             )}
@@ -843,7 +844,7 @@ function MembershipLevelCard({
             {level.name}
           </h3>
           <p className="mt-2 text-base leading-relaxed text-white/75">
-            {pal.blurb ?? (popular ? "Everything in Premium, plus so much more." : `Official digital fan card for ${celebrityName}`)}
+            {pal.blurb ?? (popular ? <T k="celebrity.fallbackPerk1" /> : <T k="celebrity.fallbackPerk2" vars={{ name: celebrityName }} />)}
           </p>
           <p className="mt-3 text-2xl font-black" style={{ color: pal.accent }}>
             {level.price != null && level.price > 0 ? formatMoney(level.price, level.currency) : formatMoney(0, level.currency)}
@@ -855,7 +856,7 @@ function MembershipLevelCard({
                 <svg className="mt-0.5 h-4 w-4 shrink-0 text-white/70" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                {f}
+                {useDefaultFeatures ? <T k={f} /> : f}
               </li>
             ))}
           </ul>
@@ -872,7 +873,7 @@ function MembershipLevelCard({
             {CARD_ICONS[variant].map((Icon, i) => (
               <div key={CARD_ICON_LABELS[variant][i]} className="flex items-center gap-2 text-xs text-white/75">
                 <Icon />
-                <span>{CARD_ICON_LABELS[variant][i]}</span>
+                <span><T k={CARD_ICON_LABELS[variant][i]} /></span>
               </div>
             ))}
           </div>
@@ -930,7 +931,7 @@ function SignatureExperienceCard({
               className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-widest ring-1"
               style={{ color: pal.accent, backgroundColor: "rgba(255,255,255,0.12)", borderColor: pal.accent }}
             >
-              Signature Experience
+              <T k="celebrity.signatureExperience" />
             </span>
             <span className="grid h-6 w-6 place-items-center rounded-full bg-white/25 text-white">
               <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -972,7 +973,7 @@ function SignatureExperienceCard({
             {CARD_ICONS.vip.map((Icon, i) => (
               <div key={CARD_ICON_LABELS.vip[i]} className="flex items-center gap-2 text-xs text-white/75">
                 <Icon />
-                <span>{CARD_ICON_LABELS.vip[i]}</span>
+                <span><T k={CARD_ICON_LABELS.vip[i]} /></span>
               </div>
             ))}
           </div>
@@ -1056,7 +1057,7 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
                 Celebrity<span className="opacity-80">Pass</span>
               </p>
               <p className="mt-0.5 text-[6px] font-bold uppercase tracking-[0.28em] text-white/60">
-                Official Fan Card
+                <T k="celebrity.officialFanCard" />
               </p>
             </div>
           </div>
@@ -1079,7 +1080,7 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
               </span>
             </div>
             <p className="absolute inset-x-0 bottom-0 bg-white/70 py-[3%] text-center text-[5px] font-bold uppercase tracking-[0.2em] text-neutral-600">
-              Fan Card
+              <T k="fanCard.fanCardLabel" />
             </p>
           </div>
 
@@ -1092,13 +1093,13 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
             </div>
             <div className="grid grid-cols-2 gap-x-[8%] gap-y-[4%]">
               <div className="min-w-0">
-                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member ID</p>
+                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="celebrity.memberId" /></p>
                 <p className="font-mono text-[clamp(8px,1.4vw,11px)] font-bold tracking-[0.08em] text-white/90">
                   FC-000000 <span className="text-white/50"><T k="membership.sampleId" /></span>
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Class</p>
+                <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.class" /></p>
                 <p className="truncate text-[clamp(8px,1.4vw,11px)] font-black uppercase tracking-[0.06em] text-white/90">
                   {design.badgeText ?? "FAN CARD"}
                 </p>
@@ -1111,7 +1112,7 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
           <div className="flex shrink-0 items-center gap-2">
             <CardChip tone="brand" />
             <div className="hidden leading-none sm:block">
-              <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50">Member since</p>
+              <p className="text-[6px] font-bold uppercase tracking-[0.2em] text-white/50"><T k="fanCard.memberSince" /></p>
               <p className="mt-0.5 text-[9px] font-black text-white">----</p>
             </div>
           </div>
@@ -1121,14 +1122,14 @@ function CardPreview({ celebrity }: { celebrity: CelebrityDetail }) {
             </div>
             <div className="shrink-0 overflow-hidden rounded-lg bg-white p-[3px] shadow-md ring-1 ring-white/30">
               <div className="grid h-8 w-8 place-items-center text-[7px] font-black tracking-tight text-neutral-500 sm:h-9 sm:w-9">
-                YOUR QR
+                <T k="celebrity.yourQr" />
               </div>
             </div>
           </div>
         </div>
 
         <span className="pointer-events-none absolute right-[4%] top-[6%] hidden items-center gap-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/0 transition group-hover:text-amber-300 sm:inline-flex">
-          Get your fan card
+          <T k="celebrity.getYourCard" />
           <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
           </svg>
@@ -1156,7 +1157,7 @@ function FollowerTile({
         <span className="text-base font-semibold text-zinc-400">{label}</span>
       </div>
       <p className="mt-3 text-3xl font-black text-white">{formatFollowerCount(count)}</p>
-      <p className="mt-1 text-sm text-zinc-500">followers</p>
+      <p className="mt-1 text-sm text-zinc-500"><T k="celebrity.followers" /></p>
     </>
   );
   const cls = "glass card-hover block rounded-3xl px-6 py-5";
@@ -1180,21 +1181,21 @@ function ProfileFacts({
   profileClassLabel: string;
 }) {
   const facts = [
-    { label: "Name", value: celebrity.name },
-    { label: "Category", value: celebrity.category },
-    { label: "Profile Class", value: profileClassLabel },
-    ...(celebrity.profession ? [{ label: "Role", value: celebrity.profession }] : []),
-    ...(celebrity.country ? [{ label: "Country", value: celebrity.country }] : []),
-    ...(celebrity.city ? [{ label: "City", value: celebrity.city }] : []),
+    { label: <T k="profileFacts.name" />, value: celebrity.name },
+    { label: <T k="profileFacts.category" />, value: celebrity.category },
+    { label: <T k="profileFacts.profileClass" />, value: profileClassLabel },
+    ...(celebrity.profession ? [{ label: <T k="profileFacts.role" />, value: celebrity.profession }] : []),
+    ...(celebrity.country ? [{ label: <T k="profileFacts.country" />, value: celebrity.country }] : []),
+    ...(celebrity.city ? [{ label: <T k="profileFacts.city" />, value: celebrity.city }] : []),
   ];
   return (
     <div className="glass rounded-3xl px-6 py-6">
       <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
-        Profile Facts
+        <T k="celebrity.profileFacts" />
       </h3>
       <dl className="mt-4 space-y-3">
         {facts.map((f) => (
-          <div key={f.label}>
+          <div key={String(f.label)}>
             <dt className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">
               {f.label}
             </dt>
@@ -1203,7 +1204,7 @@ function ProfileFacts({
         ))}
       </dl>
       <p className="mt-5 border-t border-white/10 pt-4 text-xs leading-relaxed text-zinc-500">
-        Verified official profile information. Nothing here is an offer to invest.
+        <T k="celebrity.profileFactsSub" />
       </p>
     </div>
   );

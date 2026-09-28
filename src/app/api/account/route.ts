@@ -23,6 +23,7 @@ export async function GET() {
       country: fan.country,
       createdAt: fan.createdAt,
       hasPassword: Boolean(fan.password),
+      preferredLocale: fan.preferredLocale,
     },
   });
 }
@@ -47,6 +48,10 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.phone !== undefined) {
     data.phone = String(body.phone).trim() || null;
+  }
+  if (body.preferredLocale !== undefined) {
+    const value = String(body.preferredLocale ?? "").trim();
+    data.preferredLocale = value ? value : null;
   }
 
   // Password change requires the current password.
@@ -79,6 +84,7 @@ export async function PATCH(request: NextRequest) {
       phone: updated.phone,
       country: updated.country,
       hasPassword: Boolean(updated.password),
+      preferredLocale: updated.preferredLocale,
     },
   });
 }

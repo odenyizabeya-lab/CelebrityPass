@@ -160,6 +160,10 @@ model Fan {
   onboardingCelebritiesDone Boolean   @default(false)
   // Chat notification preference (in-app + email for new messages).
   chatNotify                Boolean   @default(true)
+  // The fan's chosen interface language (a supported locale code, e.g. "es",
+  // "ar"). NULL = automatic/device language detection. The account preference
+  // is applied when the fan signs in on a device with no local choice.
+  preferredLocale           String?
 
   cards              FanCard[]
   payments           Payment[]

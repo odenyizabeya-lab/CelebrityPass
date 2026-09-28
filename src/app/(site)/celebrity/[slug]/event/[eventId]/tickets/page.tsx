@@ -7,6 +7,7 @@ import TicketPicker from "@/components/tickets/TicketPicker";
 import { getEventById } from "@/lib/events/service";
 import { getEventTicketView } from "@/lib/ticketing/service";
 import { formatEventDate } from "@/lib/events/helpers";
+import T from "@/components/T";
 import { safeAsync } from "@/lib/safe-data";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function TicketSelectionPage({ params }: Props) {
       <div className="h-32 w-full" style={{ background: "linear-gradient(115deg, #27104a, #0b0c10)" }} />
       <div className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
         <Link href={`/celebrity/${slug}/event/${eventId}`} className="text-sm font-semibold text-zinc-400 transition hover:text-white">
-          ← Back to event
+          <T k="events.backToEvent" />
         </Link>
 
         <div className="mt-6 rounded-3xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 ring-1 ring-white/10 sm:p-8">

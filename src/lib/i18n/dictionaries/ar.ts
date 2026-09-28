@@ -1,7 +1,8 @@
 import type { Dict } from "./en";
+import type { DeepPartial } from "../types";
 
 /** Arabic (العربية, RTL). Missing keys automatically fall back to English. */
-export const ar: Dict = {
+export const ar: DeepPartial<Dict> = {
   brand: {
     name: "CelebrityPass",
     tagline: "بطاقات المعجبين والعضويات والتجارب",

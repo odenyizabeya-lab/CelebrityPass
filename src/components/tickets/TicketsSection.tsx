@@ -2,6 +2,7 @@
 // inventory from the DB only; every state is honest (no fake availability).
 import Link from "next/link";
 import EmptyState from "@/components/EmptyState";
+import T from "@/components/T";
 import { getEventTicketView } from "@/lib/ticketing/service";
 import { formatTicketPrice } from "@/lib/ticketing/helpers";
 import type { EventSummary } from "@/lib/events/service";
@@ -18,11 +19,11 @@ export default async function TicketsSection({ event }: { event: EventSummary })
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/5 text-lg ring-1 ring-white/10">🎟️</span>
-          <h2 className="text-xl font-black tracking-tight">Tickets</h2>
+          <h2 className="text-xl font-black tracking-tight"><T k="tickets.title" /></h2>
         </div>
         {view.ticketLastSyncedAt && (
           <span className="text-[11px] text-zinc-500">
-            Last updated {new Date(view.ticketLastSyncedAt).toLocaleString()}
+            <T k="events.lastUpdated" vars={{ date: new Date(view.ticketLastSyncedAt).toLocaleString() }} />
           </span>
         )}
       </div>
@@ -30,12 +31,12 @@ export default async function TicketsSection({ event }: { event: EventSummary })
       <div className="mt-4 space-y-3">
         {event.status === "CANCELLED" && (
           <p className="rounded-2xl bg-zinc-800/40 px-5 py-4 text-sm text-zinc-400 ring-1 ring-white/10">
-            This event was publicly cancelled. Tickets are not available.
+            <T k="tickets.cancelled" />
           </p>
         )}
         {event.status === "POSTPONED" && (
           <p className="rounded-2xl bg-amber-500/10 px-5 py-4 text-sm text-amber-200/90 ring-1 ring-amber-400/20">
-            This event has been postponed. Check back for the rescheduled date; tickets are not being sold right now.
+            <T k="tickets.postponed" />
           </p>
         )}
 
@@ -45,18 +46,18 @@ export default async function TicketsSection({ event }: { event: EventSummary })
               <div className="rounded-2xl bg-emerald-500/10 p-5 ring-1 ring-emerald-400/25">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-white">🆓 Free QR-code ticket — register now</p>
+                    <p className="text-sm font-bold text-white"><T k="tickets.freeQr" /></p>
                     <p className="mt-1 text-sm text-emerald-200/80">
                       {event.maxRegistrations != null
-                        ? `${event.registrationCount} / ${event.maxRegistrations} registered`
-                        : `${event.registrationCount} registered`}
+                        ? <T k="tickets.registeredCount" vars={{ n: String(event.registrationCount), m: String(event.maxRegistrations) }} />
+                        : <T k="tickets.registeredSimple" vars={{ n: String(event.registrationCount) }} />}
                     </p>
                   </div>
                   <Link
                     href={`/celebrity/${event.celebritySlug}/event/${event.eventId}/tickets`}
                     className="btn-grad rounded-full px-5 py-2.5 text-sm font-bold text-white"
                   >
-                    Register Free
+                    <T k="tickets.registerFree" />
                   </Link>
                 </div>
               </div>
@@ -64,8 +65,8 @@ export default async function TicketsSection({ event }: { event: EventSummary })
 
             {sellable.length === 0 && others.length === 0 && !event.ticketsEnabled && (
               <EmptyState
-                title="No tickets listed yet"
-                message="Ticket information for this event will appear here once it is added by the event organizer."
+                title={<T k="tickets.noTickets" />}
+                message={<T k="tickets.noTicketsSub" />}
               />
             )}
 
@@ -74,15 +75,16 @@ export default async function TicketsSection({ event }: { event: EventSummary })
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
-                      {t.category ? `${t.category} · ` : ""}Available
+                      {t.category ? <>{t.category} · </> : null}<T k="tickets.available" />
                     </span>
-                    {t.sourceName && <span className="text-[11px] text-zinc-500">via {t.sourceName}</span>}
+                    {t.sourceName && <span className="text-[11px] text-zinc-500"><T k="tickets.viaSource" vars={{ source: t.sourceName }} /></span>}
                   </div>
                   <h3 className="mt-2 text-lg font-bold text-white">{t.name}</h3>
                   <p className="mt-1 text-sm text-zinc-400">
                     {formatTicketPrice(t.priceCents, t.currency)}
-                    {t.feesCents > 0 ? ` + ${formatTicketPrice(t.feesCents, t.currency)} fees` : ""} per ticket
-                    {t.quantityAvailable != null && ` · ${t.quantityAvailable} left`}
+                    {t.feesCents > 0 ? <>{` `}<T k="tickets.fees" vars={{ price: formatTicketPrice(t.feesCents, t.currency) }} /></> : null}{" "}
+                    <T k="tickets.perTicket" />
+                    {t.quantityAvailable != null ? <>{` `}<T k="tickets.left" vars={{ n: String(t.quantityAvailable) }} /></> : null}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
@@ -90,7 +92,7 @@ export default async function TicketsSection({ event }: { event: EventSummary })
                     href={`/celebrity/${event.celebritySlug}/event/${event.eventId}/tickets`}
                     className="btn-grad rounded-full px-5 py-2.5 text-sm font-bold text-white"
                   >
-                    Select tickets
+                    <T k="tickets.selectTickets" />
                   </Link>
                   {t.url && (
                     <a
@@ -99,7 +101,7 @@ export default async function TicketsSection({ event }: { event: EventSummary })
                       rel="noreferrer"
                       className="rounded-full px-5 py-2.5 text-sm font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/5"
                     >
-                      Buy at official seller ↗
+                      <T k="tickets.buyOfficial" />
                     </a>
                   )}
                 </div>
@@ -110,10 +112,10 @@ export default async function TicketsSection({ event }: { event: EventSummary })
               <div key={t.inventoryId} className="glass flex flex-col gap-3 rounded-2xl p-5 opacity-70 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <span className="rounded-full bg-zinc-500/15 px-2.5 py-1 text-[11px] font-bold text-zinc-400 ring-1 ring-white/10">
-                    {t.status === "SOLD_OUT" ? "Sold out" : t.status === "NOT_YET_ON_SALE" ? "Not on sale yet" : "Not available"}
+                    {t.status === "SOLD_OUT" ? <T k="events.soldOut" /> : t.status === "NOT_YET_ON_SALE" ? <T k="tickets.notOnSale" /> : <T k="tickets.notAvailable" />}
                   </span>
                   <h3 className="mt-2 text-lg font-bold text-white">{t.name}</h3>
-                  <p className="mt-1 text-sm text-zinc-400">{formatTicketPrice(t.priceCents, t.currency)} per ticket</p>
+                  <p className="mt-1 text-sm text-zinc-400">{formatTicketPrice(t.priceCents, t.currency)}{` `}<T k="tickets.perTicket" /></p>
                 </div>
                 {t.url && (
                   <a
@@ -122,7 +124,7 @@ export default async function TicketsSection({ event }: { event: EventSummary })
                     rel="noreferrer"
                     className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/5"
                   >
-                    Official seller ↗
+                    <T k="tickets.officialSeller" />
                   </a>
                 )}
               </div>
@@ -130,28 +132,28 @@ export default async function TicketsSection({ event }: { event: EventSummary })
 
             {sellable.length === 0 && event.ticketUrl && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
-                <p className="text-sm text-zinc-300">Tickets may be available at the official ticket source for this event.</p>
+                <p className="text-sm text-zinc-300"><T k="tickets.officialSellerHint" /></p>
                 <a
                   href={event.ticketUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-grad rounded-full px-5 py-2.5 text-sm font-bold text-white"
                 >
-                  Visit official ticket source ↗
+                  <T k="tickets.visitOfficialSource" />
                 </a>
               </div>
             )}
 
             {view.ticketLastSyncedAt && (
               <p className="text-xs text-zinc-600">
-                Availability shown here is as last updated by the event organizer.
+                <T k="tickets.availabilityNote" />
               </p>
             )}
           </>
         )}
 
         {(event.status === "HAPPENING_NOW" || event.status === "COMPLETED") && (
-          <EmptyState title="Tickets are no longer available" message="This event has already started or ended." />
+          <EmptyState title={<T k="tickets.noLongerAvailable" />} message={<T k="tickets.alreadyStarted" />} />
         )}
       </div>
     </section>

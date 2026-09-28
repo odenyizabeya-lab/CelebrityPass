@@ -7,6 +7,7 @@ import EventActions from "@/components/events/EventActions";
 import TicketsSection from "@/components/tickets/TicketsSection";
 import { getEventById } from "@/lib/events/service";
 import { formatEventTime, friendlyTimezone, formatEventDate } from "@/lib/events/helpers";
+import T from "@/components/T";
 import { safeAsync } from "@/lib/safe-data";
 import { appUrl } from "@/lib/utils";
 
@@ -110,7 +111,7 @@ export default async function EventDetailsPage({ params }: Props) {
       />
       <div className="mx-auto max-w-4xl px-4 pb-20 sm:px-6">
         <Link href={`/celebrity/${event.celebritySlug}`} className="text-sm font-semibold text-zinc-400 transition hover:text-white">
-          ← {event.celebrityName}&apos;s profile
+          <T k="events.backToProfile" vars={{ name: event.celebrityName }} />
         </Link>
 
         <div className="mt-6 rounded-3xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 ring-1 ring-white/10 sm:p-8">
@@ -130,7 +131,7 @@ export default async function EventDetailsPage({ params }: Props) {
           {event.status === "HAPPENING_NOW" && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-rose-500/20 px-4 py-2 text-sm font-black text-rose-300 ring-1 ring-rose-400/40">
               <span className="h-2.5 w-2.5 animate-ping rounded-full bg-rose-400" />
-              Happening now
+              <T k="events.happeningNow" />
             </div>
           )}
           {event.status === "UPCOMING" && (
@@ -138,17 +139,17 @@ export default async function EventDetailsPage({ params }: Props) {
           )}
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <InfoItem label="Date" value={`${weekday}, ${date}`} />
-            <InfoItem label="Start time" value={time} />
-            {event.endAt && <InfoItem label="End time" value={formatEventTime(event.endAt, event.timezone)} />}
-            <InfoItem label="Timezone" value={friendlyTimezone(event.timezone) ?? "Local venue time"} />
-            {event.venue && <InfoItem label="Venue" value={event.venue} />}
-            {location && <InfoItem label="Location" value={location} />}
+            <InfoItem label={<T k="events.date" />} value={`${weekday}, ${date}`} />
+            <InfoItem label={<T k="events.startTime" />} value={time} />
+            {event.endAt && <InfoItem label={<T k="events.endTime" />} value={formatEventTime(event.endAt, event.timezone)} />}
+            <InfoItem label={<T k="events.timezone" />} value={friendlyTimezone(event.timezone) ?? <T k="events.localVenueTime" />} />
+            {event.venue && <InfoItem label={<T k="events.venue" />} value={event.venue} />}
+            {location && <InfoItem label={<T k="events.location" />} value={location} />}
           </div>
 
           {event.description && (
             <div className="mt-6">
-              <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">About this event</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500"><T k="events.about" /></h2>
               <p className="mt-2 leading-relaxed text-zinc-300">{event.description}</p>
             </div>
           )}
@@ -162,7 +163,7 @@ export default async function EventDetailsPage({ params }: Props) {
                   rel="noreferrer"
                   className="btn-grad inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white"
                 >
-                  Official event page
+                  <T k="events.officialEventPage" />
                   <span>↗</span>
                 </a>
               )}
@@ -173,7 +174,7 @@ export default async function EventDetailsPage({ params }: Props) {
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white ring-1 ring-white/20 transition hover:bg-white/5"
                 >
-                  Official tickets
+                  <T k="events.officialTickets" />
                   <span>↗</span>
                 </a>
               )}
@@ -191,15 +192,15 @@ export default async function EventDetailsPage({ params }: Props) {
 
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-500">
             {event.lastSyncedAt && (
-              <span>Last synchronized: {new Date(event.lastSyncedAt).toLocaleString()}</span>
+              <span><T k="events.lastSynced" vars={{ date: new Date(event.lastSyncedAt).toLocaleString() }} /></span>
             )}
-            <span>Last updated: {new Date(event.updatedAt).toLocaleString()}</span>
+            <span><T k="events.lastUpdated" vars={{ date: new Date(event.updatedAt).toLocaleString() }} /></span>
             {event.sourceUrl && (
               <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="underline transition hover:text-white">
-                Original public source ↗
+                <T k="events.originalSource" />
               </a>
             )}
-            <span>Event ref: {event.eventId}</span>
+            <span><T k="events.eventRef" vars={{ id: event.eventId }} /></span>
           </div>
         </div>
       </div>
@@ -207,7 +208,7 @@ export default async function EventDetailsPage({ params }: Props) {
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/10">
       <p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">{label}</p>

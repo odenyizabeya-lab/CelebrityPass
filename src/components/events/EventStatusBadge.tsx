@@ -1,5 +1,7 @@
 // Status badge for an event. Visual mapping only — the status value is always
 // computed server-side or supplied by the caller (never fabricated here).
+import T from "@/components/T";
+
 export default function EventStatusBadge({
   status,
   className = "",
@@ -15,12 +17,12 @@ export default function EventStatusBadge({
     POSTPONED: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
     CANCELLED: "bg-zinc-800 text-zinc-500 ring-white/10 line-through",
   };
-  const label: Record<string, string> = {
-    UPCOMING: "Upcoming",
-    HAPPENING_NOW: "Happening Now",
-    COMPLETED: "Completed",
-    POSTPONED: "Postponed",
-    CANCELLED: "Cancelled",
+  const keyByStatus: Record<string, string> = {
+    UPCOMING: "events.statusUpcoming",
+    HAPPENING_NOW: "events.happeningNow",
+    COMPLETED: "events.statusCompleted",
+    POSTPONED: "events.statusPostponed",
+    CANCELLED: "events.statusCancelled",
   };
 
   return (
@@ -30,7 +32,7 @@ export default function EventStatusBadge({
       } ${className}`}
     >
       {status === "HAPPENING_NOW" && <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400" />}
-      {label[status] ?? status}
+      {keyByStatus[status] ? <T k={keyByStatus[status]} /> : status}
     </span>
   );
 }
@@ -43,10 +45,15 @@ export function VerificationPill({ verification }: { verification?: string | nul
     POSTPONED: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
     CANCELLED: "bg-zinc-800 text-zinc-500 ring-white/10",
   };
-  const label = verification.charAt(0) + verification.slice(1).toLowerCase();
+  const keyByVerification: Record<string, string> = {
+    VERIFIED: "events.verified",
+    UPDATED: "events.updated",
+    POSTPONED: "events.statusPostponed",
+    CANCELLED: "events.statusCancelled",
+  };
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${map[verification] ?? ""}`}>
-      {label}
+      {keyByVerification[verification] ? <T k={keyByVerification[verification]} /> : verification}
     </span>
   );
 }

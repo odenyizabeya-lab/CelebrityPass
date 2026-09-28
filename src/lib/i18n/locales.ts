@@ -1,7 +1,7 @@
 /**
  * Language & location catalog for CelebrityPass.
  *
- * 20 supported languages. Country detection (via the Vercel/Cloudflare
+ * 25 supported languages. Country detection (via the Vercel/Cloudflare
  * per-request country header) maps each country to its main language; the
  * visitor's browser language is used for multi-language countries and as the
  * universal fallback. Everything is free and local — no translation APIs, no
@@ -11,23 +11,28 @@
 
 export const LOCALES = [
   { code: "en", native: "English", flag: "🇬🇧", dir: "ltr" },
-  { code: "zh-Hans", native: "简体中文", flag: "🇨🇳", dir: "ltr" },
   { code: "es", native: "Español", flag: "🇪🇸", dir: "ltr" },
   { code: "fr", native: "Français", flag: "🇫🇷", dir: "ltr" },
-  { code: "de", native: "Deutsch", flag: "🇩🇪", dir: "ltr" },
   { code: "pt", native: "Português", flag: "🇵🇹", dir: "ltr" },
-  { code: "ar", native: "العربية", flag: "🇸🇦", dir: "rtl" },
-  { code: "hi", native: "हिन्दी", flag: "🇮🇳", dir: "ltr" },
-  { code: "ja", native: "日本語", flag: "🇯🇵", dir: "ltr" },
-  { code: "ko", native: "한국어", flag: "🇰🇷", dir: "ltr" },
+  { code: "de", native: "Deutsch", flag: "🇩🇪", dir: "ltr" },
   { code: "it", native: "Italiano", flag: "🇮🇹", dir: "ltr" },
-  { code: "ru", native: "Русский", flag: "🇷🇺", dir: "ltr" },
-  { code: "tr", native: "Türkçe", flag: "🇹🇷", dir: "ltr" },
   { code: "nl", native: "Nederlands", flag: "🇳🇱", dir: "ltr" },
+  { code: "pl", native: "Polski", flag: "🇵🇱", dir: "ltr" },
+  { code: "tr", native: "Türkçe", flag: "🇹🇷", dir: "ltr" },
+  { code: "ar", native: "العربية", flag: "🇸🇦", dir: "rtl" },
+  { code: "he", native: "עברית", flag: "🇮🇱", dir: "rtl" },
+  { code: "hi", native: "हिन्दी", flag: "🇮🇳", dir: "ltr" },
+  { code: "bn", native: "বাংলা", flag: "🇧🇩", dir: "ltr" },
+  { code: "ur", native: "اردو", flag: "🇵🇰", dir: "rtl" },
   { code: "id", native: "Bahasa Indonesia", flag: "🇮🇩", dir: "ltr" },
+  { code: "ms", native: "Bahasa Melayu", flag: "🇲🇾", dir: "ltr" },
   { code: "vi", native: "Tiếng Việt", flag: "🇻🇳", dir: "ltr" },
   { code: "th", native: "ไทย", flag: "🇹🇭", dir: "ltr" },
-  { code: "pl", native: "Polski", flag: "🇵🇱", dir: "ltr" },
+  { code: "ko", native: "한국어", flag: "🇰🇷", dir: "ltr" },
+  { code: "ja", native: "日本語", flag: "🇯🇵", dir: "ltr" },
+  { code: "zh-Hans", native: "简体中文", flag: "🇨🇳", dir: "ltr" },
+  { code: "zh-Hant", native: "繁體中文", flag: "🇹🇼", dir: "ltr" },
+  { code: "ru", native: "Русский", flag: "🇷🇺", dir: "ltr" },
   { code: "uk", native: "Українська", flag: "🇺🇦", dir: "ltr" },
   { code: "sw", native: "Kiswahili", flag: "🇰🇪", dir: "ltr" },
 ] as const;
@@ -39,6 +44,13 @@ export const SUPPORTED_LOCALES: readonly string[] = LOCALES.map((l) => l.code);
 
 /** The visitor-facing localStorage key that remembers their own choice. */
 export const LOCALE_STORAGE_KEY = "celebritypass.locale";
+
+/**
+ * Sentinal stored under LOCALE_STORAGE_KEY when the visitor explicitly chose
+ * "Automatic / Device Language". It tells the resolver to ignore local
+ * preference and re-detect from the browser + country on every visit.
+ */
+export const LOCALE_AUTO_STORAGE_VALUE = "__auto__";
 
 export function isSupportedLocale(code: string | null | undefined): code is LocaleCode {
   return !!code && (SUPPORTED_LOCALES as readonly string[]).includes(code);
@@ -55,13 +67,13 @@ export function localeDir(code: string): "ltr" | "rtl" {
 export const ENGLISH_COUNTRY_CODES = new Set([
   "US", "GB", "AU", "CA", "NZ", "IE", "NG", "GH", "ZA", "KE", "TZ", "UG", "ZM", "ZW", "GM", "SL",
   "LR", "BW", "NA", "MW", "JM", "TT", "BB", "GY", "BS", "BZ", "GD", "KN", "LC", "VC", "SG", "PH",
-  "MY", "HK", "IN", "PK", "BD", "LK", "NP", "FJ", "PG", "SB", "VU",
+  "HK", "LK", "NP", "FJ", "PG", "SB", "VU",
 ]);
 
 /** Country (ISO 3166-1 alpha-2) → its single main language. Strong rule. */
 export const COUNTRY_TO_LOCALE: Record<string, string> = {
   CN: "zh-Hans",
-  TW: "zh-Hans",
+  TW: "zh-Hant",
   FR: "fr",
   ES: "es",
   MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es", EC: "es", UY: "es", PY: "es",
@@ -79,6 +91,7 @@ export const COUNTRY_TO_LOCALE: Record<string, string> = {
   TH: "th",
   PL: "pl",
   UA: "uk",
+  IL: "he",
   PT: "pt", BR: "pt", AO: "pt", MZ: "pt",
   SA: "ar", AE: "ar", EG: "ar", IQ: "ar", JO: "ar", KW: "ar", LB: "ar", LY: "ar", MA: "ar",
   OM: "ar", QA: "ar", SD: "ar", SY: "ar", YE: "ar", PS: "ar", BH: "ar", MR: "ar", DZ: "ar", TN: "ar",
@@ -86,26 +99,32 @@ export const COUNTRY_TO_LOCALE: Record<string, string> = {
 
 /**
  * Multi-language countries where the visitor's preferred browser language
- * wins (India → Hindi or English; Switzerland/Belgium/Canada etc.). If the
- * browser language is not supported, the country's primary language is used.
+ * wins (India → Hindi or English; Pakistan → Urdu or English; Bangladesh →
+ * Bengali or English; Malaysia → Malay or English; Switzerland/Belgium etc.).
+ * If the browser language is not supported, the country's primary language is
+ * used.
  */
 export const MULTILANG_COUNTRY_PRIMARY: Record<string, string> = {
   IN: "hi",
+  PK: "ur",
+  BD: "bn",
+  MY: "ms",
   CH: "de",
   BE: "fr",
   SG: "en",
   PH: "en",
-  MY: "en",
+  HK: "zh-Hant",
+  MO: "zh-Hant",
 };
 
 /** Language tags (from Accept-Language / navigator.languages) → our locale code. */
-const LANG_ALIASES: Record<string, string> = {
+export const LANG_ALIASES: Record<string, string> = {
   en: "en", "en-us": "en", "en-gb": "en", "en-au": "en", "en-ca": "en", "en-nz": "en", "en-ie": "en",
   "en-in": "en", "en-ng": "en", "en-za": "en", "en-ke": "en", "en-tz": "en", "en-gh": "en",
   "en-ph": "en", "en-sg": "en", "en-my": "en", "en-pk": "en", "en-bd": "en", "en-lk": "en",
   "en-hk": "en", "en-np": "en",
-  zh: "zh-Hans", "zh-cn": "zh-Hans", "zh-hans": "zh-Hans", "zh-sg": "zh-Hans", "zh-tw": "zh-Hans",
-  "zh-hk": "zh-Hans", "zh-mo": "zh-Hans",
+  zh: "zh-Hans", "zh-cn": "zh-Hans", "zh-hans": "zh-Hans", "zh-sg": "zh-Hans",
+  "zh-tw": "zh-Hant", "zh-hant": "zh-Hant", "zh-hk": "zh-Hant", "zh-mo": "zh-Hant",
   es: "es", "es-es": "es", "es-mx": "es", "es-ar": "es", "es-co": "es", "es-cl": "es", "es-pe": "es",
   "es-ve": "es", "es-ec": "es", "es-uy": "es", "es-py": "es", "es-bo": "es", "es-gt": "es",
   "es-cu": "es", "es-do": "es", "es-hn": "es", "es-sv": "es", "es-ni": "es", "es-cr": "es",
@@ -118,7 +137,11 @@ const LANG_ALIASES: Record<string, string> = {
   "ar-lb": "ar", "ar-ly": "ar", "ar-ma": "ar", "ar-om": "ar", "ar-qa": "ar", "ar-sd": "ar",
   "ar-sy": "ar", "ar-ye": "ar", "ar-ps": "ar", "ar-bh": "ar", "ar-mr": "ar", "ar-dz": "ar",
   "ar-tn": "ar",
+  he: "he", "he-il": "he",
   hi: "hi", "hi-in": "hi",
+  bn: "bn", "bn-bd": "bn", "bn-in": "bn",
+  ur: "ur", "ur-pk": "ur", "ur-in": "ur",
+  ms: "ms", "ms-my": "ms", "ms-bn": "ms", "ms-sg": "ms",
   ja: "ja", "ja-jp": "ja",
   ko: "ko", "ko-kr": "ko",
   it: "it", "it-it": "it", "it-ch": "it",
@@ -138,6 +161,12 @@ export function normalizeLangTag(tag: string): string | null {
   const t = tag.trim().toLowerCase();
   if (LANG_ALIASES[t]) return LANG_ALIASES[t];
   const base = t.split("-")[0];
+  if (base === "zh") {
+    // A Chinese tag without an explicit script: infer Traditional vs Simplified
+    // from the region (TW/HK/MO → Traditional, everything else → Simplified).
+    const region = (t.split("-")[1] ?? "").toLowerCase();
+    return region === "tw" || region === "hk" || region === "mo" ? "zh-Hant" : "zh-Hans";
+  }
   return LANG_ALIASES[base] ?? null;
 }
 
@@ -183,7 +212,10 @@ export function resolveInitialLocale(
   serverCountry: string | null,
   browserLangs: string[]
 ): LocaleCode {
-  if (saved && isSupportedLocale(saved)) return saved;
+  // "Automatic / Device Language" sentinel → ignore local choice, re-detect.
+  const explicit =
+    saved && saved !== LOCALE_AUTO_STORAGE_VALUE && isSupportedLocale(saved) ? saved : null;
+  if (explicit) return explicit as LocaleCode;
 
   const browserMatch = browserLangs.find(isSupportedLocale) ?? null;
   const cc = (serverCountry || "").toUpperCase();
