@@ -44,6 +44,52 @@
             android:resource="@mipmap/ic_push" /> -->
     </application>
 
+    <!-- Hardware features -->
+    <!--
+        REQUESTING a permission makes the build tools infer a matching hardware
+        feature as REQUIRED (aapt reports these as `uses-implied-feature`:
+        android.hardware.camera <- CAMERA, android.hardware.microphone <-
+        RECORD_AUDIO). Google Play's device catalog honours those inferred
+        requirements and stops serving the app to phones without a camera or
+        mic, which is why an update can drop otherwise-capable devices.
+
+        CelebrityPass only uses the camera/mic opportunistically: photo capture
+        falls back to a plain file input when no camera exists (see
+        src/lib/native.ts) and chat/push degrade gracefully. So both are declared
+        explicitly as NOT required, which restores those devices without
+        removing any functionality.
+    -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Photo/video selection uses the Android Photo Picker (ACTION_PICK_IMAGES
+         on API 33+, falling back to SAF ACTION_OPEN_DOCUMENT / GET_CONTENT on
+         older releases), which hands back a single user-chosen URI under a
+         temporary read grant. That needs NO storage permission at all, so the
+         broad READ_MEDIA_IMAGES / READ_MEDIA_VIDEO grants were removed: they
+         exposed the user's entire library for a feature that only ever reads
+         files the user picked. Every media path in the app still works
+         unchanged - the WebView <input type="file"> pickers (AppSearch,
+         ChatRoom, admin CelebrityForm, checkout/invest proof uploads) and
+         @capacitor/camera's own picker (src/lib/native.ts) both use it.
+
+         Declared so the picker intent stays resolvable. -->
+    <queries>
+        <intent>
+            <action android:name="android.provider.action.PICK_IMAGES" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -51,6 +97,4 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 </manifest>

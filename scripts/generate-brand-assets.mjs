@@ -54,10 +54,28 @@ async function webIcons() {
       <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#d946ef"/></linearGradient></defs>
     <rect width="512" height="512" fill="url(#g)"/>${glyphGroup(256, 256, 0.78)}</svg>`;
 
+  // Google Play listing icon. Play requires a 512x512 PNG and applies its own
+  // corner rounding/shadow, so this one is deliberately FULL BLEED: square
+  // edges and no alpha channel. Reusing the rounded public/icons/icon-512.png
+  // here would double-round the corners and leave transparent notches.
+  const playSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#d946ef"/></linearGradient></defs>
+    <rect width="512" height="512" fill="url(#g)"/>${glyphGroup(256, 256, 0.72)}</svg>`;
+
   await render(iconSvg, out("public/icons/icon-192.png"), 192, 192);
   await render(iconSvg, out("public/icons/icon-512.png"), 512, 512);
   await render(iconSvg, out("public/icons/apple-touch-icon.png"), 180, 180);
   await render(maskableSvg, out("public/icons/icon-maskable-512.png"), 512, 512);
+
+  // Drop the alpha channel outright: the gradient rect is full bleed, so alpha
+  // is 255 everywhere and this is a lossless channel removal.
+  await sharp(Buffer.from(playSvg), { density: 144 })
+    .resize(512, 512, { fit: "fill" })
+    .removeAlpha()
+    .png({ compressionLevel: 9 })
+    .toFile(out("public/icons/play-store-icon-512.png"));
+  console.log("  wrote", path.relative(root, "public/icons/play-store-icon-512.png"), "512x512 (opaque)");
 }
 
 // ---------------------------------------------------------------------------
@@ -105,18 +123,25 @@ async function androidMipmaps() {
     <g clip-path="url(#c)">${iconSvg.replace(/^<svg[^>]*>/i, "").replace(/<\/svg>$/i, "")}</g></svg>`;
   const fgSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">${glyphGroup(256, 256, 0.72)}</svg>`;
 
+  // Themed-icon layer for Android 13+. The launcher tints the alpha channel
+  // with the wallpaper palette, so this is a single-colour silhouette on
+  // transparent: the star and the stripe merge into one solid mark. Referenced
+  // from mipmap-anydpi-v26/ic_launcher.xml via <monochrome>, which older
+  // platforms ignore.
+  const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+      <path fill="#ffffff" d="${STAR}"/><path fill="#ffffff" d="${STRIPE}"/>
+    </g></svg>`;
+
   for (const [d, size] of Object.entries(LAUNCHER)) {
     const dir = out(`android/app/src/main/res/mipmap-${d}`);
     await render(iconSvg, path.join(dir, "ic_launcher.png"), size, size);
     await render(roundSvg, path.join(dir, "ic_launcher_round.png"), size, size);
   }
   for (const [d, size] of Object.entries(FOREGROUND)) {
-    await render(
-      fgSvg,
-      path.join(out(`android/app/src/main/res/mipmap-${d}`), "ic_launcher_foreground.png"),
-      size,
-      size,
-    );
+    const dir = out(`android/app/src/main/res/mipmap-${d}`);
+    await render(fgSvg, path.join(dir, "ic_launcher_foreground.png"), size, size);
+    await render(monoSvg, path.join(dir, "ic_launcher_monochrome.png"), size, size);
   }
 }
 
