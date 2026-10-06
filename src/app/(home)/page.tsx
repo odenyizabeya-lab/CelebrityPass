@@ -9,10 +9,10 @@ import FaqSection from "@/components/FaqSection";
 import T from "@/components/T";
 import WelcomeScreen from "@/components/welcome/WelcomeScreen";
 import { getCelebritySummaries, getRepresentedCountries, toCardCelebrity } from "@/lib/services";
-import { safeAsync } from "@/lib/safe-data";
+import { safeWithDeadline } from "@/lib/safe-data";
 import { formatMoney } from "@/lib/payments";
 import { appUrl } from "@/lib/utils";
-import { isOnboarded } from "@/lib/onboarding";
+import { getSession, hasSeenWelcome } from "@/lib/session";
 
 export const revalidate = 60;
 
@@ -91,12 +91,36 @@ const BASE_TIERS = [
 ];
 
 export default async function HomePage() {
+  // The landing route is auth-aware. This is the gate that keeps the internal
+  // application out of an unauthenticated user's hands:
+  //
+  //   signed out, in the app  -> the Welcome screen and nothing else. No feed,
+  //                               no app chrome, no bottom navigation, and no
+  //                               data fetching that could paint a protected
+  //                               screen for even one frame.
+  //   signed in               -> the app home.
+  //   signed out, on the web  -> the public marketing page (it has to stay
+  //                               indexable) with the first-run welcome on top.
+  //
+  // The decision is made on the server during the render, so a protected screen
+  // is never produced and then hidden.
+  const session = await getSession();
+  const isAuthenticated = session.status === "authenticated";
+
+  if (!isAuthenticated && session.isNative) {
+    return <WelcomeScreen />;
+  }
+
   // Data fetching never crashes the page: a DB/network failure resolves to empty
   // fallbacks and the shell (hero, ecosystem, membership, FAQ…) still renders.
-  const onboarded = await safeAsync(async () => isOnboarded(), false);
+  const seenWelcome = await hasSeenWelcome();
+  // Deadline-guarded, not just rejection-guarded: a pooled Postgres query that
+  // is slow (statement timeout) or whose connection was dropped leaves the
+  // promise pending, and `safeAsync` alone would then hold the whole landing
+  // page open until the platform gives up. The page must always render.
   const [representedCountries, celebrities] = await Promise.all([
-    safeAsync(async () => getRepresentedCountries(), []),
-    safeAsync(async () => getCelebritySummaries(), []),
+    safeWithDeadline(async () => getRepresentedCountries(), [], 6000),
+    safeWithDeadline(async () => getCelebritySummaries(), [], 6000),
   ]);
 
   const featured = celebrities.filter((c) => c.isFeatured).slice(0, 3);
@@ -120,7 +144,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      {!onboarded && <WelcomeScreen />}
+      {!isAuthenticated && !seenWelcome && <WelcomeScreen />}
       <div className="overflow-hidden">
         {/* ============ HERO (app welcome) ============ */}
         <section className="relative pt-8">

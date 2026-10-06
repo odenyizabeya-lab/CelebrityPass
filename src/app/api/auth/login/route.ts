@@ -24,8 +24,21 @@ export async function POST(request: NextRequest) {
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
-  const fan = await prisma.fan.findUnique({ where: { email } });
-  if (!fan || !fan.password || !verifyPassword(password, fan.password)) {
+  // A database outage must be reported as such, not as a 500 with an empty
+  // body. The client needs a real, retryable status to show "try again" rather
+  // than "invalid email or password", which would lock users out of their own
+  // accounts during an incident. Note that "not found" and "DB unreachable" are
+  // different answers, so they are kept apart deliberately.
+  let fan;
+  try {
+    fan = await prisma.fan.findUnique({ where: { email } });
+  } catch {
+    return NextResponse.json({ error: "Could not sign in right now. Try again." }, { status: 503 });
+  }
+  if (!fan) {
+    return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+  }
+  if (!fan.password || !verifyPassword(password, fan.password)) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
   if (!fan.isActive) {

@@ -62,18 +62,19 @@ export default function WelcomeScreen() {
     }
   }, [stage, splashSeen]);
 
-  const finish = async (dest?: string) => {
+  const finish = (dest?: string) => {
     if (done || exiting) return;
     setExiting(true);
     sessionSet(WELCOME_KEY);
-    try {
-      await fetch("/api/onboarding/complete", { method: "POST" }).catch(() => undefined);
-    } finally {
-      setTimeout(() => {
-        setDone(true);
-        if (dest) window.location.href = dest;
-      }, EXIT_MS);
-    }
+    // Fire-and-forget on purpose. This POST only records a UI preference, and
+    // awaiting it meant a slow or dead connection left the user frozen on the
+    // exit animation until they force-closed the app. `keepalive` lets the
+    // request finish even while the page is navigating away.
+    void fetch("/api/onboarding/complete", { method: "POST", keepalive: true }).catch(() => undefined);
+    setTimeout(() => {
+      setDone(true);
+      if (dest) window.location.href = dest;
+    }, EXIT_MS);
   };
 
   if (done) return null;

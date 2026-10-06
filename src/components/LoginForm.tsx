@@ -9,6 +9,7 @@ import AuthScreen from "@/components/auth/AuthScreen";
 import AuthField from "@/components/auth/AuthField";
 import { MailIcon, LockIcon, EyeIcon, EyeOffIcon, AlertIcon, Spinner, ArrowLeftIcon } from "@/components/auth/AuthIcons";
 import { appScreenLinkClass } from "@/components/auth/authStyles";
+import { POST_LOGIN_DEFAULT, sanitizeNext } from "@/lib/routes";
 
 export default function LoginForm() {
   const { t } = useLanguage();
@@ -16,9 +17,12 @@ export default function LoginForm() {
   const searchParams = useSearchParams();
   // Only same-site relative paths are allowed to redirect after sign-in.
   const rawNext = searchParams.get("next");
-  const redirectTo =
-    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\") ? rawNext : "/dashboard";
+  const redirectTo = sanitizeNext(rawNext) ?? POST_LOGIN_DEFAULT;
   const nextQuery = rawNext ? `?next=${encodeURIComponent(redirectTo)}` : "";
+  // The proxy sets ?reason=expired when it had to reject a session cookie, so
+  // the user is told what actually happened instead of being shown a bare
+  // login form.
+  const sessionExpired = searchParams.get("reason") === "expired";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,22 +31,24 @@ export default function LoginForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError(null);
     setLoading(true);
     try {
       const res = await fetchWithTimeout("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        setError(data.error ?? t("auth.loginFailed"));
+        setError(data?.error ?? t("auth.loginFailed"));
         setLoading(false);
         return;
       }
-      setLoading(false);
-      router.push(redirectTo);
+      // `replace` so Back cannot walk the user into the login form again after
+      // a successful sign-in; `refresh` re-runs the layout with the new session.
+      router.replace(redirectTo);
       router.refresh();
     } catch {
       setError(t("common.networkError"));
@@ -72,11 +78,21 @@ export default function LoginForm() {
           className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-white"
         >
           <ArrowLeftIcon />
-          Back
+          {t("common.back")}
         </Link>
 
         <h1 className="text-3xl font-black tracking-tight sm:text-[2rem]">{t("auth.loginTitle")}</h1>
         <p className="mt-1.5 text-[15px] text-zinc-400">{t("auth.loginSub")}</p>
+
+        {sessionExpired && !error && (
+          <div
+            role="status"
+            className="app-screen-fade mt-5 flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+          >
+            <span className="mt-0.5 shrink-0"><AlertIcon /></span>
+            <span>{t("auth.sessionExpired")}</span>
+          </div>
+        )}
 
         {error && (
           <div

@@ -2,14 +2,34 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import LanguageSelector from "@/components/LanguageSelector";
 import { HomeBottomNav } from "@/components/home-app/HomeBottomNav";
+import { getSession } from "@/lib/session";
 
 /**
  * The CelebrityPass HOME is a native-style app shell (like the invest app),
  * NOT the website: phone-column content, sticky app top bar, floating bottom
  * navigation. It intentionally has no site header/footer — this is the app
  * home screen users sign in to, not the marketing site.
+ *
+ * AUTH GATE
+ * ---------
+ * The app chrome (top bar with a Profile link, and the Home / Discover /
+ * Communities / Opportunities / Profile tab bar) is *application navigation*.
+ * It is therefore rendered only for a signed-in fan. An anonymous visitor gets
+ * the bare content slot so no internal navigation is ever present in the HTML
+ * they receive — previously this chrome shipped to logged-out users, which is
+ * part of what made the app look like it had skipped authentication.
+ *
+ * The check is server-side and awaited during the render, so there is no window
+ * in which the chrome paints before the session is known.
  */
-export default function HomeLayout({ children }: { children: React.ReactNode }) {
+export default async function HomeLayout({ children }: { children: React.ReactNode }) {
+  const { status } = await getSession();
+
+  if (status !== "authenticated") {
+    // Signed out: no app top bar, no bottom nav, no internal navigation.
+    return <main className="min-h-dvh w-full">{children}</main>;
+  }
+
   return (
     <div className="min-h-dvh bg-[#05060a] pb-[calc(env(safe-area-inset-bottom)+5.75rem)]">
       {/* App top bar */}
@@ -28,7 +48,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
               aria-label="Your profile"
               className="grid h-11 w-11 place-items-center rounded-2xl bg-white/[0.05] text-zinc-200 ring-1 ring-white/[0.07] transition active:scale-95 active:bg-white/[0.1]"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.1a7.5 7.5 0 0115 0 17.9 17.9 0 01-7.5 1.65 17.9 17.9 0 01-7.5-1.65z" />
               </svg>
             </Link>

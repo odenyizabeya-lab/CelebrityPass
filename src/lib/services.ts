@@ -1,4 +1,6 @@
 import { prisma } from "./db";
+import { Prisma } from "@prisma/client";
+import { cacheRead, cacheClear } from "./cache";
 import { cache } from "react";
 import { tryParseJson } from "./utils";
 import { celebrityImageFlags } from "./images";
@@ -20,64 +22,50 @@ function imgVersion(hash: string | null): string {
   return tail.slice(0, 8);
 }
 
-/** Factual one-liner for cards/search from the stored knowledge panel (Wikipedia description). */
-function panelTagline(json: string | null): string | null {
+/** The panel's one-line description, or null when the panel is missing/empty. */
+function panelDescription(json: string | null): string | null {
   const info = tryParseJson<GoogleInfo | null>(json, null);
   const desc = info?.description?.trim();
-  return desc && desc.length > 0 ? desc.slice(0, 200) : null;
+  return desc && desc.length > 0 ? desc : null;
+}
+
+/** Factual one-liner for cards/search from the stored knowledge panel (Wikipedia description). */
+function panelTagline(json: string | null): string | null {
+  const desc = panelDescription(json);
+  return desc ? desc.slice(0, 200) : null;
 }
 
 const HEAD_OF_STATE_RE = /(^|\b)(president|chairman)\s+of\b|\bpresident\s+since\b|\bleader\s+of\b|prime\s+minister\s+of\b|chancellor\s+of\b|federal councillor\b|federal councilor\b/i;
 
+/** Heads of state (presidents, prime ministers, chancellors) from a description. */
+export function isWorldLeaderDescription(description: string | null): boolean {
+  return description ? HEAD_OF_STATE_RE.test(description) : false;
+}
+
 /** Heads of state (presidents, prime ministers, chancellors) identified from the knowledge panel description. */
 export function isWorldLeaderName(googleInfo: string | null): boolean {
-  const info = tryParseJson<GoogleInfo | null>(googleInfo, null);
-  return info ? HEAD_OF_STATE_RE.test(info.description ?? "") : false;
+  return isWorldLeaderDescription(panelDescription(googleInfo));
 }
 
 /**
- * Tiny in-process TTL cache for expensive read queries. Public pages are
- * served through Supabase's pooled connection where every round trip costs
- * ~1-2s, so running the same 6-11 queries on every render made pages take
- * tens of seconds. These read caches make repeated loads instant while the
- * short TTL keeps data fresher than the pages' own ISR revalidation window.
+ * Tiny TTL cache for expensive read queries, backed by an in-process Map plus an
+ * optional shared Redis tier. See `src/lib/cache.ts` for why this exists and for
+ * the failure behaviour: if Redis is absent or unreachable every read simply
+ * falls back to the in-process Map.
  */
 const READ_CACHE_TTL_MS = 45_000;
-const READ_CACHE_LIMIT = 64;
-const readCache = new Map<string, { value: unknown; expires: number }>();
-// In-flight loader dedupe so concurrent requests (home SSR + feed xhr) never
-// run the same expensive query twice when the cache is cold.
-const readInflight = new Map<string, Promise<unknown>>();
 
 function cachedRead<V>(key: string, loader: () => Promise<V>, ttlMs = READ_CACHE_TTL_MS): Promise<V> {
-  const now = Date.now();
-  const hit = readCache.get(key);
-  if (hit && hit.expires > now) return Promise.resolve(hit.value as V);
-  const inflight = readInflight.get(key);
-  if (inflight) return inflight as Promise<V>;
-  const promise = loader()
-    .then((value) => {
-      readCache.set(key, { value, expires: Date.now() + ttlMs });
-      if (readCache.size > READ_CACHE_LIMIT) {
-        const oldest = readCache.keys().next().value;
-        if (oldest) readCache.delete(oldest);
-      }
-      return value;
-    })
-    .finally(() => {
-      readInflight.delete(key);
-    });
-  readInflight.set(key, promise);
-  return promise;
+  return cacheRead(key, loader, ttlMs);
 }
 
 /**
  * Drops every cached read (represented countries, celebrity summaries,
- * platform stats, search options). Called after admin celebrity writes so the
- * very next request reflects the change instead of up to 45s of stale data.
+ * platform stats, search options) in every instance. Called after admin
+ * celebrity writes so the very next request reflects the change.
  */
 export function clearReadCache() {
-  readCache.clear();
+  return cacheClear();
 }
 
 /** The live represented-country list (celebrity countries + active fan countries, curated base included). */
@@ -120,7 +108,11 @@ export type CelebritySummary = {
   country: string;
   city: string | null;
   profession: string;
-  bio: string | null; // admin-written biography paragraph
+  // NOTE: the full admin-written `bio` is deliberately NOT part of the summary.
+  // It is only needed on a single profile page, where `CelebrityDetail` loads
+  // it. Carrying it on every list row added ~270KB per 775-row list.
+  // `tagline` already falls back to the bio for the handful of celebrities with
+  // no knowledge panel, so no visible text was lost.
   tagline: string | null; // factual one-liner from the Wikipedia/Wikidata panel (e.g. "American actor (born 1963)")
   profileImage: string | null;
   coverImage: string | null;
@@ -216,7 +208,6 @@ function mapCelebritySummary(
     country: c.country,
     city: c.city,
     profession: c.profession,
-    bio: c.bio,
     tagline: panelTagline(c.googleInfo) ?? c.bio,
     profileImage: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
     coverImage: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
@@ -300,22 +291,108 @@ export async function getCelebrityFeedPage(opts: {
     platformCountryTotal(),
   ]);
 
+
   const hasNext = celebrities.length > opts.limit;
   const slice = celebrities.slice(0, opts.limit);
   const items = slice.map((c) => toCardCelebrity(mapCelebritySummary(c, imageFlags, totalCountries)));
   return { items, total: opts.offset + slice.length, done: !hasNext };
 }
 
+/**
+ * Precomputed list-view text for every matching celebrity: the card tagline and
+ * the "world leader" flag, both derived from the knowledge panel.
+ *
+ * `googleInfo` is a text column holding an entire scraped panel: description,
+ * films, works, images, overview — about 2.5MB for the 775 active celebrities.
+ * List views only ever read `description` from it, so the rest is dead weight on
+ * a ~2s-latency pooled link: selecting the whole column made this query take 8s
+ * and was enough to exhaust the connection pool and take the site down.
+ *
+ * The description cannot simply be truncated in SQL, because cutting a JSON
+ * document mid-token makes it unparseable and every consumer then falls back to
+ * "no panel at all" — which silently emptied the marketing page's taglines and
+ * its Presidents & World Leaders section. So this pulls out just that one string
+ * server-side (~24KB total instead of 2.5MB).
+ *
+ * The bio fallback is folded into the same statement rather than fetched in a
+ * second query: over this link each round trip costs ~2s on its own, and only 9
+ * of 775 rows lack a panel, so the CASE returns the full bio for those rows and
+ * NULL for the rest.
+ *
+ * The pattern is escape-aware (`\\.`) and uses a plain capture group, since
+ * Postgres regexes are POSIX ERE and do not support `(?:...)`.
+ */
+const DESCRIPTION_SQL_PATTERN = '"description"[[:space:]]*:[[:space:]]*"(([^"\\\\]|\\\\.)*)"';
+
+interface PanelListFields {
+  tagline: string | null;
+  isWorldLeader: boolean;
+}
+
+async function loadPanelListFields(conditions: Prisma.Sql[]): Promise<Map<string, PanelListFields>> {
+  const where = conditions.length > 0 ? Prisma.join(conditions, " AND ") : Prisma.sql`TRUE`;
+  const rows = await prisma.$queryRaw<{ id: string; description: string | null; bio: string | null }[]>(Prisma.sql`
+    WITH panels AS (
+      SELECT "id", substring("googleInfo" from ${DESCRIPTION_SQL_PATTERN}) AS "description"
+      FROM "Celebrity"
+      WHERE ${where}
+    )
+    SELECT c."id",
+           p."description" AS "description",
+           CASE WHEN p."description" IS NULL THEN c."bio" ELSE NULL END AS "bio"
+    FROM "Celebrity" c
+    LEFT JOIN panels p ON p."id" = c."id"
+    WHERE ${where}
+  `);
+  const result = new Map<string, PanelListFields>();
+  for (const row of rows) {
+    const description = decodeJsonString(row.description).trim();
+    result.set(row.id, {
+      // Matches the old `panelTagline(panel) ?? bio` exactly, including the
+      // empty-string case where bio itself is blank.
+      tagline: description ? description.slice(0, 200) : row.bio,
+      isWorldLeader: isWorldLeaderDescription(description || null),
+    });
+  }
+  return result;
+}
+
+/** Reverses the JSON string escaping that `substring(... from ...)` leaves in place. */
+function decodeJsonString(value: string | null): string {
+  if (value === null) return "";
+  if (!value.includes("\\")) return value;
+  try {
+    return JSON.parse(`"${value}"`) as string;
+  } catch {
+    return value;
+  }
+}
+
 export async function getCelebritySummaries(filters: CelebritiesFilters = {}): Promise<CelebritySummary[]> {
   return cachedRead(`summaries:${JSON.stringify(filters)}`, async () => {
+    // The Prisma `where` and the raw SQL below are built from the same list so
+    // the two queries can never drift apart.
     const where: Record<string, unknown> = {};
-    if (!filters.includeInactive) where.isActive = true;
+    const conditions: Prisma.Sql[] = [];
+    if (!filters.includeInactive) {
+      where.isActive = true;
+      conditions.push(Prisma.sql`"isActive" = true`);
+    }
 
-    if (filters.category) where.category = filters.category;
-    if (filters.country) where.country = filters.country;
-    if (filters.profession) where.profession = filters.profession;
+    if (filters.category) {
+      where.category = filters.category;
+      conditions.push(Prisma.sql`"category" = ${filters.category}`);
+    }
+    if (filters.country) {
+      where.country = filters.country;
+      conditions.push(Prisma.sql`"country" = ${filters.country}`);
+    }
+    if (filters.profession) {
+      where.profession = filters.profession;
+      conditions.push(Prisma.sql`"profession" = ${filters.profession}`);
+    }
 
-    const [celebrities, imageFlags] = await Promise.all([
+    const [celebrities, imageFlags, panelFields, totalCountries] = await Promise.all([
     prisma.celebrity.findMany({
       where,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
@@ -327,8 +404,6 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
         country: true,
         city: true,
         profession: true,
-        googleInfo: true,
-        bio: true,
         accentColor: true,
         isFeatured: true,
         isActive: true,
@@ -350,6 +425,8 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       },
     }),
     celebrityImageFlags(),
+    loadPanelListFields(conditions),
+    platformCountryTotal(),
   ]);
 
   const q = filters.search?.trim().toLowerCase();
@@ -361,14 +438,13 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       )
     : celebrities;
 
-  const totalCountries = await platformCountryTotal();
-
   return filtered.map((c) => {
     const img = imageFlags.get(c.slug);
     const hasProfile = img?.hasProfile ?? false;
     const hasCover = img?.hasCover ?? false;
     const profileV = imgVersion(c.profileImageHash);
     const coverV = imgVersion(c.coverImageHash);
+    const panel = panelFields.get(c.id) ?? { tagline: null, isWorldLeader: false };
     return {
       id: c.id,
       slug: c.slug,
@@ -377,8 +453,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       country: c.country,
       city: c.city,
       profession: c.profession,
-      bio: c.bio,
-      tagline: panelTagline(c.googleInfo) ?? c.bio,
+      tagline: panel.tagline,
       profileImage: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
       coverImage: hasCover ? `/images/${c.slug}/cover${coverV ? "?v=" + coverV : ""}` : null,
       profileImageUrl: hasProfile ? `/images/${c.slug}/profile${profileV ? "?v=" + profileV : ""}` : null,
@@ -392,7 +467,7 @@ export async function getCelebritySummaries(filters: CelebritiesFilters = {}): P
       imageSourceUrl: c.imageSourceUrl,
       accentColor: c.accentColor,
       isFeatured: c.isFeatured,
-      isWorldLeader: isWorldLeaderName(c.googleInfo),
+      isWorldLeader: panel.isWorldLeader,
       isActive: c.isActive,
       isVerified: c.isVerified,
       profileType: normalizeProfileType(c.profileType),

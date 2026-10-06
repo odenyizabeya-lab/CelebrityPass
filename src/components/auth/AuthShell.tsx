@@ -38,15 +38,22 @@ function isAuthPath(pathname: string): boolean {
  *    (once per browser session, so it never replays mid-flow).
  * 2. Welcome — a native "Welcome to CelebrityPass" start screen with Create
  *    Account / Log In. First-time visitors get it on /login and /register;
- *    once dismissed (or after onboarding), returning users go straight to the
- *    form.
+ *    once dismissed, returning users go straight to the form. Inside the mobile
+ *    app the "Continue without an account" escape hatch is removed, because
+ *    the app has no content to browse without an account.
  * 3. The underlying form screen fades in (the splash fades out on top of it).
+ *
+ * The splash is rendered during SSR (its initial stage is opaque and
+ * full-screen), so the form is never visible before the splash is dismissed —
+ * no protected or internal screen can flash through.
  */
 export default function AuthShell({
-  onboarded,
+  showWelcomeCard,
+  isNative = false,
   children,
 }: {
-  onboarded: boolean;
+  showWelcomeCard: boolean;
+  isNative?: boolean;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -75,14 +82,16 @@ export default function AuthShell({
 
   // Derived (not stored in state) so the welcome card is a pure rendering
   // decision: visible only on first-run guest visits to the auth routes.
-  const showWelcome = phase === "ready" && splashGone && isAuthPath(pathname) && !onboarded && !welcomeSeen;
+  const showWelcome =
+    phase === "ready" && splashGone && isAuthPath(pathname) && showWelcomeCard && !welcomeSeen;
 
   const dismissWelcome = (dest?: string) => {
     if (welcomeLeaving || welcomeGone) return;
     setWelcomeLeaving(true);
-    // Remember the choice so this browser never shows the welcome again.
+    // Remember the choice so this browser never shows the welcome again. This
+    // POST records a preference only — it grants no access to anything.
     sessionSet(WELCOME_KEY);
-    void fetch("/api/onboarding/complete", { method: "POST" }).catch(() => undefined);
+    void fetch("/api/onboarding/complete", { method: "POST", keepalive: true }).catch(() => undefined);
     // Preserve the proxy's ?next= so auth keeps the visitor's destination.
     let target = dest;
     if (typeof window !== "undefined" && dest && (dest === "/login" || dest === "/register")) {
@@ -113,6 +122,7 @@ export default function AuthShell({
       {showWelcome && !welcomeGone && (
         <AuthWelcome
           leaving={welcomeLeaving}
+          isNative={isNative}
           onAction={(dest) => dismissWelcome(dest)}
           onDismiss={() => dismissWelcome()}
         />

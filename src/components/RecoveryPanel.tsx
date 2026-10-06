@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * Small branded "couldn't load / you're offline" panel used by error
  * boundaries and inline fallbacks. It never replaces the app shell — it sits
  * inside the existing context, keeps the header/footer visible, shows a simple
  * explanation and a Retry button. No auto-reload loops, no full-page takeover.
+ *
+ * `title`/`message` accept any node so call sites can pass a translated
+ * `<T k="…" />` element rather than hardcoding English.
  */
 export default function RecoveryPanel({
   title = "Something went wrong",
@@ -14,8 +17,8 @@ export default function RecoveryPanel({
   onRetry,
   compact = false,
 }: {
-  title?: string;
-  message?: string;
+  title?: ReactNode;
+  message?: ReactNode;
   onRetry?: () => void;
   compact?: boolean;
 }) {
@@ -94,7 +97,9 @@ export default function RecoveryPanel({
             Offline
           </span>
         )}
-        <h2 className="mt-4 text-lg font-bold text-white">{!online ? "You're offline" : title}</h2>
+        <h2 className="mt-4 text-lg font-bold text-white">
+          {!online ? "You're offline" : title}
+        </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-400">{offlineCopy}</p>
         <button
           type="button"

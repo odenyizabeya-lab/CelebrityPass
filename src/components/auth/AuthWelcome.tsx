@@ -12,10 +12,12 @@ import { appPrimaryButtonClass, appSecondaryButtonClass } from "@/components/aut
  */
 export default function AuthWelcome({
   leaving,
+  isNative = false,
   onAction,
   onDismiss,
 }: {
   leaving: boolean;
+  isNative?: boolean;
   onAction: (dest?: string) => void;
   onDismiss: () => void;
 }) {
@@ -71,13 +73,18 @@ export default function AuthWelcome({
           <button type="button" className={appSecondaryButtonClass} onClick={() => onAction(`/${secondary}`)}>
             {label(secondary)}
           </button>
-          <button
-            type="button"
-            className="w-full pt-1 text-[13px] font-medium text-zinc-500 transition hover:text-zinc-300"
-            onClick={onDismiss}
-          >
-            Continue without an account
-          </button>
+          {/* The mobile app is a closed application — there is nothing to
+              browse without an account, so the escape hatch only makes sense on
+              the public website. */}
+          {!isNative && (
+            <button
+              type="button"
+              className="w-full pt-1 text-[13px] font-medium text-zinc-500 transition hover:text-zinc-300"
+              onClick={onDismiss}
+            >
+              Continue without an account
+            </button>
+          )}
         </div>
 
         <p className="mt-8 text-[11px] text-zinc-600">Free to join · Members get exclusive chat and perks</p>
